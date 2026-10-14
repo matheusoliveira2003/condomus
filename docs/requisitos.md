@@ -1,0 +1,95 @@
+# Requisitos — Condomus
+
+## Perfis de acesso
+
+| Perfil       | Descrição |
+|--------------|-----------|
+| **Morador**  | Vinculado a uma unidade. Autoriza visitantes, acompanha encomendas, lê avisos e reserva áreas comuns. |
+| **Porteiro** | Funcionário da portaria. Registra entrada/saída de visitantes e recebimento/retirada de encomendas. |
+| **Síndico**  | Administração. Publica avisos, cancela reservas e tem as permissões da portaria. |
+
+## Requisitos funcionais (MVP)
+
+### Visitantes
+- **RF01** — O morador pré-autoriza um visitante (nome, documento, placa, data prevista).
+- **RF02** — O morador lista e cancela visitas agendadas da sua unidade.
+- **RF03** — A portaria registra a entrada de um visitante pré-autorizado.
+- **RF04** — A portaria registra a entrada de um visitante sem pré-autorização, informando a unidade.
+- **RF05** — A portaria registra a saída do visitante.
+
+Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANCELADA`).
+
+### Encomendas
+- **RF06** — A portaria registra o recebimento de uma encomenda para uma unidade.
+- **RF07** — O morador consulta as encomendas da sua unidade.
+- **RF08** — A portaria registra a retirada, com o nome de quem retirou.
+- **RF09** — O morador é notificado quando chega uma encomenda *(pendente)*.
+
+### Avisos
+- **RF10** — O síndico publica e remove avisos, podendo fixá-los no topo.
+- **RF11** — Todos os usuários visualizam o mural de avisos.
+
+### Reservas de áreas comuns
+- **RF12** — Todos visualizam as áreas e as reservas confirmadas (disponibilidade).
+- **RF13** — O morador reserva uma área em um intervalo de horário futuro, sem conflito com outra reserva.
+- **RF14** — O morador cancela reservas da sua unidade; o síndico cancela qualquer reserva.
+
+## Requisitos não funcionais
+- **RNF01** — Autenticação por e-mail e senha, com token JWT (validade de 8h) e senhas armazenadas com bcrypt.
+- **RNF02** — Toda rota, exceto login, exige autenticação; o acesso é restrito por perfil.
+- **RNF03** — O morador só acessa dados da própria unidade.
+- **RNF04** — Dados pessoais de visitantes (documento, placa) tratados conforme a LGPD.
+
+## Matriz de permissões (API)
+
+| Endpoint                          | Morador        | Porteiro | Síndico |
+|-----------------------------------|----------------|----------|---------|
+| `POST /auth/login`                | ✔              | ✔        | ✔       |
+| `GET /auth/me`                    | ✔              | ✔        | ✔       |
+| `GET /visitas`                    | própria unidade| todas    | todas   |
+| `POST /visitas`                   | ✔              |          |         |
+| `POST /visitas/entrada-direta`    |                | ✔        | ✔       |
+| `PATCH /visitas/:id/entrada`      |                | ✔        | ✔       |
+| `PATCH /visitas/:id/saida`        |                | ✔        | ✔       |
+| `PATCH /visitas/:id/cancelar`     | própria unidade|          |         |
+| `GET /encomendas`                 | própria unidade| todas    | todas   |
+| `POST /encomendas`                |                | ✔        | ✔       |
+| `PATCH /encomendas/:id/retirada`  |                | ✔        | ✔       |
+| `GET /avisos`                     | ✔              | ✔        | ✔       |
+| `POST /avisos`, `DELETE /avisos/:id` |             |          | ✔       |
+| `GET /unidades`                   |                | ✔        | ✔       |
+| `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
+| `POST /reservas`                  | ✔              |          |         |
+| `PATCH /reservas/:id/cancelar`    | própria unidade|          | ✔       |
+
+## Modelo de dados
+
+```mermaid
+erDiagram
+  UNIDADE ||--o{ USUARIO : "moradores"
+  UNIDADE ||--o{ VISITA : recebe
+  UNIDADE ||--o{ ENCOMENDA : recebe
+  UNIDADE ||--o{ RESERVA : faz
+  USUARIO ||--o{ VISITA : "autoriza / registra"
+  USUARIO ||--o{ ENCOMENDA : "recebe (porteiro)"
+  USUARIO ||--o{ AVISO : publica
+  USUARIO ||--o{ RESERVA : solicita
+  AREA_COMUM ||--o{ RESERVA : possui
+```
+
+O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/schema.prisma).
+
+## Limitações conhecidas / próximos passos
+- Verificação de conflito de reservas sem bloqueio transacional (duas requisições simultâneas podem passar).
+- Notificações push de encomendas (RF09) ainda não implementadas.
+- Cadastro de unidades e usuários pelo síndico (hoje apenas via seed).
+
+## Telas do aplicativo
+
+| Perfil   | Abas |
+|----------|------|
+| Morador  | Avisos · Meus visitantes · Encomendas · Reservas |
+| Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
+| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (cancelar) |
+
+A sessão fica salva no aparelho (`expo-secure-store`) e é encerrada automaticamente quando o token expira.

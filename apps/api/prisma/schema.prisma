@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Perfis de acesso do sistema.
+enum Papel {
+  MORADOR
+  PORTEIRO
+  SINDICO
+}
+
+enum StatusVisita {
+  AGENDADA   // pré-autorizada pelo morador
+  EM_ANDAMENTO // visitante entrou
+  FINALIZADA // visitante saiu
+  CANCELADA
+}
+
+enum StatusEncomenda {
+  AGUARDANDO_RETIRADA
+  RETIRADA
+}
+
+enum StatusReserva {
+  CONFIRMADA
+  CANCELADA
+}
+
+/// Apartamento/casa do condomínio.
+model Unidade {
+  id        String      @id @default(uuid())
+  bloco     String
+  numero    String
+  moradores Usuario[]
+  visitas   Visita[]
+  encomendas Encomenda[]
+  reservas  Reserva[]
+
+  @@unique([bloco, numero])
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     Papel
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  /// Obrigatório para moradores; nulo para funcionários.
+  unidadeId String?
+  unidade   Unidade? @relation(fields: [unidadeId], references: [id])
+
+  visitasAutorizadas  Visita[]    @relation("VisitaAutorizadaPor")
+  visitasRegistradas  Visita[]    @relation("VisitaRegistradaPor")
+  encomendasRecebidas Encomenda[]
+  avisos              Aviso[]
+  reservas            Reserva[]
+}
+
+model Visita {
+  id               String       @id @default(uuid())
+  nomeVisitante    String
+  documento        String?
+  placaVeiculo     String?
+  dataPrevista     DateTime?
+  status           StatusVisita @default(AGENDADA)
+  entradaEm        DateTime?
+  saidaEm          DateTime?
+  observacao       String?
+  criadoEm         DateTime     @default(now())
+
+  unidadeId        String
+  unidade          Unidade      @relation(fields: [unidadeId], references: [id])
+  /// Morador que pré-autorizou (nulo quando a portaria registra direto).
+  autorizadoPorId  String?
+  autorizadoPor    Usuario?     @relation("VisitaAutorizadaPor", fields: [autorizadoPorId], references: [id])
+  /// Porteiro que registrou a entrada.
+  registradoPorId  String?
+  registradoPor    Usuario?     @relation("VisitaRegistradaPor", fields: [registradoPorId], references: [id])
+}
+
+model Encomenda {
+  id              String          @id @default(uuid())
+  descricao       String
+  remetente       String?
+  status          StatusEncomenda @default(AGUARDANDO_RETIRADA)
+  recebidaEm      DateTime        @default(now())
+  retiradaEm      DateTime?
+  retiradaPor     String?
+
+  unidadeId       String
+  unidade         Unidade         @relation(fields: [unidadeId], references: [id])
+  recebidaPorId   String
+  recebidaPor     Usuario         @relation(fields: [recebidaPorId], references: [id])
+}
+
+model Aviso {
+  id       String   @id @default(uuid())
+  titulo   String
+  conteudo String
+  fixado   Boolean  @default(false)
+  criadoEm DateTime @default(now())
+
+  autorId  String
+  autor    Usuario  @relation(fields: [autorId], references: [id])
+}
+
+model AreaComum {
+  id         String    @id @default(uuid())
+  nome       String    @unique
+  descricao  String?
+  capacidade Int?
+  ativa      Boolean   @default(true)
+  reservas   Reserva[]
+}
+
+model Reserva {
+  id        String        @id @default(uuid())
+  inicio    DateTime
+  fim       DateTime
+  status    StatusReserva @default(CONFIRMADA)
+  criadoEm  DateTime      @default(now())
+
+  areaId    String
+  area      AreaComum     @relation(fields: [areaId], references: [id])
+  unidadeId String
+  unidade   Unidade       @relation(fields: [unidadeId], references: [id])
+  usuarioId String
+  usuario   Usuario       @relation(fields: [usuarioId], references: [id])
+
+  @@index([areaId, inicio])
+}

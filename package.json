@@ -1,0 +1,13 @@
+{
+  "name": "condomus",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:api": "npm run dev -w @condomus/api",
+    "dev:mobile": "npm run start -w @condomus/mobile",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "npm run db:migrate -w @condomus/api",
+    "db:seed": "npm run db:seed -w @condomus/api",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
