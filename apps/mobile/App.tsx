@@ -15,6 +15,7 @@ import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
 import { EncomendasScreen } from "./src/screens/EncomendasScreen";
 import { ReservasScreen } from "./src/screens/ReservasScreen";
 import { CadastrosScreen } from "./src/screens/CadastrosScreen";
+import { InicioScreen } from "./src/screens/InicioScreen";
 import { MinhaContaModal } from "./src/screens/MinhaContaModal";
 import { cores } from "./src/ui/tema";
 import { useAbrirAbaDaNotificacao } from "./src/notificacoes";
@@ -34,10 +35,11 @@ const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-c
 /** Abas disponíveis para cada perfil de acesso. */
 const abasPorPapel: Record<Papel, Aba[]> = {
   MORADOR: [
-    avisos,
+    { nome: "Início", titulo: "Início", icone: "home-outline", tela: InicioScreen },
     { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorScreen },
     encomendas,
     reservas,
+    avisos,
   ],
   PORTEIRO: [portaria, encomendas, avisos],
   SINDICO: [

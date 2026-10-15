@@ -15,8 +15,16 @@ const agendarSchema = z.object({
 /** Portaria registrando um visitante sem pré-autorização (entrada imediata). */
 const entradaDiretaSchema = agendarSchema.extend({ unidadeId: z.uuid() });
 
+/** Agrupamentos de status usados pelo app: visitas em aberto ou já encerradas. */
+const SITUACOES = {
+  ativas: ["AGENDADA", "EM_ANDAMENTO"],
+  historico: ["FINALIZADA", "CANCELADA"],
+} as const;
+
 const filtroSchema = z.object({
   status: z.enum(["AGENDADA", "EM_ANDAMENTO", "FINALIZADA", "CANCELADA"]).optional(),
+  situacao: z.enum(["ativas", "historico"]).optional(),
+  limite: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 const idParam = z.object({ id: z.uuid() });
@@ -24,12 +32,16 @@ const idParam = z.object({ id: z.uuid() });
 export async function visitasRoutes(app: FastifyInstance) {
   // Morador vê as visitas da própria unidade; portaria e síndico veem todas.
   app.get("/visitas", { preHandler: app.autorizar() }, async (req) => {
-    const { status } = filtroSchema.parse(req.query);
+    const { status, situacao, limite } = filtroSchema.parse(req.query);
     const { papel, unidadeId } = req.user;
     return prisma.visita.findMany({
-      where: { status, ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}) },
+      where: {
+        status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
+        ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
+      },
       include: { unidade: true },
       orderBy: { criadoEm: "desc" },
+      take: limite,
     });
   });
 

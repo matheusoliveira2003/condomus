@@ -280,3 +280,35 @@ const fab = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
 });
+
+/** Link discreto no topo de uma lista, para abrir o histórico (itens encerrados). */
+export function LinkHistorico({ texto, onPress }: { texto: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} style={({ pressed }) => [link.container, pressed && { opacity: 0.6 }]}>
+      <Ionicons name="time-outline" size={18} color={cores.primaria} />
+      <Text style={link.texto}>{texto}</Text>
+      <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
+    </Pressable>
+  );
+}
+
+/** Tela cheia em modal, com título e botão de fechar, para conteúdo que já rola (ex.: Lista). */
+export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: boolean; titulo: string; onFechar: () => void; children: ReactNode }) {
+  return (
+    <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
+      <View style={styles.modalCabecalho}>
+        <Text style={styles.modalTitulo}>{titulo}</Text>
+        <Pressable onPress={onFechar} hitSlop={12}>
+          <Ionicons name="close" size={26} color={cores.texto} />
+        </Pressable>
+      </View>
+      {/* Só monta o conteúdo com o modal aberto: assim ele carrega dados novos a cada abertura. */}
+      {visivel && <View style={{ flex: 1 }}>{children}</View>}
+    </Modal>
+  );
+}
+
+const link = StyleSheet.create({
+  container: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingVertical: 4, marginBottom: 4 },
+  texto: { color: cores.primaria, fontWeight: "600", fontSize: 14 },
+});

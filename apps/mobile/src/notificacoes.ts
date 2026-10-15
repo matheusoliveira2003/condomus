@@ -3,14 +3,22 @@ import { Platform } from "react-native";
 import { isRunningInExpoGo } from "expo";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
+import type * as ExpoNotifications from "expo-notifications";
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
 
 /** Mesmo id usado pela API ao enviar (campo channelId). */
 const CANAL_ANDROID = "padrao";
 
+/**
+ * Desde o SDK 53 o Expo Go no Android não tem os módulos nativos de push: só importar
+ * expo-notifications já derruba o app. Por isso a biblioteca só é carregada quando há
+ * suporte (development build, ou Expo Go no iPhone); nos demais casos fica null.
+ */
+const Notifications: typeof ExpoNotifications | null =
+  Platform.OS === "android" && isRunningInExpoGo() ? null : require("expo-notifications");
+
 // Com o app aberto, a notificação também aparece como banner.
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -25,9 +33,7 @@ Notifications.setNotificationHandler({
  * Nunca lança erro: notificação é um recurso extra, o app funciona sem ela.
  */
 export async function obterTokenPush(): Promise<string | null> {
-  if (!Device.isDevice) return null;
-  // Desde o SDK 53 o Expo Go no Android não recebe push; é preciso um development build.
-  if (Platform.OS === "android" && isRunningInExpoGo()) return null;
+  if (!Notifications || !Device.isDevice) return null;
 
   try {
     if (Platform.OS === "android") {
@@ -57,9 +63,9 @@ export async function obterTokenPush(): Promise<string | null> {
 /** Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas"). */
 export function useAbrirAbaDaNotificacao(navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>, ativo: boolean) {
   useEffect(() => {
-    if (!ativo) return;
+    if (!ativo || !Notifications) return;
 
-    const abrir = (resposta: Notifications.NotificationResponse | null, tentativas = 10) => {
+    const abrir = (resposta: ExpoNotifications.NotificationResponse | null, tentativas = 10) => {
       const aba = resposta?.notification.request.content.data?.aba;
       if (typeof aba !== "string") return;
       // Logo após o login as abas ainda estão montando; tenta de novo em instantes.

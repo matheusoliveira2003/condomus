@@ -1,0 +1,64 @@
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { prisma } from "../../lib/prisma.js";
+
+const consultaSchema = z.object({
+  /** Meia-noite no fuso do celular; define o que é "hoje" para o morador. */
+  inicioDoDia: z.coerce.date(),
+});
+
+/** Quantas encomendas listar no resumo (o total vem separado). */
+const MAX_ENCOMENDAS = 3;
+
+export async function resumoRoutes(app: FastifyInstance) {
+  // Tudo o que a tela inicial do morador mostra, numa única chamada.
+  app.get("/resumo", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+    const { inicioDoDia } = consultaSchema.parse(req.query);
+    const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
+    const unidadeId = req.user.unidadeId!;
+
+    const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, ultimoAviso] = await Promise.all([
+      prisma.unidade.findUnique({ where: { id: unidadeId } }),
+      prisma.encomenda.findMany({
+        where: { unidadeId, status: "AGUARDANDO_RETIRADA" },
+        select: { id: true, descricao: true, remetente: true, recebidaEm: true },
+        orderBy: { recebidaEm: "desc" },
+        take: MAX_ENCOMENDAS,
+      }),
+      prisma.encomenda.count({ where: { unidadeId, status: "AGUARDANDO_RETIRADA" } }),
+      prisma.visita.findMany({
+        where: { unidadeId, status: "EM_ANDAMENTO" },
+        select: { id: true, nomeVisitante: true, entradaEm: true },
+        orderBy: { entradaEm: "desc" },
+      }),
+      // Agendadas para hoje ou sem data definida ("qualquer dia").
+      prisma.visita.findMany({
+        where: {
+          unidadeId,
+          status: "AGENDADA",
+          OR: [{ dataPrevista: null }, { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
+        },
+        select: { id: true, nomeVisitante: true, dataPrevista: true },
+        orderBy: { criadoEm: "asc" },
+      }),
+      prisma.reserva.findFirst({
+        where: { unidadeId, status: { in: ["PENDENTE", "CONFIRMADA"] }, fim: { gt: new Date() } },
+        select: { id: true, inicio: true, fim: true, status: true, area: { select: { nome: true } } },
+        orderBy: { inicio: "asc" },
+      }),
+      // Mesma ordem do mural: fixados primeiro, depois os mais recentes.
+      prisma.aviso.findFirst({
+        select: { id: true, titulo: true, conteudo: true, fixado: true, criadoEm: true },
+        orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }],
+      }),
+    ]);
+
+    return {
+      unidade,
+      encomendas: { total: totalEncomendas, itens: encomendas },
+      visitas: { noCondominio, esperadasHoje: esperadas },
+      proximaReserva,
+      ultimoAviso,
+    };
+  });
+}

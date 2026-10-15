@@ -3,6 +3,7 @@ import { Alert, Text, View } from "react-native";
 import { api, enviar, type AreaComum, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCarregar } from "../hooks/useCarregar";
+import { useAbrirFormularioPorParametro } from "../hooks/useAbrirFormularioPorParametro";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
@@ -27,6 +28,7 @@ export function ReservasScreen() {
 
 function ReservasMorador() {
   const [reservando, setReservando] = useState(false);
+  useAbrirFormularioPorParametro(useCallback(() => setReservando(true), []));
   const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Reserva[]>("/reservas/minhas"), []), []);
 
   return (

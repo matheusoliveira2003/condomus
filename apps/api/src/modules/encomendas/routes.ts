@@ -12,18 +12,23 @@ const registrarSchema = z.object({
 
 const retirarSchema = z.object({ retiradaPor: z.string().min(2) });
 
-const filtroSchema = z.object({ status: z.enum(["AGUARDANDO_RETIRADA", "RETIRADA"]).optional() });
+const filtroSchema = z.object({
+  status: z.enum(["AGUARDANDO_RETIRADA", "RETIRADA"]).optional(),
+  limite: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 const idParam = z.object({ id: z.uuid() });
 
 export async function encomendasRoutes(app: FastifyInstance) {
   app.get("/encomendas", { preHandler: app.autorizar() }, async (req) => {
-    const { status } = filtroSchema.parse(req.query);
+    const { status, limite } = filtroSchema.parse(req.query);
     const { papel, unidadeId } = req.user;
     return prisma.encomenda.findMany({
       where: { status, ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}) },
       include: { unidade: true },
-      orderBy: { recebidaEm: "desc" },
+      // Retiradas: a mais recentemente retirada primeiro.
+      orderBy: status === "RETIRADA" ? { retiradaEm: "desc" } : { recebidaEm: "desc" },
+      take: limite,
     });
   });
 

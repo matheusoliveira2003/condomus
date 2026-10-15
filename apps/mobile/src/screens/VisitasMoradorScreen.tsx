@@ -1,13 +1,29 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
 import { api, enviar, type Visita } from "../api/client";
 import { useCarregar } from "../hooks/useCarregar";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
+import { useAbrirFormularioPorParametro } from "../hooks/useAbrirFormularioPorParametro";
+import {
+  BotaoFlutuante,
+  Botao,
+  Campo,
+  Card,
+  Chips,
+  LinkHistorico,
+  Lista,
+  MensagemErro,
+  ModalFormulario,
+  ModalTela,
+  estilosTexto,
+} from "../ui/componentes";
 import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
-  const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Visita[]>("/visitas"), []), []);
+  // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
+  const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Visita[]>("/visitas?situacao=ativas"), []), []);
   const [agendando, setAgendando] = useState(false);
+  const [vendoHistorico, setVendoHistorico] = useState(false);
+  useAbrirFormularioPorParametro(useCallback(() => setAgendando(true), []));
 
   function cancelar(visita: Visita) {
     Alert.alert("Cancelar visita", `Cancelar a autorização de ${visita.nomeVisitante}?`, [
@@ -29,19 +45,18 @@ export function VisitasMoradorScreen() {
         erro={erro}
         recarregar={recarregar}
         vazio="Nenhum visitante autorizado"
+        cabecalho={<LinkHistorico texto="Ver histórico de visitas" onPress={() => setVendoHistorico(true)} />}
         renderItem={(visita) => (
-          <Card>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={estilosTexto.titulo}>{visita.nomeVisitante}</Text>
-              <SeloVisita status={visita.status} />
-            </View>
-            <DetalhesVisita visita={visita} />
+          <CardVisita visita={visita}>
             {visita.status === "AGENDADA" && (
               <Botao titulo="Cancelar autorização" variante="secundario" pequeno onPress={() => cancelar(visita)} />
             )}
-          </Card>
+          </CardVisita>
         )}
       />
+      <ModalTela visivel={vendoHistorico} titulo="Histórico de visitas" onFechar={() => setVendoHistorico(false)}>
+        <HistoricoVisitas />
+      </ModalTela>
       <BotaoFlutuante icone="person-add" onPress={() => setAgendando(true)} />
       <AgendarVisitaModal
         visivel={agendando}
@@ -52,6 +67,40 @@ export function VisitasMoradorScreen() {
         }}
       />
     </View>
+  );
+}
+
+function CardVisita({ visita, children }: { visita: Visita; children?: ReactNode }) {
+  return (
+    <Card>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={estilosTexto.titulo}>{visita.nomeVisitante}</Text>
+        <SeloVisita status={visita.status} />
+      </View>
+      <DetalhesVisita visita={visita} />
+      {children}
+    </Card>
+  );
+}
+
+/** Quantos itens o histórico mostra (os mais recentes). */
+const LIMITE_HISTORICO = 50;
+
+/** Últimas visitas finalizadas ou canceladas da unidade. */
+function HistoricoVisitas() {
+  const { dados, carregando, erro, recarregar } = useCarregar(
+    useCallback(() => api<Visita[]>(`/visitas?situacao=historico&limite=${LIMITE_HISTORICO}`), []),
+    [],
+  );
+  return (
+    <Lista
+      dados={dados}
+      carregando={carregando}
+      erro={erro}
+      recarregar={recarregar}
+      vazio="Nenhuma visita no histórico"
+      renderItem={(visita) => <CardVisita visita={visita} />}
+    />
   );
 }
 

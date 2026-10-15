@@ -122,3 +122,14 @@ export interface Reserva {
   area: AreaComum;
   unidade: Unidade;
 }
+
+export interface Resumo {
+  unidade: Unidade;
+  encomendas: { total: number; itens: { id: string; descricao: string; remetente: string | null; recebidaEm: string }[] };
+  visitas: {
+    noCondominio: { id: string; nomeVisitante: string; entradaEm: string }[];
+    esperadasHoje: { id: string; nomeVisitante: string; dataPrevista: string | null }[];
+  };
+  proximaReserva: { id: string; inicio: string; fim: string; status: StatusReserva; area: { nome: string } } | null;
+  ultimoAviso: { id: string; titulo: string; conteudo: string; fixado: boolean; criadoEm: string } | null;
+}

@@ -38,6 +38,9 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 
 Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e confirmadas podem ir para `CANCELADA`.
 
+### Tela inicial do morador
+- **RF19** — Ao abrir o app, o morador vê um resumo da unidade: encomendas aguardando retirada, visitantes no condomínio e esperados hoje, a próxima reserva (com a situação) e o último aviso. Atalhos abrem direto os formulários de autorizar visitante e de reservar área.
+
 ### Cadastros
 - **RF15** — O síndico cadastra unidades (bloco e número, sem duplicidade).
 - **RF16** — O síndico cadastra moradores (vinculados a uma unidade) e funcionários (porteiro ou síndico), definindo a senha inicial.
@@ -74,6 +77,7 @@ Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e
 | `GET /usuarios`, `POST /usuarios` |                |          | ✔       |
 | `PATCH /usuarios/:id/ativo`       |                |          | ✔       |
 | `PUT /dispositivos`, `DELETE /dispositivos/:token` | ✔ | ✔     | ✔       |
+| `GET /resumo`                     | ✔              |          |         |
 | `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
 | `GET /reservas/minhas`            | ✔              |          |         |
 | `POST /reservas`                  | ✔              |          |         |
@@ -106,7 +110,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 
 | Perfil   | Abas |
 |----------|------|
-| Morador  | Avisos · Meus visitantes · Encomendas · Reservas |
+| Morador  | Início (resumo e atalhos) · Meus visitantes (em aberto + histórico) · Encomendas (na portaria + histórico de retiradas) · Reservas · Avisos |
 | Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
 | Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (aprovar, recusar e cancelar) · Cadastros |
 
