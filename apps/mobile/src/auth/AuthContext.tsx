@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
 import { api, definirAoExpirarSessao, definirToken, enviar, type Usuario } from "../api/client";
+import { obterTokenPush } from "../notificacoes";
 
 const CHAVE_TOKEN = "condomus.token";
 
@@ -17,8 +18,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [restaurando, setRestaurando] = useState(true);
+  const tokenPush = useRef<string | null>(null);
 
   const sair = useCallback(async () => {
+    // Desvincula o celular antes de perder a autenticação; se falhar, segue saindo.
+    if (tokenPush.current) {
+      await enviar("DELETE", `/dispositivos/${encodeURIComponent(tokenPush.current)}`).catch(() => {});
+      tokenPush.current = null;
+    }
     definirToken(null);
     setUsuario(null);
     await SecureStore.deleteItemAsync(CHAVE_TOKEN);
@@ -41,6 +48,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [sair]);
+
+  // Com alguém logado, registra este celular para receber as notificações dessa pessoa.
+  useEffect(() => {
+    if (!usuario) return;
+    obterTokenPush().then((token) => {
+      if (!token) return;
+      tokenPush.current = token;
+      enviar("PUT", "/dispositivos", { token }).catch((e: Error) => console.warn("[push] Falha ao registrar", e.message));
+    });
+  }, [usuario?.id]);
 
   async function entrar(email: string, senha: string) {
     const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>("POST", "/auth/login", {

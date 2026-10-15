@@ -9,6 +9,13 @@ const loginSchema = z.object({
   senha: z.string().min(1),
 });
 
+const trocarSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1),
+    novaSenha: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
+  })
+  .refine((s) => s.senhaAtual !== s.novaSenha, { message: "A nova senha deve ser diferente da atual", path: ["novaSenha"] });
+
 export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/login", async (req) => {
     const { email, senha } = loginSchema.parse(req.body);
@@ -27,5 +34,15 @@ export async function authRoutes(app: FastifyInstance) {
     });
     if (!usuario) throw naoEncontrado("Usuário");
     return usuario;
+  });
+
+  app.patch("/auth/senha", { preHandler: app.autorizar() }, async (req, reply) => {
+    const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
+    if (!usuario) throw naoEncontrado("Usuário");
+    // 400 e não 401: o token é válido, só a senha informada está errada (401 deslogaria o app).
+    if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
+    await prisma.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await bcrypt.hash(novaSenha, 10) } });
+    return reply.status(204).send();
   });
 }

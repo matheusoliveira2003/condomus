@@ -11,6 +11,7 @@ import { avisosRoutes } from "./modules/avisos/routes.js";
 import { reservasRoutes } from "./modules/reservas/routes.js";
 import { unidadesRoutes } from "./modules/unidades/routes.js";
 import { usuariosRoutes } from "./modules/usuarios/routes.js";
+import { dispositivosRoutes } from "./modules/dispositivos/routes.js";
 
 // Mensagens de validação em português.
 z.config(z.locales.ptBR());
@@ -44,6 +45,7 @@ export async function buildApp() {
   await app.register(reservasRoutes);
   await app.register(unidadesRoutes);
   await app.register(usuariosRoutes);
+  await app.register(dispositivosRoutes);
 
   return app;
 }

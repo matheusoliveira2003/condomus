@@ -62,6 +62,18 @@ model Usuario {
   encomendasRecebidas Encomenda[]
   avisos              Aviso[]
   reservas            Reserva[]
+  dispositivos        DispositivoPush[]
+}
+
+/// Celular registrado para receber notificações push (token do Expo).
+model DispositivoPush {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuarioId    String
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
 model Visita {

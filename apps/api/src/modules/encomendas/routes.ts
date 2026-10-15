@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
+import { enviarPush } from "../../lib/push.js";
 
 const registrarSchema = z.object({
   unidadeId: z.uuid(),
@@ -29,7 +30,17 @@ export async function encomendasRoutes(app: FastifyInstance) {
   app.post("/encomendas", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
     const dados = registrarSchema.parse(req.body);
     const encomenda = await prisma.encomenda.create({ data: { ...dados, recebidaPorId: req.user.sub } });
-    // TODO: enviar notificação push ao(s) morador(es) da unidade.
+
+    const moradores = await prisma.usuario.findMany({ where: { unidadeId: dados.unidadeId }, select: { id: true } });
+    // Sem await: a resposta à portaria não espera o envio da notificação.
+    void enviarPush(
+      moradores.map((m) => m.id),
+      {
+        titulo: "📦 Encomenda na portaria",
+        corpo: dados.remetente ? `${dados.descricao} (${dados.remetente})` : dados.descricao,
+        dados: { aba: "Encomendas" },
+      },
+    );
     return reply.status(201).send(encomenda);
   });
 

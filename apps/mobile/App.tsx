@@ -1,6 +1,7 @@
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,7 +15,9 @@ import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
 import { EncomendasScreen } from "./src/screens/EncomendasScreen";
 import { ReservasScreen } from "./src/screens/ReservasScreen";
 import { CadastrosScreen } from "./src/screens/CadastrosScreen";
+import { MinhaContaModal } from "./src/screens/MinhaContaModal";
 import { cores } from "./src/ui/tema";
+import { useAbrirAbaDaNotificacao } from "./src/notificacoes";
 
 interface Aba {
   nome: string;
@@ -47,9 +50,12 @@ const abasPorPapel: Record<Papel, Aba[]> = {
 };
 
 const Tab = createBottomTabNavigator();
+const navegacao = createNavigationContainerRef();
 
 function Navegacao() {
-  const { usuario, restaurando, sair } = useAuth();
+  const { usuario, restaurando } = useAuth();
+  const [contaAberta, setContaAberta] = useState(false);
+  useAbrirAbaDaNotificacao(navegacao, !!usuario);
 
   if (restaurando) {
     return (
@@ -60,36 +66,33 @@ function Navegacao() {
   }
   if (!usuario) return <LoginScreen />;
 
-  const confirmarSaida = () =>
-    Alert.alert("Sair", `Sair da conta de ${usuario.nome}?`, [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Sair", style: "destructive", onPress: () => void sair() },
-    ]);
-
   return (
-    <Tab.Navigator
-      screenOptions={{
-        tabBarActiveTintColor: cores.primaria,
-        headerRight: () => (
-          <Pressable onPress={confirmarSaida} hitSlop={12} style={{ marginRight: 16 }}>
-            <Ionicons name="log-out-outline" size={24} color={cores.texto} />
-          </Pressable>
-        ),
-      }}
-    >
-      {abasPorPapel[usuario.papel].map((aba) => (
-        <Tab.Screen
-          key={aba.nome}
-          name={aba.nome}
-          component={aba.tela}
-          options={{
-            title: aba.titulo,
-            tabBarLabel: aba.nome,
-            tabBarIcon: ({ color, size }) => <Ionicons name={aba.icone} color={color} size={size} />,
-          }}
-        />
-      ))}
-    </Tab.Navigator>
+    <>
+      <Tab.Navigator
+        screenOptions={{
+          tabBarActiveTintColor: cores.primaria,
+          headerRight: () => (
+            <Pressable onPress={() => setContaAberta(true)} hitSlop={12} style={{ marginRight: 16 }}>
+              <Ionicons name="person-circle-outline" size={28} color={cores.texto} />
+            </Pressable>
+          ),
+        }}
+      >
+        {abasPorPapel[usuario.papel].map((aba) => (
+          <Tab.Screen
+            key={aba.nome}
+            name={aba.nome}
+            component={aba.tela}
+            options={{
+              title: aba.titulo,
+              tabBarLabel: aba.nome,
+              tabBarIcon: ({ color, size }) => <Ionicons name={aba.icone} color={color} size={size} />,
+            }}
+          />
+        ))}
+      </Tab.Navigator>
+      <MinhaContaModal visivel={contaAberta} onFechar={() => setContaAberta(false)} />
+    </>
   );
 }
 
@@ -97,7 +100,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navegacao}>
           <Navegacao />
         </NavigationContainer>
       </AuthProvider>

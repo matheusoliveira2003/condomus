@@ -1,0 +1,77 @@
+import { useEffect } from "react";
+import { Platform } from "react-native";
+import { isRunningInExpoGo } from "expo";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
+
+/** Mesmo id usado pela API ao enviar (campo channelId). */
+const CANAL_ANDROID = "padrao";
+
+// Com o app aberto, a notificação também aparece como banner.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+/**
+ * Pede permissão e devolve o token de push do Expo deste celular, ou null quando
+ * não for possível (emulador, permissão negada, Expo Go no Android, projeto sem EAS).
+ * Nunca lança erro: notificação é um recurso extra, o app funciona sem ela.
+ */
+export async function obterTokenPush(): Promise<string | null> {
+  if (!Device.isDevice) return null;
+  // Desde o SDK 53 o Expo Go no Android não recebe push; é preciso um development build.
+  if (Platform.OS === "android" && isRunningInExpoGo()) return null;
+
+  try {
+    if (Platform.OS === "android") {
+      // No Android 13+, o pedido de permissão só aparece depois que existe um canal.
+      await Notifications.setNotificationChannelAsync(CANAL_ANDROID, {
+        name: "Avisos do condomínio",
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+    }
+
+    const atual = await Notifications.getPermissionsAsync();
+    const permissao = atual.granted ? atual : await Notifications.requestPermissionsAsync();
+    if (!permissao.granted) return null;
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    if (!projectId) {
+      console.warn("[push] Projeto sem EAS projectId — rode `npx eas-cli init` em apps/mobile");
+      return null;
+    }
+    return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+  } catch (erro) {
+    console.warn("[push] Não foi possível obter o token", erro);
+    return null;
+  }
+}
+
+/** Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas"). */
+export function useAbrirAbaDaNotificacao(navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>, ativo: boolean) {
+  useEffect(() => {
+    if (!ativo) return;
+
+    const abrir = (resposta: Notifications.NotificationResponse | null, tentativas = 10) => {
+      const aba = resposta?.notification.request.content.data?.aba;
+      if (typeof aba !== "string") return;
+      // Logo após o login as abas ainda estão montando; tenta de novo em instantes.
+      if (navegacao.isReady()) navegacao.navigate(aba as never);
+      else if (tentativas > 0) setTimeout(() => abrir(resposta, tentativas - 1), 100);
+    };
+
+    // App aberto a partir de uma notificação (estava fechado).
+    abrir(Notifications.getLastNotificationResponse());
+    Notifications.clearLastNotificationResponse();
+
+    const assinatura = Notifications.addNotificationResponseReceivedListener((r) => abrir(r));
+    return () => assinatura.remove();
+  }, [navegacao, ativo]);
+}

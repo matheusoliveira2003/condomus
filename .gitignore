@@ -4,3 +4,9 @@ dist/
 .expo/
 *.log
 .DS_Store
+
+# Chave privada da conta de serviço do Firebase (FCM) — nunca versionar
+*firebase-adminsdk*.json
+service-account*.json
+# Config do Firebase com chave de API — no EAS vem da variável GOOGLE_SERVICES_JSON
+apps/mobile/google-services.json

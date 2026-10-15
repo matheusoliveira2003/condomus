@@ -38,7 +38,7 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
   return corpo as T;
 }
 
-export const enviar = <T>(metodo: "POST" | "PATCH" | "DELETE", caminho: string, corpo?: unknown) =>
+export const enviar = <T>(metodo: "POST" | "PUT" | "PATCH" | "DELETE", caminho: string, corpo?: unknown) =>
   api<T>(caminho, { method: metodo, body: corpo === undefined ? undefined : JSON.stringify(corpo) });
 
 export type Papel = "MORADOR" | "PORTEIRO" | "SINDICO";

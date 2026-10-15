@@ -23,7 +23,7 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 - **RF06** — A portaria registra o recebimento de uma encomenda para uma unidade.
 - **RF07** — O morador consulta as encomendas da sua unidade.
 - **RF08** — A portaria registra a retirada, com o nome de quem retirou.
-- **RF09** — O morador é notificado quando chega uma encomenda *(pendente)*.
+- **RF09** — O morador recebe uma notificação push quando chega uma encomenda; tocar nela abre a aba Encomendas.
 
 ### Avisos
 - **RF10** — O síndico publica e remove avisos, podendo fixá-los no topo.
@@ -39,6 +39,9 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 - **RF16** — O síndico cadastra moradores (vinculados a uma unidade) e funcionários (porteiro ou síndico), definindo a senha inicial.
 - **RF17** — O síndico desativa e reativa contas; uma conta desativada perde o acesso imediatamente. Não há exclusão, para preservar o histórico.
 
+### Conta
+- **RF18** — Todo usuário consulta seus dados e troca a própria senha, informando a senha atual.
+
 ## Requisitos não funcionais
 - **RNF01** — Autenticação por e-mail e senha, com token JWT (validade de 8h) e senhas armazenadas com bcrypt.
 - **RNF02** — Toda rota, exceto login, exige autenticação; o acesso é restrito por perfil.
@@ -50,7 +53,7 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 | Endpoint                          | Morador        | Porteiro | Síndico |
 |-----------------------------------|----------------|----------|---------|
 | `POST /auth/login`                | ✔              | ✔        | ✔       |
-| `GET /auth/me`                    | ✔              | ✔        | ✔       |
+| `GET /auth/me`, `PATCH /auth/senha` | ✔            | ✔        | ✔       |
 | `GET /visitas`                    | própria unidade| todas    | todas   |
 | `POST /visitas`                   | ✔              |          |         |
 | `POST /visitas/entrada-direta`    |                | ✔        | ✔       |
@@ -66,6 +69,7 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 | `POST /unidades`                  |                |          | ✔       |
 | `GET /usuarios`, `POST /usuarios` |                |          | ✔       |
 | `PATCH /usuarios/:id/ativo`       |                |          | ✔       |
+| `PUT /dispositivos`, `DELETE /dispositivos/:token` | ✔ | ✔     | ✔       |
 | `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
 | `POST /reservas`                  | ✔              |          |         |
 | `PATCH /reservas/:id/cancelar`    | própria unidade|          | ✔       |
@@ -82,6 +86,7 @@ erDiagram
   USUARIO ||--o{ ENCOMENDA : "recebe (porteiro)"
   USUARIO ||--o{ AVISO : publica
   USUARIO ||--o{ RESERVA : solicita
+  USUARIO ||--o{ DISPOSITIVO_PUSH : "recebe notificações"
   AREA_COMUM ||--o{ RESERVA : possui
 ```
 
@@ -89,8 +94,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 
 ## Limitações conhecidas / próximos passos
 - Verificação de conflito de reservas sem bloqueio transacional (duas requisições simultâneas podem passar).
-- Notificações push de encomendas (RF09) ainda não implementadas.
-- Troca de senha pelo próprio usuário (hoje a senha inicial é definida pelo síndico).
+- Push no Android exige um development build (o Expo Go no Android não recebe push desde o SDK 53).
 
 ## Telas do aplicativo
 
@@ -99,5 +103,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 | Morador  | Avisos · Meus visitantes · Encomendas · Reservas |
 | Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
 | Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (cancelar) · Cadastros |
+
+O ícone de perfil no topo de todas as telas abre **Minha conta** (dados, troca de senha e sair).
 
 A sessão fica salva no aparelho (`expo-secure-store`) e é encerrada automaticamente quando o token expira.
