@@ -27,7 +27,9 @@ enum StatusEncomenda {
 }
 
 enum StatusReserva {
+  PENDENTE   // aguardando aprovação do síndico (já ocupa o horário)
   CONFIRMADA
+  RECUSADA
   CANCELADA
 }
 
@@ -137,8 +139,11 @@ model Reserva {
   id        String        @id @default(uuid())
   inicio    DateTime
   fim       DateTime
-  status    StatusReserva @default(CONFIRMADA)
+  status    StatusReserva @default(PENDENTE)
   criadoEm  DateTime      @default(now())
+  /// Quando o síndico aprovou ou recusou.
+  decididaEm   DateTime?
+  motivoRecusa String?
 
   areaId    String
   area      AreaComum     @relation(fields: [areaId], references: [id])

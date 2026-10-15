@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
+import { notificarUnidade } from "../../lib/push.js";
 
 const agendarSchema = z.object({
   nomeVisitante: z.string().min(2),
@@ -45,16 +46,19 @@ export async function visitasRoutes(app: FastifyInstance) {
     const visita = await prisma.visita.create({
       data: { ...dados, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
     });
+    avisarChegada(visita.unidadeId, visita.nomeVisitante);
     return reply.status(201).send(visita);
   });
 
   app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const visita = await buscar(req.params);
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível registrar entrada de visitas agendadas");
-    return prisma.visita.update({
+    const atualizada = await prisma.visita.update({
       where: { id: visita.id },
       data: { status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
     });
+    avisarChegada(visita.unidadeId, visita.nomeVisitante);
+    return atualizada;
   });
 
   app.patch("/visitas/:id/saida", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
@@ -68,6 +72,14 @@ export async function visitasRoutes(app: FastifyInstance) {
     if (visita.unidadeId !== req.user.unidadeId) throw proibido();
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível cancelar visitas agendadas");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "CANCELADA" } });
+  });
+}
+
+function avisarChegada(unidadeId: string, nomeVisitante: string) {
+  notificarUnidade(unidadeId, {
+    titulo: "🚪 Visitante no condomínio",
+    corpo: `${nomeVisitante} acabou de entrar.`,
+    dados: { aba: "Visitas" },
   });
 }
 

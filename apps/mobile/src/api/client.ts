@@ -111,10 +111,14 @@ export interface AreaComum {
   capacidade: number | null;
 }
 
+export type StatusReserva = "PENDENTE" | "CONFIRMADA" | "RECUSADA" | "CANCELADA";
+
 export interface Reserva {
   id: string;
   inicio: string;
   fim: string;
+  status: StatusReserva;
+  motivoRecusa: string | null;
   area: AreaComum;
   unidade: Unidade;
 }

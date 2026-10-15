@@ -16,6 +16,7 @@
 - **RF03** — A portaria registra a entrada de um visitante pré-autorizado.
 - **RF04** — A portaria registra a entrada de um visitante sem pré-autorização, informando a unidade.
 - **RF05** — A portaria registra a saída do visitante.
+- **RF05a** — Os moradores da unidade recebem uma notificação push quando a entrada de um visitante é registrada; tocar nela abre a aba Visitas.
 
 Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANCELADA`).
 
@@ -31,8 +32,11 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 
 ### Reservas de áreas comuns
 - **RF12** — Todos visualizam as áreas e as reservas confirmadas (disponibilidade).
-- **RF13** — O morador reserva uma área em um intervalo de horário futuro, sem conflito com outra reserva.
-- **RF14** — O morador cancela reservas da sua unidade; o síndico cancela qualquer reserva.
+- **RF13** — O morador solicita a reserva de uma área em um intervalo de horário futuro, sem conflito com outra reserva pendente ou confirmada. O síndico é notificado.
+- **RF13a** — O síndico aprova ou recusa (com motivo opcional) as solicitações; o morador é notificado da decisão. Uma solicitação pendente já ocupa o horário; se recusada, o horário é liberado.
+- **RF14** — O morador cancela reservas pendentes ou confirmadas da sua unidade; o síndico cancela qualquer reserva, e o morador é notificado.
+
+Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e confirmadas podem ir para `CANCELADA`.
 
 ### Cadastros
 - **RF15** — O síndico cadastra unidades (bloco e número, sem duplicidade).
@@ -71,7 +75,9 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 | `PATCH /usuarios/:id/ativo`       |                |          | ✔       |
 | `PUT /dispositivos`, `DELETE /dispositivos/:token` | ✔ | ✔     | ✔       |
 | `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
+| `GET /reservas/minhas`            | ✔              |          |         |
 | `POST /reservas`                  | ✔              |          |         |
+| `PATCH /reservas/:id/aprovar`, `/recusar` |        |          | ✔       |
 | `PATCH /reservas/:id/cancelar`    | própria unidade|          | ✔       |
 
 ## Modelo de dados
@@ -102,7 +108,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 |----------|------|
 | Morador  | Avisos · Meus visitantes · Encomendas · Reservas |
 | Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
-| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (cancelar) · Cadastros |
+| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (aprovar, recusar e cancelar) · Cadastros |
 
 O ícone de perfil no topo de todas as telas abre **Minha conta** (dados, troca de senha e sair).
 

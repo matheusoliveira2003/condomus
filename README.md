@@ -39,7 +39,7 @@ O Expo Go no Android não recebe notificações push. Para testá-las, gere um *
 2. Em `apps/mobile`, rode `npx eas-cli build --profile development --platform android` e instale o APK gerado.
 3. Inicie o servidor com `npm run dev:mobile` e abra o app Condomus (não o Expo Go).
 
-O celular é registrado ao fazer login; a API avisa os moradores da unidade quando a portaria registra uma encomenda.
+O celular é registrado ao fazer login; a API avisa os moradores da unidade quando a portaria registra uma encomenda ou a entrada de um visitante.
 
 ### Usuários de exemplo (senha `123456`)
 

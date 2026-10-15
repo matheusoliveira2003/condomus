@@ -1,3 +1,4 @@
+import type { Papel } from "@prisma/client";
 import { prisma } from "./prisma.js";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -55,4 +56,20 @@ export async function enviarPush(usuarioIds: string[], { titulo, corpo, dados }:
   } catch (erro) {
     console.error("[push] Falha ao enviar notificação", erro);
   }
+}
+
+/** Envia uma notificação para todos os moradores de uma unidade. Não espera o envio. */
+export function notificarUnidade(unidadeId: string, mensagem: Mensagem) {
+  void prisma.usuario
+    .findMany({ where: { unidadeId, papel: "MORADOR" }, select: { id: true } })
+    .then((moradores) => enviarPush(moradores.map((m) => m.id), mensagem))
+    .catch((erro) => console.error("[push] Falha ao buscar moradores da unidade", erro));
+}
+
+/** Envia uma notificação para todos os usuários ativos de um perfil (ex.: síndicos). */
+export function notificarPapel(papel: Papel, mensagem: Mensagem) {
+  void prisma.usuario
+    .findMany({ where: { papel, ativo: true }, select: { id: true } })
+    .then((usuarios) => enviarPush(usuarios.map((u) => u.id), mensagem))
+    .catch((erro) => console.error(`[push] Falha ao buscar usuários do perfil ${papel}`, erro));
 }
