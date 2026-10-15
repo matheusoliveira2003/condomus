@@ -31,10 +31,10 @@ No celular físico, defina `EXPO_PUBLIC_API_URL=http://<IP-da-sua-máquina>:3333
 
 ### Usuários de exemplo (senha `123456`)
 
-| Perfil   | E-mail                  |
-|----------|-------------------------|
-| Morador  | morador@condomus.dev    |
-| Portaria | portaria@condomus.dev   |
-| Síndico  | sindico@condomus.dev    |
+| Perfil   | Nome                     | E-mail                  |
+|----------|--------------------------|-------------------------|
+| Síndico  | Matheus Paulo Oliveira   | matheuspo@condomus.dev  |
+| Morador  | Gabriel Lopes Ramos (A-101) | gabriellr@condomus.dev |
+| Portaria | Nathan Martinez Lazarete | nathanml@condomus.dev   |
 
 Mais detalhes em [docs/requisitos.md](docs/requisitos.md).

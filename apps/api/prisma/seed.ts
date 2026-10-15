@@ -18,9 +18,9 @@ async function main() {
   }
 
   const usuarios = [
-    { nome: "Maria Moradora", email: "morador@condomus.dev", papel: "MORADOR" as const, unidadeId: unidade.id },
-    { nome: "João Porteiro", email: "portaria@condomus.dev", papel: "PORTEIRO" as const, unidadeId: null },
-    { nome: "Ana Síndica", email: "sindico@condomus.dev", papel: "SINDICO" as const, unidadeId: null },
+    { nome: "Matheus Paulo Oliveira", email: "matheuspo@condomus.dev", papel: "SINDICO" as const, unidadeId: null },
+    { nome: "Gabriel Lopes Ramos", email: "gabriellr@condomus.dev", papel: "MORADOR" as const, unidadeId: unidade.id },
+    { nome: "Nathan Martinez Lazarete", email: "nathanml@condomus.dev", papel: "PORTEIRO" as const, unidadeId: null },
   ];
   for (const u of usuarios) {
     await prisma.usuario.upsert({ where: { email: u.email }, update: {}, create: { ...u, senhaHash } });

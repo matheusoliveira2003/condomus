@@ -13,6 +13,7 @@ import { VisitasMoradorScreen } from "./src/screens/VisitasMoradorScreen";
 import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
 import { EncomendasScreen } from "./src/screens/EncomendasScreen";
 import { ReservasScreen } from "./src/screens/ReservasScreen";
+import { CadastrosScreen } from "./src/screens/CadastrosScreen";
 import { cores } from "./src/ui/tema";
 
 interface Aba {
@@ -36,7 +37,13 @@ const abasPorPapel: Record<Papel, Aba[]> = {
     reservas,
   ],
   PORTEIRO: [portaria, encomendas, avisos],
-  SINDICO: [avisos, portaria, encomendas, reservas],
+  SINDICO: [
+    avisos,
+    portaria,
+    encomendas,
+    reservas,
+    { nome: "Cadastros", titulo: "Cadastros", icone: "people-outline", tela: CadastrosScreen },
+  ],
 };
 
 const Tab = createBottomTabNavigator();

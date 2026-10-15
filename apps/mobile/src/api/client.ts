@@ -30,7 +30,11 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
   if (resposta.status === 204) return undefined as T;
   const corpo = await resposta.json();
   if (resposta.status === 401 && token) aoExpirarSessao?.();
-  if (!resposta.ok) throw new Error(corpo.erro ?? "Erro inesperado");
+  if (!resposta.ok) {
+    // Erros de validação trazem o motivo por campo; mostra o primeiro.
+    const detalhe = corpo.detalhes && (Object.values(corpo.detalhes) as string[][]).flat()[0];
+    throw new Error(detalhe ?? corpo.erro ?? "Erro inesperado");
+  }
   return corpo as T;
 }
 
@@ -50,6 +54,19 @@ export interface Unidade {
   id: string;
   bloco: string;
   numero: string;
+}
+
+export interface UnidadeComMoradores extends Unidade {
+  _count: { moradores: number };
+}
+
+export interface UsuarioCadastro {
+  id: string;
+  nome: string;
+  email: string;
+  papel: Papel;
+  ativo: boolean;
+  unidade: Unidade | null;
 }
 
 export interface Aviso {

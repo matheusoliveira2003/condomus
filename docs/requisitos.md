@@ -34,6 +34,11 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 - **RF13** — O morador reserva uma área em um intervalo de horário futuro, sem conflito com outra reserva.
 - **RF14** — O morador cancela reservas da sua unidade; o síndico cancela qualquer reserva.
 
+### Cadastros
+- **RF15** — O síndico cadastra unidades (bloco e número, sem duplicidade).
+- **RF16** — O síndico cadastra moradores (vinculados a uma unidade) e funcionários (porteiro ou síndico), definindo a senha inicial.
+- **RF17** — O síndico desativa e reativa contas; uma conta desativada perde o acesso imediatamente. Não há exclusão, para preservar o histórico.
+
 ## Requisitos não funcionais
 - **RNF01** — Autenticação por e-mail e senha, com token JWT (validade de 8h) e senhas armazenadas com bcrypt.
 - **RNF02** — Toda rota, exceto login, exige autenticação; o acesso é restrito por perfil.
@@ -58,6 +63,9 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 | `GET /avisos`                     | ✔              | ✔        | ✔       |
 | `POST /avisos`, `DELETE /avisos/:id` |             |          | ✔       |
 | `GET /unidades`                   |                | ✔        | ✔       |
+| `POST /unidades`                  |                |          | ✔       |
+| `GET /usuarios`, `POST /usuarios` |                |          | ✔       |
+| `PATCH /usuarios/:id/ativo`       |                |          | ✔       |
 | `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
 | `POST /reservas`                  | ✔              |          |         |
 | `PATCH /reservas/:id/cancelar`    | própria unidade|          | ✔       |
@@ -82,7 +90,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 ## Limitações conhecidas / próximos passos
 - Verificação de conflito de reservas sem bloqueio transacional (duas requisições simultâneas podem passar).
 - Notificações push de encomendas (RF09) ainda não implementadas.
-- Cadastro de unidades e usuários pelo síndico (hoje apenas via seed).
+- Troca de senha pelo próprio usuário (hoje a senha inicial é definida pelo síndico).
 
 ## Telas do aplicativo
 
@@ -90,6 +98,6 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 |----------|------|
 | Morador  | Avisos · Meus visitantes · Encomendas · Reservas |
 | Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
-| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (cancelar) |
+| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (cancelar) · Cadastros |
 
 A sessão fica salva no aparelho (`expo-secure-store`) e é encerrada automaticamente quando o token expira.

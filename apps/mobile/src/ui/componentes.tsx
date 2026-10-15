@@ -78,31 +78,38 @@ export function Selo({ texto, tom = "neutro" }: { texto: string; tom?: "neutro" 
   );
 }
 
-/** Lista horizontal de opções em que uma pode ser selecionada. */
+/**
+ * Opções em que uma pode ser selecionada. Por padrão rolam na horizontal;
+ * com `grade`, quebram em linhas para mostrar todas de uma vez.
+ */
 export function Chips<T extends string>({
   opcoes,
   valor,
   onChange,
+  grade,
 }: {
   opcoes: { valor: T; rotulo: string; desabilitado?: boolean }[];
   valor: T | null;
   onChange: (valor: T) => void;
+  grade?: boolean;
 }) {
+  const itens = opcoes.map((o) => {
+    const ativo = o.valor === valor;
+    return (
+      <Pressable
+        key={o.valor}
+        disabled={o.desabilitado}
+        onPress={() => onChange(o.valor)}
+        style={[styles.chip, ativo && styles.chipAtivo, o.desabilitado && { opacity: 0.35 }]}
+      >
+        <Text style={[styles.chipTexto, ativo && { color: "#fff" }]}>{o.rotulo}</Text>
+      </Pressable>
+    );
+  });
+  if (grade) return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{itens}</View>;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-      {opcoes.map((o) => {
-        const ativo = o.valor === valor;
-        return (
-          <Pressable
-            key={o.valor}
-            disabled={o.desabilitado}
-            onPress={() => onChange(o.valor)}
-            style={[styles.chip, ativo && styles.chipAtivo, o.desabilitado && { opacity: 0.35 }]}
-          >
-            <Text style={[styles.chipTexto, ativo && { color: "#fff" }]}>{o.rotulo}</Text>
-          </Pressable>
-        );
-      })}
+      {itens}
     </ScrollView>
   );
 }

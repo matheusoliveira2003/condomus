@@ -3,6 +3,7 @@ import jwt from "@fastify/jwt";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Papel } from "@prisma/client";
 import { env } from "../lib/env.js";
+import { prisma } from "../lib/prisma.js";
 import { HttpError, proibido } from "../lib/errors.js";
 
 export interface UsuarioToken {
@@ -34,6 +35,9 @@ export default fp(async (app) => {
     } catch {
       throw new HttpError(401, "Token ausente ou inválido");
     }
+    // Conta desativada pelo síndico perde o acesso imediatamente, mesmo com token válido.
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub }, select: { ativo: true } });
+    if (!usuario?.ativo) throw new HttpError(401, "Conta desativada");
     if (papeis.length > 0 && !papeis.includes(req.user.papel)) throw proibido();
   });
 });

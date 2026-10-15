@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { ZodError, z } from "zod";
+import { Prisma } from "@prisma/client";
 import { HttpError } from "./lib/errors.js";
 import auth from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/routes.js";
@@ -9,6 +10,10 @@ import { encomendasRoutes } from "./modules/encomendas/routes.js";
 import { avisosRoutes } from "./modules/avisos/routes.js";
 import { reservasRoutes } from "./modules/reservas/routes.js";
 import { unidadesRoutes } from "./modules/unidades/routes.js";
+import { usuariosRoutes } from "./modules/usuarios/routes.js";
+
+// Mensagens de validação em português.
+z.config(z.locales.ptBR());
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
@@ -19,6 +24,10 @@ export async function buildApp() {
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ZodError) {
       return reply.status(400).send({ erro: "Dados inválidos", detalhes: z.flattenError(err).fieldErrors });
+    }
+    // Violação de campo único (ex.: e-mail ou unidade já cadastrados).
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return reply.status(409).send({ erro: "Já existe um cadastro com esses dados" });
     }
     if (err instanceof HttpError) {
       return reply.status(err.statusCode).send({ erro: err.message });
@@ -34,6 +43,7 @@ export async function buildApp() {
   await app.register(avisosRoutes);
   await app.register(reservasRoutes);
   await app.register(unidadesRoutes);
+  await app.register(usuariosRoutes);
 
   return app;
 }
