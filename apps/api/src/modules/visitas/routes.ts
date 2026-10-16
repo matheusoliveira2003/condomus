@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { notificarUnidade } from "../../lib/push.js";
+import { gerarCodigo, normalizarCodigo } from "../../lib/codigo.js";
+import { gerarCartaoConvite } from "../../lib/cartaoConvite.js";
 
 const agendarSchema = z.object({
   nomeVisitante: z.string().min(2),
@@ -41,6 +43,8 @@ export async function visitasRoutes(app: FastifyInstance) {
       },
       // Morador que autorizou, com a versão da foto: a portaria mostra o rosto de quem liberou a visita.
       include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
+      // O código do convite é do morador; a portaria registra a entrada pela leitura, não pela lista.
+      omit: { codigoAcesso: papel !== "MORADOR" },
       orderBy: { criadoEm: "desc" },
       take: limite,
     });
@@ -49,7 +53,7 @@ export async function visitasRoutes(app: FastifyInstance) {
   app.post("/visitas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
     const dados = agendarSchema.parse(req.body);
     const visita = await prisma.visita.create({
-      data: { ...dados, unidadeId: req.user.unidadeId!, autorizadoPorId: req.user.sub },
+      data: { ...dados, unidadeId: req.user.unidadeId!, autorizadoPorId: req.user.sub, codigoAcesso: await codigoLivre() },
     });
     return reply.status(201).send(visita);
   });
@@ -86,6 +90,52 @@ export async function visitasRoutes(app: FastifyInstance) {
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível cancelar visitas agendadas");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "CANCELADA" } });
   });
+
+  // Convite do visitante: código (para digitar) e QR code em PNG (para compartilhar).
+  app.get("/visitas/:id/convite", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+    const visita = await conviteDoMorador(req.params, req.user.unidadeId);
+    return { codigo: visita.codigoAcesso, nomeVisitante: visita.nomeVisitante };
+  });
+
+  app.get("/visitas/:id/convite.png", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+    const visita = await conviteDoMorador(req.params, req.user.unidadeId);
+    const png = await gerarCartaoConvite({
+      codigo: visita.codigoAcesso!,
+      nomeVisitante: visita.nomeVisitante,
+      dataPrevista: visita.dataPrevista,
+    });
+    return reply.header("Content-Type", "image/png").header("Cache-Control", "private, no-store").send(png);
+  });
+
+  // Portaria lê o QR code (ou digita o código) e vê os dados da visita antes de liberar.
+  app.get("/visitas/codigo/:codigo", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+    const { codigo } = z.object({ codigo: z.string().min(1) }).parse(req.params);
+    const visita = await prisma.visita.findUnique({
+      where: { codigoAcesso: normalizarCodigo(codigo) },
+      include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
+      omit: { codigoAcesso: true },
+    });
+    if (!visita) throw naoEncontrado("Convite");
+    return visita;
+  });
+}
+
+/** Visita agendada da unidade do morador, garantindo que tenha código (visitas antigas não tinham). */
+async function conviteDoMorador(params: unknown, unidadeId: string | null) {
+  const visita = await buscar(params);
+  if (visita.unidadeId !== unidadeId) throw proibido();
+  if (visita.status !== "AGENDADA") throw new HttpError(409, "O convite só vale para visitas agendadas");
+  if (visita.codigoAcesso) return visita;
+  return prisma.visita.update({ where: { id: visita.id }, data: { codigoAcesso: await codigoLivre() } });
+}
+
+/** Gera um código que ainda não está em uso (colisão é rara, mas possível). */
+async function codigoLivre() {
+  for (let tentativa = 0; tentativa < 5; tentativa++) {
+    const codigo = gerarCodigo();
+    if (!(await prisma.visita.findUnique({ where: { codigoAcesso: codigo }, select: { id: true } }))) return codigo;
+  }
+  throw new HttpError(500, "Não foi possível gerar o código do convite");
 }
 
 function avisarChegada(unidadeId: string, nomeVisitante: string) {

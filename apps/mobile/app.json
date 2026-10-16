@@ -43,6 +43,13 @@
           "cameraPermission": "O Condomus usa a câmera para você tirar uma foto de perfil.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Condomus usa a câmera para ler o QR code dos visitantes e para fotos de perfil.",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "scheme": "condomus",

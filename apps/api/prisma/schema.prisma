@@ -93,6 +93,8 @@ model Visita {
   saidaEm          DateTime?
   observacao       String?
   criadoEm         DateTime     @default(now())
+  /// Código do convite (QR code) que o visitante apresenta na portaria; só vale enquanto AGENDADA.
+  codigoAcesso     String?      @unique
 
   unidadeId        String
   unidade          Unidade      @relation(fields: [unidadeId], references: [id])

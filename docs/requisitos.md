@@ -12,8 +12,9 @@
 
 ### Visitantes
 - **RF01** — O morador pré-autoriza um visitante (nome, documento, placa, data prevista).
+- **RF01a** — Ao autorizar, o morador recebe um convite (cartão em imagem com o nome do visitante, a data, o QR code, o código de 6 caracteres e as instruções), que pode compartilhar com o visitante (WhatsApp etc.). Por privacidade, o cartão não mostra a unidade nem o nome do morador. O código é aleatório e só vale enquanto a visita estiver agendada.
 - **RF02** — O morador lista e cancela visitas agendadas da sua unidade.
-- **RF03** — A portaria registra a entrada de um visitante pré-autorizado.
+- **RF03** — A portaria registra a entrada de um visitante pré-autorizado, lendo o QR code do convite com a câmera (ou digitando o código) e conferindo os dados e a foto de quem autorizou. Convites já usados ou cancelados são recusados.
 - **RF04** — A portaria registra a entrada de um visitante sem pré-autorização, informando a unidade.
 - **RF05** — A portaria registra a saída do visitante.
 - **RF05a** — Os moradores da unidade recebem uma notificação push quando a entrada de um visitante é registrada; tocar nela abre a aba Visitas.
@@ -71,6 +72,8 @@ Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e
 | `PATCH /visitas/:id/entrada`      |                | ✔        | ✔       |
 | `PATCH /visitas/:id/saida`        |                | ✔        | ✔       |
 | `PATCH /visitas/:id/cancelar`     | própria unidade|          |         |
+| `GET /visitas/:id/convite`, `/convite.png` | própria unidade |  |         |
+| `GET /visitas/codigo/:codigo`     |                | ✔        | ✔       |
 | `GET /encomendas`                 | própria unidade| todas    | todas   |
 | `POST /encomendas`                |                | ✔        | ✔       |
 | `PATCH /encomendas/:id/retirada`  |                | ✔        | ✔       |

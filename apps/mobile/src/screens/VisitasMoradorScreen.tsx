@@ -1,6 +1,8 @@
-import { useCallback, useState, type ReactNode } from "react";
-import { Alert, Text, View } from "react-native";
-import { api, enviar, type Visita } from "../api/client";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Alert, Image, StyleSheet, Text, View } from "react-native";
+import { api, enviar, obterToken, type Visita } from "../api/client";
+import { compartilharConvite, urlQrConvite } from "../convite";
+import { cores } from "../ui/tema";
 import { useCarregar } from "../hooks/useCarregar";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
@@ -23,6 +25,7 @@ export function VisitasMoradorScreen() {
   const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Visita[]>("/visitas?situacao=ativas"), []), []);
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
+  const [convite, setConvite] = useState<Visita | null>(null);
   useAbrirPorParametro("novo", useCallback(() => setAgendando(true), []));
 
   function cancelar(visita: Visita) {
@@ -49,7 +52,14 @@ export function VisitasMoradorScreen() {
         renderItem={(visita) => (
           <CardVisita visita={visita}>
             {visita.status === "AGENDADA" && (
-              <Botao titulo="Cancelar autorização" variante="secundario" pequeno onPress={() => cancelar(visita)} />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Botao titulo="Cancelar" variante="secundario" pequeno onPress={() => cancelar(visita)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Botao titulo="Enviar convite" pequeno onPress={() => setConvite(visita)} />
+                </View>
+              </View>
             )}
           </CardVisita>
         )}
@@ -61,11 +71,14 @@ export function VisitasMoradorScreen() {
       <AgendarVisitaModal
         visivel={agendando}
         onFechar={() => setAgendando(false)}
-        onCriada={() => {
+        onCriada={(visita) => {
           setAgendando(false);
           void recarregar();
+          // Logo após autorizar, o convite já abre para ser enviado ao visitante.
+          setConvite(visita);
         }}
       />
+      <ConviteModal visita={convite} onFechar={() => setConvite(null)} />
     </View>
   );
 }
@@ -104,9 +117,68 @@ function HistoricoVisitas() {
   );
 }
 
+/** QR code e código do convite, com o botão para compartilhar a imagem com o visitante. */
+function ConviteModal({ visita, onFechar }: { visita: Visita | null; onFechar: () => void }) {
+  const [codigo, setCodigo] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [compartilhando, setCompartilhando] = useState(false);
+
+  useEffect(() => {
+    setCodigo(null);
+    setErro(null);
+    if (visita)
+      api<{ codigo: string }>(`/visitas/${visita.id}/convite`)
+        .then((c) => setCodigo(c.codigo))
+        .catch((e: Error) => setErro(e.message));
+  }, [visita]);
+
+  async function compartilhar() {
+    if (!visita) return;
+    setCompartilhando(true);
+    try {
+      await compartilharConvite(visita.id, visita.nomeVisitante);
+    } catch (e) {
+      Alert.alert("Compartilhar convite", (e as Error).message);
+    } finally {
+      setCompartilhando(false);
+    }
+  }
+
+  return (
+    <ModalFormulario visivel={!!visita} titulo="Convite de visita" onFechar={onFechar}>
+      {visita && (
+        <Text style={estilosTexto.corpo}>
+          Envie este convite para <Text style={{ fontWeight: "700" }}>{visita.nomeVisitante}</Text>. Na portaria, basta mostrá-lo
+          no celular. O cartão não mostra sua unidade nem seu nome.
+        </Text>
+      )}
+      <MensagemErro texto={erro} />
+      {visita && codigo && (
+        <>
+          {/* Prévia do cartão exatamente como o visitante vai recebê-lo (proporção 4:5). */}
+          <View style={styles.cartao}>
+            {/* Fonte em lista: no Android, uma fonte única descarta o cabeçalho de login. */}
+            <Image
+              source={[{ uri: `${urlQrConvite(visita.id)}?c=${codigo}`, headers: { Authorization: `Bearer ${obterToken()}` } }]}
+              style={{ width: "100%", aspectRatio: 4 / 5 }}
+              resizeMode="contain"
+              accessibilityLabel={`Convite de ${visita.nomeVisitante} com QR code e código ${codigo}`}
+            />
+          </View>
+          <Botao titulo="Compartilhar convite" onPress={compartilhar} carregando={compartilhando} />
+        </>
+      )}
+    </ModalFormulario>
+  );
+}
+
+const styles = StyleSheet.create({
+  cartao: { width: "80%", alignSelf: "center", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: cores.borda },
+});
+
 const SEM_DATA = "sem-data";
 
-function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: () => void }) {
+function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: (visita: Visita) => void }) {
   const [nome, setNome] = useState("");
   const [documento, setDocumento] = useState("");
   const [placa, setPlaca] = useState("");
@@ -118,7 +190,7 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
     setSalvando(true);
     setErro(null);
     try {
-      await enviar("POST", "/visitas", {
+      const visita = await enviar<Visita>("POST", "/visitas", {
         nomeVisitante: nome.trim(),
         documento: documento.trim() || undefined,
         placaVeiculo: placa.trim().toUpperCase() || undefined,
@@ -128,7 +200,7 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
       setDocumento("");
       setPlaca("");
       setDia(SEM_DATA);
-      onCriada();
+      onCriada(visita);
     } catch (e) {
       setErro((e as Error).message);
     } finally {

@@ -7,6 +7,7 @@ import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
+import { LeitorConviteModal } from "./LeitorConviteModal";
 
 const abas: { valor: StatusVisita; rotulo: string }[] = [
   { valor: "AGENDADA", rotulo: "Esperados" },
@@ -18,6 +19,7 @@ export function PortariaVisitasScreen() {
   const [status, setStatus] = useState<StatusVisita>("AGENDADA");
   const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState(false);
+  const [lendo, setLendo] = useState(false);
   const { dados, carregando, erro, recarregar } = useCarregar(
     useCallback(() => api<Visita[]>(`/visitas?status=${status}`), [status]),
     [],
@@ -51,6 +53,7 @@ export function PortariaVisitasScreen() {
         erro={erro}
         recarregar={recarregar}
         vazio={busca ? "Nenhum resultado para a busca" : "Nenhum visitante nesta lista"}
+        espacoFinal={168}
         cabecalho={
           <View style={{ gap: 12, marginBottom: 4 }}>
             <Chips opcoes={abas} valor={status} onChange={setStatus} />
@@ -78,7 +81,18 @@ export function PortariaVisitasScreen() {
           </Card>
         )}
       />
-      <BotaoFlutuante icone="person-add" onPress={() => setRegistrando(true)} />
+      <BotaoFlutuante icone="qr-code" posicao={1} rotulo="Ler QR code do convite" onPress={() => setLendo(true)} />
+      <BotaoFlutuante icone="person-add" rotulo="Registrar entrada sem convite" onPress={() => setRegistrando(true)} />
+      <LeitorConviteModal
+        visivel={lendo}
+        onFechar={() => setLendo(false)}
+        onEntrada={() => {
+          setLendo(false);
+          // Mostra a lista de quem está no condomínio, onde o visitante acabou de entrar.
+          if (status === "EM_ANDAMENTO") void recarregar();
+          else setStatus("EM_ANDAMENTO");
+        }}
+      />
       <EntradaDiretaModal
         visivel={registrando}
         onFechar={() => setRegistrando(false)}

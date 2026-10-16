@@ -147,6 +147,7 @@ export function Lista<T extends { id: string }>({
   renderItem,
   vazio,
   cabecalho,
+  espacoFinal = 96,
 }: {
   dados: T[];
   carregando: boolean;
@@ -155,11 +156,14 @@ export function Lista<T extends { id: string }>({
   renderItem: (item: T) => ReactNode;
   vazio: string;
   cabecalho?: ReactNode;
+  /** Espaço livre no fim da lista; 96 cobre um botão flutuante, 168 cobre dois empilhados. */
+  espacoFinal?: number;
 }) {
   return (
     <FlatList
       style={{ backgroundColor: cores.fundo }}
-      contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+      // paddingBottom: os últimos itens não ficam escondidos atrás do(s) botão(ões) flutuante(s).
+      contentContainerStyle={{ padding: 16, paddingBottom: espacoFinal, gap: 12, flexGrow: 1 }}
       data={dados}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <>{renderItem(item)}</>}
@@ -285,9 +289,26 @@ const styles = StyleSheet.create({
 });
 
 /** Botão redondo fixo no canto inferior direito, para a ação principal da tela. */
-export function BotaoFlutuante({ onPress, icone = "add" }: { onPress: () => void; icone?: keyof typeof Ionicons.glyphMap }) {
+export function BotaoFlutuante({
+  onPress,
+  icone = "add",
+  posicao = 0,
+  rotulo,
+}: {
+  onPress: () => void;
+  icone?: keyof typeof Ionicons.glyphMap;
+  /** 0 = canto inferior; 1, 2… empilham acima, para mais de uma ação principal na tela. */
+  posicao?: number;
+  /** Descrição para leitores de tela (o botão só tem ícone). */
+  rotulo?: string;
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [fab.botao, pressed && { opacity: 0.8 }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [fab.botao, { bottom: 20 + posicao * 72 }, pressed && { opacity: 0.8 }]}
+      accessibilityRole="button"
+      accessibilityLabel={rotulo}
+    >
       <Ionicons name={icone} size={28} color="#fff" />
     </Pressable>
   );
