@@ -23,11 +23,13 @@ const glifo = ({ c = BRANCO, casa = AMBAR, porta = MARINHO } = {}) => `
   </g>
   ${porta ? `<rect x="241" y="282" width="30" height="46" rx="5" fill="${porta}"/>` : ""}`;
 
-// Caixa do glifo no espaço 512: x 80–388, y 80–432 (centro óptico ~ x 234).
+// Caixa do glifo no espaço 512: x 80–388, y 80–432.
+// Centraliza pelo centro do círculo do "C" (256), não pela largura da caixa (234): assim a casa
+// fica no meio, como no logo aprovado, e o lado aberto do "C" equilibra o desenho.
 // `escala` = altura do glifo em fração do quadro; recentraliza no meio da imagem.
 const posicionar = (conteudo, escala) => {
   const s = (escala * 512) / 352;
-  const tx = 256 - 234 * s, ty = 256 - 256 * s;
+  const tx = 256 - 256 * s, ty = 256 - 256 * s;
   return `<g transform="translate(${tx} ${ty}) scale(${s})">${conteudo}</g>`;
 };
 
