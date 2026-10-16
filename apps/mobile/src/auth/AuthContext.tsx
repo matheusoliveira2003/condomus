@@ -11,6 +11,8 @@ interface AuthContextValue {
   restaurando: boolean;
   entrar: (email: string, senha: string) => Promise<void>;
   sair: () => Promise<void>;
+  /** Atualiza a versão da foto após enviar ou remover, para os avatares recarregarem. */
+  definirFoto: (fotoAtualizadaEm: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,7 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       definirToken(salvo);
       try {
         const eu = await api<Usuario & { unidade: { id: string } | null }>("/auth/me");
-        setUsuario({ id: eu.id, nome: eu.nome, papel: eu.papel, unidadeId: eu.unidade?.id ?? null });
+        setUsuario({
+          id: eu.id,
+          nome: eu.nome,
+          papel: eu.papel,
+          unidadeId: eu.unidade?.id ?? null,
+          fotoAtualizadaEm: eu.fotoAtualizadaEm,
+        });
       } catch {
         await sair();
       }
@@ -69,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(usuario);
   }
 
-  return <AuthContext.Provider value={{ usuario, restaurando, entrar, sair }}>{children}</AuthContext.Provider>;
+  const definirFoto = useCallback((fotoAtualizadaEm: string | null) => {
+    setUsuario((atual) => (atual ? { ...atual, fotoAtualizadaEm } : atual));
+  }, []);
+
+  return <AuthContext.Provider value={{ usuario, restaurando, entrar, sair, definirFoto }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

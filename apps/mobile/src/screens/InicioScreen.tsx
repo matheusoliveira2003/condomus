@@ -11,6 +11,7 @@ import { AvisosScreen } from "./AvisosScreen";
 import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { cores } from "../ui/tema";
+import { Avatar } from "../ui/Avatar";
 
 type Icone = keyof typeof Ionicons.glyphMap;
 
@@ -39,14 +40,17 @@ export function InicioScreen() {
       contentContainerStyle={styles.conteudo}
       refreshControl={<RefreshControl refreshing={carregando} onRefresh={recarregar} />}
     >
-      <View style={{ gap: 2 }}>
-        <Text style={styles.saudacao}>
-          {saudacao()}, {primeiroNome}!
-        </Text>
-        <Text style={estilosTexto.secundario}>
-          {resumo ? `${unidadeTexto(resumo.unidade)} · ` : ""}
-          {hoje.charAt(0).toUpperCase() + hoje.slice(1)}
-        </Text>
+      <View style={styles.cabecalho}>
+        {usuario && <Avatar pessoa={usuario} tamanho={52} />}
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.saudacao}>
+            {saudacao()}, {primeiroNome}!
+          </Text>
+          <Text style={estilosTexto.secundario}>
+            {resumo ? `${unidadeTexto(resumo.unidade)} · ` : ""}
+            {hoje.charAt(0).toUpperCase() + hoje.slice(1)}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.atalhos}>
@@ -180,6 +184,7 @@ function Cartao({ icone, titulo, onPress, children }: { icone: Icone; titulo: st
 
 const styles = StyleSheet.create({
   conteudo: { padding: 16, gap: 14 },
+  cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
   saudacao: { fontSize: 24, fontWeight: "700", color: cores.texto },
   atalhos: { flexDirection: "row", gap: 10 },
   atalho: {

@@ -39,7 +39,8 @@ export async function visitasRoutes(app: FastifyInstance) {
         status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
       },
-      include: { unidade: true },
+      // Morador que autorizou, com a versão da foto: a portaria mostra o rosto de quem liberou a visita.
+      include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
       orderBy: { criadoEm: "desc" },
       take: limite,
     });

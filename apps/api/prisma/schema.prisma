@@ -54,6 +54,10 @@ model Usuario {
   papel     Papel
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
+  /// Foto de perfil em JPEG (já reduzida pelo app, ~400x400).
+  foto             Bytes?
+  /// Muda a cada troca de foto; o app usa como versão para não reaproveitar a imagem antiga do cache.
+  fotoAtualizadaEm DateTime?
 
   /// Obrigatório para moradores; nulo para funcionários.
   unidadeId String?

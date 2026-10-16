@@ -1,5 +1,5 @@
 // No celular físico, use o IP da sua máquina na rede local (ex.: http://192.168.0.10:3333).
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3333";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3333";
 
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
 const TEMPO_LIMITE_MS = 15000;
@@ -10,6 +10,9 @@ let aoExpirarSessao: (() => void) | null = null;
 export function definirToken(novo: string | null) {
   token = novo;
 }
+
+/** Token atual, para requisições feitas fora de `api()` (ex.: imagens com cabeçalho). */
+export const obterToken = () => token;
 
 /** Chamado quando a API responde 401 (token expirado ou inválido). */
 export function definirAoExpirarSessao(callback: (() => void) | null) {
@@ -56,6 +59,15 @@ export interface Usuario {
   nome: string;
   papel: Papel;
   unidadeId: string | null;
+  /** Versão da foto de perfil (data da última troca); null quando não há foto. */
+  fotoAtualizadaEm: string | null;
+}
+
+/** Dados mínimos para exibir o avatar de alguém. */
+export interface Pessoa {
+  id: string;
+  nome: string;
+  fotoAtualizadaEm: string | null;
 }
 
 export interface Unidade {
@@ -68,9 +80,7 @@ export interface UnidadeComMoradores extends Unidade {
   _count: { moradores: number };
 }
 
-export interface UsuarioCadastro {
-  id: string;
-  nome: string;
+export interface UsuarioCadastro extends Pessoa {
   email: string;
   papel: Papel;
   ativo: boolean;
@@ -99,6 +109,8 @@ export interface Visita {
   saidaEm: string | null;
   criadoEm: string;
   unidade: Unidade;
+  /** Morador que pré-autorizou (null quando a portaria registrou direto). */
+  autorizadoPor: Pessoa | null;
 }
 
 export interface Encomenda {

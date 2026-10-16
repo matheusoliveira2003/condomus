@@ -24,13 +24,22 @@ export async function authRoutes(app: FastifyInstance) {
       throw new HttpError(401, "E-mail ou senha inválidos");
     }
     const token = app.jwt.sign({ sub: usuario.id, papel: usuario.papel, unidadeId: usuario.unidadeId });
-    return { token, usuario: { id: usuario.id, nome: usuario.nome, papel: usuario.papel, unidadeId: usuario.unidadeId } };
+    return {
+      token,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        papel: usuario.papel,
+        unidadeId: usuario.unidadeId,
+        fotoAtualizadaEm: usuario.fotoAtualizadaEm,
+      },
+    };
   });
 
   app.get("/auth/me", { preHandler: app.autorizar() }, async (req) => {
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user.sub },
-      select: { id: true, nome: true, email: true, papel: true, unidade: true },
+      select: { id: true, nome: true, email: true, papel: true, unidade: true, fotoAtualizadaEm: true },
     });
     if (!usuario) throw naoEncontrado("Usuário");
     return usuario;

@@ -18,6 +18,7 @@ import { CadastrosScreen } from "./src/screens/CadastrosScreen";
 import { InicioScreen } from "./src/screens/InicioScreen";
 import { MinhaContaModal } from "./src/screens/MinhaContaModal";
 import { cores } from "./src/ui/tema";
+import { Avatar } from "./src/ui/Avatar";
 import { useAbrirAbaDaNotificacao } from "./src/notificacoes";
 
 interface Aba {
@@ -88,8 +89,14 @@ function Navegacao() {
           tabBarActiveTintColor: cores.primaria,
         tabBarInactiveTintColor: cores.textoSecundario,
           headerRight: () => (
-            <Pressable onPress={() => setContaAberta(true)} hitSlop={12} style={{ marginRight: 16 }}>
-              <Ionicons name="person-circle-outline" size={28} color={cores.texto} />
+            <Pressable
+              onPress={() => setContaAberta(true)}
+              hitSlop={12}
+              style={{ marginRight: 16 }}
+              accessibilityRole="button"
+              accessibilityLabel="Minha conta"
+            >
+              <Avatar pessoa={usuario} tamanho={32} />
             </Pressable>
           ),
         }}

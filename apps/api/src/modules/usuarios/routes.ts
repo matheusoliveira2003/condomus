@@ -22,7 +22,7 @@ const ativoSchema = z.object({ ativo: z.boolean() });
 const idParam = z.object({ id: z.uuid() });
 
 /** Campos devolvidos ao app — nunca expõe o hash da senha. */
-const publico = { id: true, nome: true, email: true, papel: true, ativo: true, unidade: true } as const;
+const publico = { id: true, nome: true, email: true, papel: true, ativo: true, unidade: true, fotoAtualizadaEm: true } as const;
 
 export async function usuariosRoutes(app: FastifyInstance) {
   app.get("/usuarios", { preHandler: app.autorizar("SINDICO") }, async (req) => {

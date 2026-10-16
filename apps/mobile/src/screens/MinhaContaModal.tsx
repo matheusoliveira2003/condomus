@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api, enviar, type Papel, type Unidade } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
+import { Avatar } from "../ui/Avatar";
+import { escolherFoto, type OrigemFoto } from "../foto";
 import { cores } from "../ui/tema";
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
@@ -42,9 +44,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
     <ModalFormulario visivel={visivel} titulo="Minha conta" onFechar={onFechar}>
       {perfil && (
         <View style={styles.perfil}>
-          <View style={styles.avatar}>
-            <Text style={styles.iniciais}>{iniciais(perfil.nome)}</Text>
-          </View>
+          <FotoDePerfil />
           <Text style={[estilosTexto.titulo, { fontSize: 18 }]}>{perfil.nome}</Text>
           <Text style={estilosTexto.secundario}>{perfil.email}</Text>
           <Text style={estilosTexto.corpo}>
@@ -56,6 +56,73 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
       <TrocarSenha />
       <Botao titulo="Sair da conta" variante="perigo" onPress={confirmarSaida} />
     </ModalFormulario>
+  );
+}
+
+/** Avatar grande; tocar mostra as opções de galeria, câmera e remover. */
+function FotoDePerfil() {
+  const { usuario, definirFoto } = useAuth();
+  const [opcoesAbertas, setOpcoesAbertas] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  if (!usuario) return null;
+
+  async function trocar(origem: OrigemFoto) {
+    setOpcoesAbertas(false);
+    try {
+      const imagem = await escolherFoto(origem);
+      if (!imagem) return;
+      setEnviando(true);
+      const { fotoAtualizadaEm } = await enviar<{ fotoAtualizadaEm: string }>("PUT", "/auth/foto", { imagem });
+      definirFoto(fotoAtualizadaEm);
+    } catch (e) {
+      Alert.alert("Foto de perfil", (e as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  function remover() {
+    setOpcoesAbertas(false);
+    Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Remover",
+        style: "destructive",
+        onPress: () =>
+          enviar("DELETE", "/auth/foto")
+            .then(() => definirFoto(null))
+            .catch((e: Error) => Alert.alert("Erro", e.message)),
+      },
+    ]);
+  }
+
+  return (
+    <View style={styles.fotoArea}>
+      <Pressable
+        onPress={() => setOpcoesAbertas((v) => !v)}
+        disabled={enviando}
+        accessibilityRole="button"
+        accessibilityLabel="Alterar foto de perfil"
+      >
+        <Avatar pessoa={usuario} tamanho={96} />
+        {enviando ? (
+          <View style={styles.carregandoFoto}>
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : (
+          <View style={styles.selo}>
+            <Ionicons name="camera" size={16} color="#fff" />
+          </View>
+        )}
+      </Pressable>
+      {opcoesAbertas && (
+        <View style={styles.opcoesFoto}>
+          <Botao titulo="Galeria" variante="secundario" pequeno onPress={() => trocar("galeria")} />
+          <Botao titulo="Câmera" variante="secundario" pequeno onPress={() => trocar("camera")} />
+          {usuario.fotoAtualizadaEm && <Botao titulo="Remover" variante="secundario" pequeno onPress={remover} />}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -103,22 +170,30 @@ function TrocarSenha() {
   );
 }
 
-const iniciais = (nome: string) => {
-  const partes = nome.trim().split(/\s+/);
-  return (partes[0][0] + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
-};
 
 const styles = StyleSheet.create({
   perfil: { alignItems: "center", gap: 4, paddingVertical: 8 },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: cores.primaria,
+  fotoArea: { alignItems: "center", gap: 10, marginBottom: 8 },
+  carregandoFoto: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 48,
+    backgroundColor: "rgba(15, 27, 45, 0.45)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
   },
-  iniciais: { color: "#fff", fontSize: 26, fontWeight: "700" },
+  selo: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: cores.primaria,
+    borderWidth: 2,
+    borderColor: cores.superficie,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  opcoesFoto: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
   sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
 });

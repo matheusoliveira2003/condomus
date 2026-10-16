@@ -35,6 +35,14 @@
           "imageWidth": 200,
           "backgroundColor": "#1E3A5F"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Condomus acessa suas fotos para você escolher uma foto de perfil.",
+          "cameraPermission": "O Condomus usa a câmera para você tirar uma foto de perfil.",
+          "microphonePermission": false
+        }
       ]
     ],
     "scheme": "condomus",

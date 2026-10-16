@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
-import { Alert, Text, View } from "react-native";
-import { api, enviar, type Encomenda } from "../api/client";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { api, enviar, type Encomenda, type Pessoa } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCarregar } from "../hooks/useCarregar";
 import {
@@ -19,6 +20,8 @@ import {
 } from "../ui/componentes";
 import { dataHora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
+import { Avatar } from "../ui/Avatar";
+import { cores } from "../ui/tema";
 
 type Filtro = Encomenda["status"];
 
@@ -164,6 +167,13 @@ function NovaEncomendaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
 function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomenda | null; onFechar: () => void; onRetirada: () => void }) {
   const [nome, setNome] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [moradores, setMoradores] = useState<Pessoa[]>([]);
+
+  // Moradores da unidade, com foto, para o porteiro reconhecer quem veio buscar.
+  useEffect(() => {
+    setMoradores([]);
+    if (encomenda) api<Pessoa[]>(`/unidades/${encomenda.unidade.id}/moradores`).then(setMoradores).catch(() => {});
+  }, [encomenda]);
 
   async function confirmar() {
     if (!encomenda) return;
@@ -186,8 +196,41 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
           {encomenda.descricao} — {unidadeTexto(encomenda.unidade)}
         </Text>
       )}
+      {moradores.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={estilosTexto.titulo}>Moradores da unidade</Text>
+          {moradores.map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => setNome(m.nome)}
+              style={[styles.morador, nome === m.nome && styles.moradorSelecionado]}
+              accessibilityRole="button"
+              accessibilityLabel={`Retirada por ${m.nome}`}
+            >
+              <Avatar pessoa={m} tamanho={44} />
+              <Text style={[estilosTexto.corpo, { flex: 1 }]}>{m.nome}</Text>
+              {nome === m.nome && <Ionicons name="checkmark-circle" size={22} color={cores.primaria} />}
+            </Pressable>
+          ))}
+          <Text style={estilosTexto.secundario}>Toque em quem está retirando, ou digite outro nome abaixo.</Text>
+        </View>
+      )}
       <Campo rotulo="Retirada por" value={nome} onChangeText={setNome} placeholder="Nome de quem retirou" />
       <Botao titulo="Confirmar retirada" onPress={confirmar} carregando={salvando} desabilitado={nome.trim().length < 2} />
     </ModalFormulario>
   );
 }
+
+const styles = StyleSheet.create({
+  morador: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    backgroundColor: cores.superficie,
+  },
+  moradorSelecionado: { borderColor: cores.primaria, backgroundColor: cores.primariaClara },
+});

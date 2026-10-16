@@ -6,6 +6,7 @@ import { useCarregar } from "../hooks/useCarregar";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
+import { Avatar } from "../ui/Avatar";
 
 type Aba = "moradores" | "funcionarios" | "unidades";
 
@@ -82,7 +83,10 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
       vazio={aba === "moradores" ? "Nenhum morador cadastrado" : "Nenhum funcionário cadastrado"}
       renderItem={(u) => (
         <Card>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <View style={!u.ativo && { opacity: 0.5 }}>
+              <Avatar pessoa={u} tamanho={40} />
+            </View>
             <Text style={[estilosTexto.titulo, { flex: 1 }, !u.ativo && { opacity: 0.5 }]}>{u.nome}</Text>
             {u.ativo ? <Selo texto={rotuloPapel[u.papel]} tom="primario" /> : <Selo texto="Desativado" />}
           </View>

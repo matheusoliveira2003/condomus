@@ -5,6 +5,7 @@ import { useCarregar } from "../hooks/useCarregar";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
+import { Avatar } from "../ui/Avatar";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
 
 const abas: { valor: StatusVisita; rotulo: string }[] = [
@@ -64,6 +65,12 @@ export function PortariaVisitasScreen() {
             </View>
             <Text style={estilosTexto.corpo}>{unidadeTexto(visita.unidade)}</Text>
             <DetalhesVisita visita={visita} />
+            {visita.autorizadoPor && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Avatar pessoa={visita.autorizadoPor} tamanho={28} />
+                <Text style={estilosTexto.secundario}>Autorizado por {visita.autorizadoPor.nome}</Text>
+              </View>
+            )}
             {visita.status === "AGENDADA" && <Botao titulo="Registrar entrada" pequeno onPress={() => registrar(visita, "entrada")} />}
             {visita.status === "EM_ANDAMENTO" && (
               <Botao titulo="Registrar saída" variante="secundario" pequeno onPress={() => registrar(visita, "saida")} />
