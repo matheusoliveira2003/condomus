@@ -5,6 +5,7 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import type * as ExpoNotifications from "expo-notifications";
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
+import type { Papel } from "./api/client";
 
 /** Mesmo id usado pela API ao enviar (campo channelId). */
 const CANAL_ANDROID = "padrao";
@@ -60,8 +61,15 @@ export async function obterTokenPush(): Promise<string | null> {
   }
 }
 
-/** Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas"). */
-export function useAbrirAbaDaNotificacao(navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>, ativo: boolean) {
+/**
+ * Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas").
+ * O morador não tem aba Avisos: nesse caso abre o Início com a lista de avisos aberta.
+ */
+export function useAbrirAbaDaNotificacao(
+  navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>,
+  ativo: boolean,
+  papel: Papel | undefined,
+) {
   useEffect(() => {
     if (!ativo || !Notifications) return;
 
@@ -69,7 +77,12 @@ export function useAbrirAbaDaNotificacao(navegacao: NavigationContainerRefWithCu
       const aba = resposta?.notification.request.content.data?.aba;
       if (typeof aba !== "string") return;
       // Logo após o login as abas ainda estão montando; tenta de novo em instantes.
-      if (navegacao.isReady()) navegacao.navigate(aba as never);
+      if (navegacao.isReady()) {
+        // As rotas não são tipadas (as abas variam por perfil), daí a conversão.
+        const ir = navegacao.navigate as unknown as (rota: string, params?: object) => void;
+        if (aba === "Avisos" && papel === "MORADOR") ir("Início", { verAvisos: true });
+        else ir(aba);
+      }
       else if (tentativas > 0) setTimeout(() => abrir(resposta, tentativas - 1), 100);
     };
 
@@ -79,5 +92,5 @@ export function useAbrirAbaDaNotificacao(navegacao: NavigationContainerRefWithCu
 
     const assinatura = Notifications.addNotificationResponseReceivedListener((r) => abrir(r));
     return () => assinatura.remove();
-  }, [navegacao, ativo]);
+  }, [navegacao, ativo, papel]);
 }

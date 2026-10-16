@@ -28,7 +28,7 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 
 ### Avisos
 - **RF10** — O síndico publica e remove avisos, podendo fixá-los no topo.
-- **RF11** — Todos os usuários visualizam o mural de avisos.
+- **RF11** — Todos os usuários visualizam o mural de avisos e recebem uma notificação push quando um aviso é publicado (exceto o autor).
 
 ### Reservas de áreas comuns
 - **RF12** — Todos visualizam as áreas e as reservas confirmadas (disponibilidade).
@@ -39,7 +39,7 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e confirmadas podem ir para `CANCELADA`.
 
 ### Tela inicial do morador
-- **RF19** — Ao abrir o app, o morador vê um resumo da unidade: encomendas aguardando retirada, visitantes no condomínio e esperados hoje, a próxima reserva (com a situação) e o último aviso. Atalhos abrem direto os formulários de autorizar visitante e de reservar área.
+- **RF19** — Ao abrir o app, o morador vê um resumo da unidade: encomendas aguardando retirada, visitantes no condomínio e esperados hoje, a próxima reserva (com a situação) e os 3 avisos mais recentes, com acesso à lista completa. Atalhos abrem direto os formulários de autorizar visitante e de reservar área.
 
 ### Cadastros
 - **RF15** — O síndico cadastra unidades (bloco e número, sem duplicidade).
@@ -110,7 +110,7 @@ O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/s
 
 | Perfil   | Abas |
 |----------|------|
-| Morador  | Início (resumo e atalhos) · Meus visitantes (em aberto + histórico) · Encomendas (na portaria + histórico de retiradas) · Reservas · Avisos |
+| Morador  | Início (resumo, atalhos e avisos) · Meus visitantes (em aberto + histórico) · Encomendas (na portaria + histórico de retiradas) · Reservas |
 | Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
 | Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (aprovar, recusar e cancelar) · Cadastros |
 

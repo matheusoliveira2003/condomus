@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,7 +39,7 @@ const abasPorPapel: Record<Papel, Aba[]> = {
     { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorScreen },
     encomendas,
     reservas,
-    avisos,
+    // Sem aba Avisos: os avisos ficam no Início (resumo + "Ver todos").
   ],
   PORTEIRO: [portaria, encomendas, avisos],
   SINDICO: [
@@ -51,13 +51,26 @@ const abasPorPapel: Record<Papel, Aba[]> = {
   ],
 };
 
+/** Cabeçalho, barra de abas e fundo das telas seguem a paleta do app. */
+const temaNavegacao: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: cores.primaria,
+    background: cores.fundo,
+    card: cores.superficie,
+    text: cores.texto,
+    border: cores.borda,
+  },
+};
+
 const Tab = createBottomTabNavigator();
 const navegacao = createNavigationContainerRef();
 
 function Navegacao() {
   const { usuario, restaurando } = useAuth();
   const [contaAberta, setContaAberta] = useState(false);
-  useAbrirAbaDaNotificacao(navegacao, !!usuario);
+  useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
   if (restaurando) {
     return (
@@ -73,6 +86,7 @@ function Navegacao() {
       <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: cores.primaria,
+        tabBarInactiveTintColor: cores.textoSecundario,
           headerRight: () => (
             <Pressable onPress={() => setContaAberta(true)} hitSlop={12} style={{ marginRight: 16 }}>
               <Ionicons name="person-circle-outline" size={28} color={cores.texto} />
@@ -102,7 +116,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer ref={navegacao}>
+        <NavigationContainer ref={navegacao} theme={temaNavegacao}>
           <Navegacao />
         </NavigationContainer>
       </AuthProvider>

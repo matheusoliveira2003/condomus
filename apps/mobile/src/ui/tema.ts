@@ -1,15 +1,20 @@
+/**
+ * Paleta azul-marinho. Todas as combinações de texto/fundo usadas no app têm
+ * contraste de pelo menos 4,5:1 (mínimo WCAG AA para texto comum).
+ * Verde, âmbar e vermelho ficam reservados para status (sucesso, aguardando, perigo).
+ */
 export const cores = {
-  primaria: "#2563eb",
-  primariaClara: "#dbeafe",
-  fundo: "#f8fafc",
-  superficie: "#ffffff",
-  borda: "#e2e8f0",
-  texto: "#0f172a",
-  textoSecundario: "#64748b",
-  perigo: "#dc2626",
-  sucesso: "#16a34a",
-  sucessoClaro: "#dcfce7",
-  alerta: "#d97706",
-  alertaClaro: "#fef3c7",
-  neutroClaro: "#f1f5f9",
+  primaria: "#1E3A5F",
+  primariaClara: "#E3ECF7",
+  fundo: "#F5F7FA",
+  superficie: "#FFFFFF",
+  borda: "#E2E8F0",
+  texto: "#0F1B2D",
+  textoSecundario: "#5B6472",
+  perigo: "#C62828",
+  sucesso: "#15803D",
+  sucessoClaro: "#DCFCE7",
+  alerta: "#B45309",
+  alertaClaro: "#FEF3C7",
+  neutroClaro: "#EEF1F5",
 };

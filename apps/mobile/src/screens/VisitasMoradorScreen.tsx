@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
 import { api, enviar, type Visita } from "../api/client";
 import { useCarregar } from "../hooks/useCarregar";
-import { useAbrirFormularioPorParametro } from "../hooks/useAbrirFormularioPorParametro";
+import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
   BotaoFlutuante,
   Botao,
@@ -23,7 +23,7 @@ export function VisitasMoradorScreen() {
   const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Visita[]>("/visitas?situacao=ativas"), []), []);
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
-  useAbrirFormularioPorParametro(useCallback(() => setAgendando(true), []));
+  useAbrirPorParametro("novo", useCallback(() => setAgendando(true), []));
 
   function cancelar(visita: Visita) {
     Alert.alert("Cancelar visita", `Cancelar a autorização de ${visita.nomeVisitante}?`, [

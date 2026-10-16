@@ -1,6 +1,9 @@
 // No celular físico, use o IP da sua máquina na rede local (ex.: http://192.168.0.10:3333).
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3333";
 
+/** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
+const TEMPO_LIMITE_MS = 15000;
+
 let token: string | null = null;
 let aoExpirarSessao: (() => void) | null = null;
 
@@ -15,8 +18,11 @@ export function definirAoExpirarSessao(callback: (() => void) | null) {
 
 export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
   let resposta: Response;
+  const controle = new AbortController();
+  const limite = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
   try {
     resposta = await fetch(`${API_URL}${caminho}`, {
+      signal: controle.signal,
       ...opcoes,
       headers: {
         ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
@@ -26,6 +32,8 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
     });
   } catch {
     throw new Error("Não foi possível conectar ao servidor");
+  } finally {
+    clearTimeout(limite);
   }
   if (resposta.status === 204) return undefined as T;
   const corpo = await resposta.json();
@@ -131,5 +139,5 @@ export interface Resumo {
     esperadasHoje: { id: string; nomeVisitante: string; dataPrevista: string | null }[];
   };
   proximaReserva: { id: string; inicio: string; fim: string; status: StatusReserva; area: { nome: string } } | null;
-  ultimoAviso: { id: string; titulo: string; conteudo: string; fixado: boolean; criadoEm: string } | null;
+  avisos: { id: string; titulo: string; conteudo: string; fixado: boolean; criadoEm: string }[];
 }

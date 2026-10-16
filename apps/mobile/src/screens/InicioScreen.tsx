@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
@@ -6,7 +6,9 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { api, type Resumo } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCarregar } from "../hooks/useCarregar";
-import { MensagemErro, Selo, estilosTexto } from "../ui/componentes";
+import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
+import { AvisosScreen } from "./AvisosScreen";
+import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { cores } from "../ui/tema";
 
@@ -23,6 +25,10 @@ export function InicioScreen() {
     }, []),
     null,
   );
+
+  const [vendoAvisos, setVendoAvisos] = useState(false);
+  // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
+  useAbrirPorParametro("verAvisos", useCallback(() => setVendoAvisos(true), []));
 
   const primeiroNome = usuario?.nome.split(" ")[0];
   const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
@@ -114,23 +120,31 @@ export function InicioScreen() {
             )}
           </Cartao>
 
-          <Cartao icone="megaphone" titulo="Último aviso" onPress={() => navegacao.navigate("Avisos")}>
-            {resumo.ultimoAviso ? (
-              <>
-                <Text style={styles.destaque}>
-                  {resumo.ultimoAviso.fixado ? "📌 " : ""}
-                  {resumo.ultimoAviso.titulo}
-                </Text>
-                <Text style={estilosTexto.secundario} numberOfLines={2}>
-                  {resumo.ultimoAviso.conteudo}
-                </Text>
-              </>
-            ) : (
+          <Cartao icone="megaphone" titulo="Avisos" onPress={() => setVendoAvisos(true)}>
+            {resumo.avisos.length === 0 ? (
               <Text style={estilosTexto.secundario}>Nenhum aviso no momento</Text>
+            ) : (
+              <>
+                {resumo.avisos.map((a, i) => (
+                  <View key={a.id} style={[{ gap: 2 }, i > 0 && styles.separador]}>
+                    <Text style={styles.destaque}>
+                      {a.fixado ? "📌 " : ""}
+                      {a.titulo}
+                    </Text>
+                    <Text style={estilosTexto.secundario} numberOfLines={2}>
+                      {a.conteudo}
+                    </Text>
+                  </View>
+                ))}
+                <Text style={styles.verTodos}>Ver todos os avisos</Text>
+              </>
             )}
           </Cartao>
         </>
       )}
+      <ModalTela visivel={vendoAvisos} titulo="Avisos" onFechar={() => setVendoAvisos(false)}>
+        <AvisosScreen />
+      </ModalTela>
     </ScrollView>
   );
 }
@@ -190,4 +204,6 @@ const styles = StyleSheet.create({
   cartaoTitulo: { flex: 1, fontSize: 13, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase" },
   destaque: { fontSize: 16, fontWeight: "600", color: cores.texto },
   linha: { flexDirection: "row", alignItems: "center", gap: 8 },
+  separador: { borderTopWidth: 1, borderTopColor: cores.borda, paddingTop: 8 },
+  verTodos: { color: cores.primaria, fontWeight: "600", fontSize: 14, marginTop: 2 },
 });

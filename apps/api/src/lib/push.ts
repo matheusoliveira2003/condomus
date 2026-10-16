@@ -73,3 +73,11 @@ export function notificarPapel(papel: Papel, mensagem: Mensagem) {
     .then((usuarios) => enviarPush(usuarios.map((u) => u.id), mensagem))
     .catch((erro) => console.error(`[push] Falha ao buscar usuários do perfil ${papel}`, erro));
 }
+
+/** Envia uma notificação para todos os usuários ativos, exceto quem a originou. */
+export function notificarTodos(excetoUsuarioId: string, mensagem: Mensagem) {
+  void prisma.usuario
+    .findMany({ where: { ativo: true, id: { not: excetoUsuarioId } }, select: { id: true } })
+    .then((usuarios) => enviarPush(usuarios.map((u) => u.id), mensagem))
+    .catch((erro) => console.error("[push] Falha ao buscar usuários", erro));
+}

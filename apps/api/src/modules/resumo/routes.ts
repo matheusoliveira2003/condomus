@@ -9,6 +9,8 @@ const consultaSchema = z.object({
 
 /** Quantas encomendas listar no resumo (o total vem separado). */
 const MAX_ENCOMENDAS = 3;
+/** Quantos avisos mostrar no resumo; a lista completa fica em GET /avisos. */
+const MAX_AVISOS = 3;
 
 export async function resumoRoutes(app: FastifyInstance) {
   // Tudo o que a tela inicial do morador mostra, numa única chamada.
@@ -17,7 +19,7 @@ export async function resumoRoutes(app: FastifyInstance) {
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
     const unidadeId = req.user.unidadeId!;
 
-    const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, ultimoAviso] = await Promise.all([
+    const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, avisos] = await Promise.all([
       prisma.unidade.findUnique({ where: { id: unidadeId } }),
       prisma.encomenda.findMany({
         where: { unidadeId, status: "AGUARDANDO_RETIRADA" },
@@ -47,9 +49,10 @@ export async function resumoRoutes(app: FastifyInstance) {
         orderBy: { inicio: "asc" },
       }),
       // Mesma ordem do mural: fixados primeiro, depois os mais recentes.
-      prisma.aviso.findFirst({
+      prisma.aviso.findMany({
         select: { id: true, titulo: true, conteudo: true, fixado: true, criadoEm: true },
         orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }],
+        take: MAX_AVISOS,
       }),
     ]);
 
@@ -58,7 +61,7 @@ export async function resumoRoutes(app: FastifyInstance) {
       encomendas: { total: totalEncomendas, itens: encomendas },
       visitas: { noCondominio, esperadasHoje: esperadas },
       proximaReserva,
-      ultimoAviso,
+      avisos,
     };
   });
 }

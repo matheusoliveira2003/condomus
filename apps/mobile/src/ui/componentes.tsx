@@ -1,10 +1,9 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,6 +14,7 @@ import {
   type TextInputProps,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { cores } from "./tema";
 
 type Variante = "primario" | "secundario" | "perigo";
@@ -55,11 +55,35 @@ export function Botao({
   );
 }
 
-export function Campo({ rotulo, ...props }: TextInputProps & { rotulo: string }) {
+/**
+ * Campo de texto. Sem `rotulo`, o nome do campo deve ir no placeholder.
+ * Com `senha`, o texto fica oculto e um ícone de olho permite exibi-lo.
+ */
+export function Campo({ rotulo, senha, style, ...props }: TextInputProps & { rotulo?: string; senha?: boolean }) {
+  const [visivel, setVisivel] = useState(false);
   return (
     <View style={{ gap: 4 }}>
-      <Text style={styles.rotulo}>{rotulo}</Text>
-      <TextInput style={styles.input} placeholderTextColor={cores.textoSecundario} {...props} />
+      {rotulo && <Text style={styles.rotulo}>{rotulo}</Text>}
+      <View style={styles.campoLinha}>
+        <TextInput
+          placeholderTextColor={cores.textoSecundario}
+          {...props}
+          style={[styles.input, senha && { paddingRight: 48 }, style]}
+          // Depois de {...props}, para o botão de exibir senha sempre ter a palavra final.
+          {...(senha && { secureTextEntry: !visivel, autoCapitalize: "none", autoCorrect: false })}
+        />
+        {senha && (
+          <Pressable
+            onPress={() => setVisivel((v) => !v)}
+            hitSlop={8}
+            style={styles.olho}
+            accessibilityRole="button"
+            accessibilityLabel={visivel ? "Ocultar senha" : "Mostrar senha"}
+          >
+            <Ionicons name={visivel ? "eye-off-outline" : "eye-outline"} size={22} color={cores.textoSecundario} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -172,17 +196,21 @@ export function ModalFormulario({
 }) {
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.modalCabecalho}>
-          <Text style={styles.modalTitulo}>{titulo}</Text>
-          <Pressable onPress={onFechar} hitSlop={12}>
-            <Ionicons name="close" size={26} color={cores.texto} />
-          </Pressable>
-        </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
-          {children}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {/* No Android o modal ocupa a tela toda, por trás da barra de status; a área segura reserva esse espaço. */}
+      <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
+        {/* "padding" também no Android: com edge-to-edge o sistema não redimensiona a janela pelo teclado. */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+          <View style={styles.modalCabecalho}>
+            <Text style={styles.modalTitulo}>{titulo}</Text>
+            <Pressable onPress={onFechar} hitSlop={12}>
+              <Ionicons name="close" size={26} color={cores.texto} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -209,6 +237,8 @@ const styles = StyleSheet.create({
   botao_perigo: { backgroundColor: cores.perigo },
   botaoTexto: { color: "#fff", fontWeight: "600", fontSize: 15 },
   rotulo: { fontSize: 14, fontWeight: "500", color: cores.texto },
+  campoLinha: { justifyContent: "center" },
+  olho: { position: "absolute", right: 12, padding: 4 },
   input: {
     borderWidth: 1,
     borderColor: cores.borda,
@@ -241,6 +271,7 @@ const styles = StyleSheet.create({
   erro: { color: cores.perigo, marginBottom: 8 },
   vazio: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 48 },
   vazioTexto: { color: cores.textoSecundario, fontSize: 15 },
+  modal: { flex: 1, backgroundColor: cores.superficie },
   modalCabecalho: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -296,14 +327,16 @@ export function LinkHistorico({ texto, onPress }: { texto: string; onPress: () =
 export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: boolean; titulo: string; onFechar: () => void; children: ReactNode }) {
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
-      <View style={styles.modalCabecalho}>
-        <Text style={styles.modalTitulo}>{titulo}</Text>
-        <Pressable onPress={onFechar} hitSlop={12}>
-          <Ionicons name="close" size={26} color={cores.texto} />
-        </Pressable>
-      </View>
-      {/* Só monta o conteúdo com o modal aberto: assim ele carrega dados novos a cada abertura. */}
-      {visivel && <View style={{ flex: 1 }}>{children}</View>}
+      <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
+        <View style={styles.modalCabecalho}>
+          <Text style={styles.modalTitulo}>{titulo}</Text>
+          <Pressable onPress={onFechar} hitSlop={12}>
+            <Ionicons name="close" size={26} color={cores.texto} />
+          </Pressable>
+        </View>
+        {/* Só monta o conteúdo com o modal aberto: assim ele carrega dados novos a cada abertura. */}
+        {visivel && <View style={{ flex: 1 }}>{children}</View>}
+      </SafeAreaView>
     </Modal>
   );
 }

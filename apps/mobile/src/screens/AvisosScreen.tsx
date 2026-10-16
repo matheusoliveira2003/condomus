@@ -102,7 +102,7 @@ function NovoAvisoModal({ visivel, onFechar, onCriado }: { visivel: boolean; onF
       />
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={estilosTexto.titulo}>Fixar no topo</Text>
-        <Switch value={fixado} onValueChange={setFixado} />
+        <Switch value={fixado} onValueChange={setFixado} trackColor={{ true: cores.primaria, false: cores.borda }} />
       </View>
       <MensagemErro texto={erro} />
       <Botao titulo="Publicar" onPress={publicar} carregando={salvando} desabilitado={titulo.length < 3 || !conteudo} />
