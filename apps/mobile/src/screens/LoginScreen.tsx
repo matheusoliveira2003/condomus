@@ -1,12 +1,22 @@
-import { useState } from "react";
-import { Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { BackHandler, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
 
-export function LoginScreen() {
+export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
   const { entrar } = useAuth();
+
+  // Botão "voltar" do Android também volta para as boas-vindas (em vez de fechar o app).
+  useEffect(() => {
+    const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
+      onVoltar();
+      return true;
+    });
+    return () => assinatura.remove();
+  }, [onVoltar]);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -27,6 +37,9 @@ export function LoginScreen() {
     // "padding" também no Android: com a tela edge-to-edge, o sistema não redimensiona
     // a janela quando o teclado abre, então o próprio app empurra o conteúdo para cima.
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
+      <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
+        <Ionicons name="arrow-back" size={26} color={cores.texto} />
+      </Pressable>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.marca}>
@@ -61,6 +74,7 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   // flexGrow centraliza quando sobra espaço e deixa rolar quando o teclado ocupa a tela.
   container: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 16 },
+  voltar: { paddingHorizontal: 16, paddingTop: 8, alignSelf: "flex-start" },
   marca: { alignItems: "center", marginBottom: 24, gap: 8 },
   // O ícone do app é um quadrado cheio; o arredondamento vem do estilo, como nos launchers.
   logo: { width: 96, height: 96, borderRadius: 24 },

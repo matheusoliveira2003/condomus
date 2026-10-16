@@ -14,14 +14,15 @@ const MARINHO = "#1E3A5F", AMBAR = "#F5B544", BRANCO = "#FFFFFF";
 
 // Desenho no espaço 512x512 (mesmo do conceito aprovado).
 // Com `porta` nula, a porta vira um recorte transparente (máscara), para o ícone monocromático.
+// Com `c` ou `casa` nulos, aquela parte é omitida (camadas separadas para a animação de abertura).
 const glifo = ({ c = BRANCO, casa = AMBAR, porta = MARINHO } = {}) => `
   <defs><mask id="recorte"><rect width="512" height="512" fill="#fff"/><rect x="241" y="282" width="30" height="46" rx="5" fill="#000"/></mask></defs>
-  <path d="M 362 150 A 150 150 0 1 0 362 362" fill="none" stroke="${c}" stroke-width="52" stroke-linecap="round"/>
-  <g ${porta ? "" : 'mask="url(#recorte)"'}>
+  ${c ? `<path d="M 362 150 A 150 150 0 1 0 362 362" fill="none" stroke="${c}" stroke-width="52" stroke-linecap="round"/>` : ""}
+  ${casa ? `<g ${porta ? "" : 'mask="url(#recorte)"'}>
     <polyline points="186,258 256,200 326,258" fill="none" stroke="${casa}" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="208" y="252" width="96" height="76" rx="10" fill="${casa}"/>
-  </g>
-  ${porta ? `<rect x="241" y="282" width="30" height="46" rx="5" fill="${porta}"/>` : ""}`;
+  </g>` : ""}
+  ${casa && porta ? `<rect x="241" y="282" width="30" height="46" rx="5" fill="${porta}"/>` : ""}`;
 
 // Caixa do glifo no espaço 512: x 80–388, y 80–432.
 // Centraliza pelo centro do círculo do "C" (256), não pela largura da caixa (234): assim a casa
@@ -78,3 +79,8 @@ opaca("android-icon-background.png", "", 1024);
 transparente("android-icon-monochrome.png", posicionar(glifo({ c: BRANCO, casa: BRANCO, porta: null }), 0.5), 1024);
 // Tela de abertura: glifo transparente sobre fundo marinho (definido no app.json).
 transparente("splash-icon.png", posicionar(glifo(), 0.8), 1024);
+
+// Camadas da animação de abertura (mesmo enquadramento, para encaixarem uma sobre a outra):
+// o "C" e a casa separados, para a casa surgir depois de a palavra virar o "C".
+transparente("logo-c.png", posicionar(glifo({ casa: null }), 0.8), 768);
+transparente("logo-casa.png", posicionar(glifo({ c: null, porta: null }), 0.8), 768);

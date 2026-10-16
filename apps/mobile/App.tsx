@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -9,6 +10,9 @@ import type { ComponentType } from "react";
 import type { Papel } from "./src/api/client";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
+import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
+import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
+import { FONTE_MARCA, FUNDO_MARCA } from "./src/ui/logo";
 import { AvisosScreen } from "./src/screens/AvisosScreen";
 import { VisitasMoradorScreen } from "./src/screens/VisitasMoradorScreen";
 import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
@@ -71,23 +75,51 @@ const navegacao = createNavigationContainerRef();
 function Navegacao() {
   const { usuario, restaurando } = useAuth();
   const [contaAberta, setContaAberta] = useState(false);
+  /** A abertura animada roda uma vez por abertura do app (não ao voltar de outro app). */
+  const [abertura, setAbertura] = useState(true);
+  const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login">("boasVindas");
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
-  if (restaurando) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", backgroundColor: cores.fundo }}>
-        <ActivityIndicator size="large" color={cores.primaria} />
-      </View>
-    );
-  }
-  if (!usuario) return <LoginScreen />;
+  // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
+  const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica === "login" ? "app" : "boasVindas";
+  const fundoEscuro = abertura || restaurando || (!usuario && telaPublica === "boasVindas");
+
+  return (
+    <>
+      {restaurando ? (
+        <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />
+      ) : !usuario ? (
+        telaPublica === "login" ? (
+          <LoginScreen onVoltar={() => setTelaPublica("boasVindas")} />
+        ) : (
+          <BoasVindasScreen
+            // O painel sobe quando a abertura sai de cena (ao voltar do login, já aparece pronto).
+            painelVisivel={!abertura}
+            onEntrar={() => setTelaPublica("login")}
+            onCriarConta={() => Alert.alert("Criar conta", "O pedido de acesso ao condomínio estará disponível em breve.")}
+          />
+        )
+      ) : (
+        <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
+      )}
+      {abertura && <AberturaAnimada destino={destinoAbertura} onTerminar={() => setAbertura(false)} />}
+      {/* Ícones claros sobre o azul-marinho da abertura e das boas-vindas; escuros nas telas claras. */}
+      <StatusBar style={fundoEscuro ? "light" : "dark"} />
+    </>
+  );
+}
+
+/** Abas do perfil logado, com o acesso à Minha conta no cabeçalho. */
+function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; setContaAberta: (v: boolean) => void }) {
+  const { usuario } = useAuth();
+  if (!usuario) return null;
 
   return (
     <>
       <Tab.Navigator
         screenOptions={{
           tabBarActiveTintColor: cores.primaria,
-        tabBarInactiveTintColor: cores.textoSecundario,
+          tabBarInactiveTintColor: cores.textoSecundario,
           headerRight: () => (
             <Pressable
               onPress={() => setContaAberta(true)}
@@ -120,6 +152,10 @@ function Navegacao() {
 }
 
 export default function App() {
+  // Fonte da marca (a mesma da tela de abertura nativa). Se falhar, segue com a fonte do sistema.
+  const [fonteCarregada, erroFonte] = useFonts({ [FONTE_MARCA]: require("./assets/fontes/inter_bold.ttf") });
+  if (!fonteCarregada && !erroFonte) return <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />;
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -127,7 +163,6 @@ export default function App() {
           <Navegacao />
         </NavigationContainer>
       </AuthProvider>
-      <StatusBar style="dark" />
     </SafeAreaProvider>
   );
 }
