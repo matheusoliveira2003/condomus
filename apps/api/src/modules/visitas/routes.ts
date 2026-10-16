@@ -31,23 +31,26 @@ const filtroSchema = z.object({
 
 const idParam = z.object({ id: z.uuid() });
 
+const entradaSchema = z.object({ codigo: z.string().optional() });
+
 export async function visitasRoutes(app: FastifyInstance) {
   // Morador vê as visitas da própria unidade; portaria e síndico veem todas.
   app.get("/visitas", { preHandler: app.autorizar() }, async (req) => {
     const { status, situacao, limite } = filtroSchema.parse(req.query);
     const { papel, unidadeId } = req.user;
-    return prisma.visita.findMany({
+    const visitas = await prisma.visita.findMany({
       where: {
         status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
       },
       // Morador que autorizou, com a versão da foto: a portaria mostra o rosto de quem liberou a visita.
       include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
-      // O código do convite é do morador; a portaria registra a entrada pela leitura, não pela lista.
-      omit: { codigoAcesso: papel !== "MORADOR" },
       orderBy: { criadoEm: "desc" },
       take: limite,
     });
+    if (papel === "MORADOR") return visitas;
+    // O código do convite é do morador: a portaria só sabe *se* há convite (e então precisa lê-lo para liberar).
+    return visitas.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
   });
 
   app.post("/visitas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
@@ -70,6 +73,13 @@ export async function visitasRoutes(app: FastifyInstance) {
   app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const visita = await buscar(req.params);
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível registrar entrada de visitas agendadas");
+    // Visita com convite só entra com o código dele (lido do QR code ou digitado).
+    // Visitas antigas, criadas antes do convite existir, não têm código e seguem sem exigência.
+    if (visita.codigoAcesso) {
+      const { codigo } = entradaSchema.parse(req.body ?? {});
+      if (!codigo) throw new HttpError(400, "Leia o QR code do convite (ou digite o código) para registrar a entrada");
+      if (normalizarCodigo(codigo) !== visita.codigoAcesso) throw new HttpError(400, "Este convite não é desta visita");
+    }
     const atualizada = await prisma.visita.update({
       where: { id: visita.id },
       data: { status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },

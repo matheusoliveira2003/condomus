@@ -18,8 +18,8 @@ import { fotosRoutes } from "./modules/fotos/routes.js";
 // Mensagens de validação em português.
 z.config(z.locales.ptBR());
 
-export async function buildApp() {
-  const app = Fastify({ logger: true });
+export async function buildApp({ logger = true }: { logger?: boolean } = {}) {
+  const app = Fastify({ logger });
 
   await app.register(cors);
   await app.register(auth);

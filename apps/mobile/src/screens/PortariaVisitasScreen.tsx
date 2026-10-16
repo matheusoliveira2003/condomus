@@ -20,6 +20,8 @@ export function PortariaVisitasScreen() {
   const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState(false);
   const [lendo, setLendo] = useState(false);
+  /** Visita da lista cujo convite está sendo conferido. */
+  const [conferindo, setConferindo] = useState<Visita | null>(null);
   const { dados, carregando, erro, recarregar } = useCarregar(
     useCallback(() => api<Visita[]>(`/visitas?status=${status}`), [status]),
     [],
@@ -74,7 +76,14 @@ export function PortariaVisitasScreen() {
                 <Text style={estilosTexto.secundario}>Autorizado por {visita.autorizadoPor.nome}</Text>
               </View>
             )}
-            {visita.status === "AGENDADA" && <Botao titulo="Registrar entrada" pequeno onPress={() => registrar(visita, "entrada")} />}
+            {visita.status === "AGENDADA" && (
+              <Botao
+                titulo={visita.temConvite ? "Ler convite e registrar entrada" : "Registrar entrada"}
+                pequeno
+                // Com convite, a entrada só acontece lendo o QR code (ou digitando o código) desta visita.
+                onPress={() => (visita.temConvite ? setConferindo(visita) : registrar(visita, "entrada"))}
+              />
+            )}
             {visita.status === "EM_ANDAMENTO" && (
               <Botao titulo="Registrar saída" variante="secundario" pequeno onPress={() => registrar(visita, "saida")} />
             )}
@@ -84,10 +93,15 @@ export function PortariaVisitasScreen() {
       <BotaoFlutuante icone="qr-code" posicao={1} rotulo="Ler QR code do convite" onPress={() => setLendo(true)} />
       <BotaoFlutuante icone="person-add" rotulo="Registrar entrada sem convite" onPress={() => setRegistrando(true)} />
       <LeitorConviteModal
-        visivel={lendo}
-        onFechar={() => setLendo(false)}
+        visivel={lendo || !!conferindo}
+        visitaEsperada={conferindo}
+        onFechar={() => {
+          setLendo(false);
+          setConferindo(null);
+        }}
         onEntrada={() => {
           setLendo(false);
+          setConferindo(null);
           // Mostra a lista de quem está no condomínio, onde o visitante acabou de entrar.
           if (status === "EM_ANDAMENTO") void recarregar();
           else setStatus("EM_ANDAMENTO");

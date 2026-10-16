@@ -111,6 +111,8 @@ export interface Visita {
   unidade: Unidade;
   /** Morador que pré-autorizou (null quando a portaria registrou direto). */
   autorizadoPor: Pessoa | null;
+  /** Só na visão da portaria: a visita tem convite, então a entrada exige ler o QR code (ou digitar o código). */
+  temConvite?: boolean;
 }
 
 export interface Encomenda {

@@ -5,7 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 
 const loginSchema = z.object({
-  email: z.email().trim().toLowerCase(),
+  email: z.string().trim().toLowerCase().pipe(z.email()),
   senha: z.string().min(1),
 });
 

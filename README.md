@@ -29,6 +29,14 @@ npm run dev:mobile          # app Expo (abra no Expo Go ou em um emulador)
 
 No celular físico, defina `EXPO_PUBLIC_API_URL=http://<IP-da-sua-máquina>:3333` antes de iniciar o app.
 
+### Testes automatizados
+
+```bash
+npm test        # roda os testes da API (com o PostgreSQL do Docker ligado)
+```
+
+Os testes chamam a API sem rede (Fastify `inject`) e usam um banco separado, `condomus_teste`, criado e migrado automaticamente — o banco de desenvolvimento nunca é tocado (há uma trava que só permite limpar bancos terminados em `_teste`). Notificações push são simuladas: nada é enviado ao Expo. Cobrem login e permissões de cada perfil, visitas e convites com QR code, encomendas, reservas (conflito de horário e aprovação), avisos, resumo do Início, cadastros, fotos de perfil e notificações.
+
 ### Notificações push (Android)
 
 O Expo Go no Android não recebe notificações push. Para testá-las, gere um *development build* (um app Condomus próprio, instalado no lugar do Expo Go):

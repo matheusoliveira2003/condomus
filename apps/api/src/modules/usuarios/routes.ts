@@ -7,7 +7,7 @@ import { HttpError, naoEncontrado } from "../../lib/errors.js";
 const usuarioSchema = z
   .object({
     nome: z.string().trim().min(2),
-    email: z.email().trim().toLowerCase(),
+    email: z.string().trim().toLowerCase().pipe(z.email()),
     senha: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
     papel: z.enum(["MORADOR", "PORTEIRO", "SINDICO"]),
     unidadeId: z.uuid().optional(),

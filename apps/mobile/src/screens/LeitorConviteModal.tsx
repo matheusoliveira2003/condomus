@@ -10,9 +10,22 @@ import { cores } from "../ui/tema";
 
 /**
  * Portaria lê o QR code do convite (ou digita o código), confere os dados e registra a entrada.
+ * Com `visitaEsperada` (botão de uma visita da lista), só aceita o convite dessa visita.
  */
-export function LeitorConviteModal({ visivel, onFechar, onEntrada }: { visivel: boolean; onFechar: () => void; onEntrada: () => void }) {
+export function LeitorConviteModal({
+  visivel,
+  visitaEsperada,
+  onFechar,
+  onEntrada,
+}: {
+  visivel: boolean;
+  visitaEsperada?: Visita | null;
+  onFechar: () => void;
+  onEntrada: () => void;
+}) {
   const [visita, setVisita] = useState<Visita | null>(null);
+  /** Código usado para encontrar a visita: a API exige ele de novo para registrar a entrada. */
+  const [codigoLido, setCodigoLido] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [codigoDigitado, setCodigoDigitado] = useState("");
@@ -30,7 +43,13 @@ export function LeitorConviteModal({ visivel, onFechar, onEntrada }: { visivel: 
     setBuscando(true);
     setErro(null);
     try {
-      setVisita(await api<Visita>(`/visitas/codigo/${encodeURIComponent(codigo)}`));
+      const encontrada = await api<Visita>(`/visitas/codigo/${encodeURIComponent(codigo)}`);
+      if (visitaEsperada && encontrada.id !== visitaEsperada.id) {
+        setErro(`Este convite é de outra visita (${encontrada.nomeVisitante}), não de ${visitaEsperada.nomeVisitante}.`);
+        return;
+      }
+      setCodigoLido(codigo);
+      setVisita(encontrada);
     } catch (e) {
       setErro((e as Error).message === "Convite não encontrado(a)" ? "Convite não encontrado. Confira o código." : (e as Error).message);
     } finally {
@@ -42,7 +61,7 @@ export function LeitorConviteModal({ visivel, onFechar, onEntrada }: { visivel: 
     if (!visita) return;
     setRegistrando(true);
     try {
-      await enviar("PATCH", `/visitas/${visita.id}/entrada`);
+      await enviar("PATCH", `/visitas/${visita.id}/entrada`, { codigo: codigoLido });
       onEntrada();
     } catch (e) {
       setErro((e as Error).message);
@@ -52,7 +71,10 @@ export function LeitorConviteModal({ visivel, onFechar, onEntrada }: { visivel: 
   }
 
   return (
-    <ModalFormulario visivel={visivel} titulo="Ler convite" onFechar={onFechar}>
+    <ModalFormulario visivel={visivel} titulo={visitaEsperada ? `Entrada de ${visitaEsperada.nomeVisitante}` : "Ler convite"} onFechar={onFechar}>
+      {visitaEsperada && !visita && (
+        <Text style={estilosTexto.corpo}>Leia o QR code do convite que o visitante recebeu, ou digite o código.</Text>
+      )}
       {visita ? (
         <ResultadoConvite visita={visita} registrando={registrando} onRegistrar={registrarEntrada} onLerOutro={() => setVisita(null)} />
       ) : (
