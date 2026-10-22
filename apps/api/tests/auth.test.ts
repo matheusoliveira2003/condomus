@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import bcrypt from "bcryptjs";
 import { type Cenario, SENHA, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
 
 let app: FastifyInstance;
@@ -83,6 +84,99 @@ describe("troca de senha", () => {
     const igual = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: SENHA } });
     expect(curta.status).toBe(400);
     expect(igual.status).toBe(400);
+  });
+});
+
+describe("recuperação de senha", () => {
+  const CODIGO = "483920";
+
+  /** Simula o estado que /auth/recuperar-senha deixaria: código válido por 15 min. */
+  const definirCodigo = (userId: string, codigo = CODIGO, expiraEm = new Date(Date.now() + 15 * 60 * 1000)) =>
+    prisma.usuario.update({
+      where: { id: userId },
+      data: { codigoRecuperacaoHash: bcrypt.hashSync(codigo, 4), codigoRecuperacaoExpira: expiraEm },
+    });
+
+  it("pedir recuperação grava um código com hash e validade futura", async () => {
+    const antes = await prisma.usuario.findUniqueOrThrow({ where: { email: "morador@teste.dev" } });
+    expect(antes.codigoRecuperacaoHash).toBeNull();
+
+    const r = await chamar(app, "POST", "/auth/recuperar-senha", { corpo: { email: "morador@teste.dev" } });
+    expect(r.status).toBe(204);
+
+    const depois = await prisma.usuario.findUniqueOrThrow({ where: { email: "morador@teste.dev" } });
+    expect(depois.codigoRecuperacaoHash).toEqual(expect.any(String));
+    expect(depois.codigoRecuperacaoHash).not.toBe(antes.codigoRecuperacaoHash);
+    expect(depois.codigoRecuperacaoExpira!.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("resposta do pedido é idêntica para e-mail existente, inexistente ou desativado (não revela quem tem conta)", async () => {
+    await prisma.usuario.update({ where: { id: c.usuarios.vizinho.id }, data: { ativo: false } });
+    const existente = await chamar(app, "POST", "/auth/recuperar-senha", { corpo: { email: "morador@teste.dev" } });
+    const inexistente = await chamar(app, "POST", "/auth/recuperar-senha", { corpo: { email: "ninguem@teste.dev" } });
+    const desativado = await chamar(app, "POST", "/auth/recuperar-senha", { corpo: { email: "vizinho@teste.dev" } });
+    expect([existente.status, inexistente.status, desativado.status]).toEqual([204, 204, 204]);
+  });
+
+  it("com o código certo, redefine a senha: a antiga para de valer e a nova passa a valer", async () => {
+    await definirCodigo(c.usuarios.morador.id);
+    const r = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: CODIGO, novaSenha: "nova-senha" },
+    });
+    expect(r.status).toBe(200);
+    await expect(entrar(app, "morador@teste.dev", SENHA)).rejects.toThrow();
+    await expect(entrar(app, "morador@teste.dev", "nova-senha")).resolves.toEqual(expect.any(String));
+  });
+
+  it("código errado, ou código de outra conta, é recusado", async () => {
+    await definirCodigo(c.usuarios.morador.id);
+
+    const errado = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: "000000", novaSenha: "nova-senha" },
+    });
+    expect(errado.status).toBe(400);
+
+    // Código certo do morador, mas usado no e-mail do vizinho.
+    const trocado = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "vizinho@teste.dev", codigo: CODIGO, novaSenha: "nova-senha" },
+    });
+    expect(trocado.status).toBe(400);
+  });
+
+  it("sem nenhum pedido de recuperação, qualquer código é recusado", async () => {
+    const r = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "sindico@teste.dev", codigo: "123456", novaSenha: "nova-senha" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("o código não pode ser usado duas vezes", async () => {
+    await definirCodigo(c.usuarios.morador.id);
+    const primeira = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: CODIGO, novaSenha: "nova-senha" },
+    });
+    expect(primeira.status).toBe(200);
+
+    const segunda = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: CODIGO, novaSenha: "outra-senha" },
+    });
+    expect(segunda.status).toBe(400);
+  });
+
+  it("código expirado é recusado", async () => {
+    await definirCodigo(c.usuarios.morador.id, CODIGO, new Date(Date.now() - 1000));
+    const r = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: CODIGO, novaSenha: "nova-senha" },
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("valida formato do código e tamanho da nova senha", async () => {
+    await definirCodigo(c.usuarios.morador.id);
+    const r = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: "abc", novaSenha: "123" },
+    });
+    expect(r.status).toBe(400);
   });
 });
 

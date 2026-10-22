@@ -13,7 +13,7 @@ const ALTURA_TOPO = 190;
 /** Tamanho da logo no topo (menor que nas Boas-vindas, só para identificar a marca aqui). */
 const TAMANHO_LOGO = 56;
 
-export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
+export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void; onEsqueciSenha: () => void }) {
   const { entrar } = useAuth();
 
   // Botão "voltar" do Android também volta para as boas-vindas (em vez de fechar o app).
@@ -80,6 +80,9 @@ export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
             onChangeText={setSenha}
             onSubmitEditing={aoEntrar}
           />
+          <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
+            <Text style={styles.link}>Esqueci minha senha</Text>
+          </Pressable>
           <MensagemErro texto={erro} />
           <View style={{ height: 4 }} />
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
@@ -108,4 +111,5 @@ const styles = StyleSheet.create({
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
+  link: { color: cores.primaria, fontWeight: "600", fontSize: 14 },
 });

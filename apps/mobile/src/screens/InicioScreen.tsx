@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -59,6 +59,14 @@ export function InicioScreen() {
       </View>
 
       <MensagemErro texto={erro} />
+
+      {/* Carregamento inicial: o RefreshControl não aparece sozinho ao montar a tela
+          (só quando o usuário puxa pra baixo), então sem isto os cards ficavam em branco. */}
+      {carregando && !resumo && (
+        <View style={styles.carregando}>
+          <ActivityIndicator color={cores.primaria} />
+        </View>
+      )}
 
       {resumo && (
         <>
@@ -184,6 +192,7 @@ function Cartao({ icone, titulo, onPress, children }: { icone: Icone; titulo: st
 
 const styles = StyleSheet.create({
   conteudo: { padding: 16, gap: 14 },
+  carregando: { paddingVertical: 32, alignItems: "center" },
   cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
   saudacao: { fontSize: 24, fontWeight: "700", color: cores.texto },
   atalhos: { flexDirection: "row", gap: 10 },

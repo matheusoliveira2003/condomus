@@ -9,6 +9,7 @@ import type { ComponentType } from "react";
 import type { Papel } from "./src/api/client";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
+import { RecuperarSenhaScreen } from "./src/screens/RecuperarSenhaScreen";
 import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
 import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
 import { FUNDO_MARCA } from "./src/ui/logo";
@@ -76,14 +77,14 @@ function Navegacao() {
   const [contaAberta, setContaAberta] = useState(false);
   /** A abertura animada roda uma vez por abertura do app (não ao voltar de outro app). */
   const [abertura, setAbertura] = useState(true);
-  const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login">("boasVindas");
+  const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login" | "recuperarSenha">("boasVindas");
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
   // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
-  // "app" cobre dois casos (já logado, ou a pessoa pulou/tocou Entrar antes da abertura acabar):
-  // em ambos a abertura só precisa sumir por completo (fundo + logo juntos), sem deixar o logo
-  // "flutuando" sozinho por cima da tela de trás.
-  const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica === "login" ? "app" : "boasVindas";
+  // "app" cobre três casos (já logado, ou a pessoa já saiu das boas-vindas antes da abertura
+  // acabar, para o login ou para a recuperação de senha): em todos a abertura só precisa sumir
+  // por completo (fundo + logo juntos), sem deixar o logo "flutuando" sobre a tela de trás.
+  const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
   const fundoEscuro = abertura || restaurando || (!usuario && telaPublica === "boasVindas");
 
   return (
@@ -92,7 +93,15 @@ function Navegacao() {
         <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />
       ) : !usuario ? (
         telaPublica === "login" ? (
-          <LoginScreen onVoltar={() => setTelaPublica("boasVindas")} />
+          <LoginScreen onVoltar={() => setTelaPublica("boasVindas")} onEsqueciSenha={() => setTelaPublica("recuperarSenha")} />
+        ) : telaPublica === "recuperarSenha" ? (
+          <RecuperarSenhaScreen
+            onVoltar={() => setTelaPublica("login")}
+            onConcluido={() => {
+              Alert.alert("Senha redefinida", "Sua senha foi alterada. Entre com a nova senha.");
+              setTelaPublica("login");
+            }}
+          />
         ) : (
           <BoasVindasScreen
             // O painel sobe quando a abertura sai de cena (ao voltar do login, já aparece pronto).

@@ -12,3 +12,6 @@ export const normalizarCodigo = (entrada: string) => entrada.trim().toUpperCase(
 
 /** Conteúdo gravado no QR code. */
 export const conteudoQr = (codigo: string) => `CONDOMUS:${codigo}`;
+
+/** Código numérico de 6 dígitos (recuperação de senha) — mais familiar que o alfanumérico acima. */
+export const gerarCodigoNumerico = () => Array.from({ length: 6 }, () => randomInt(10)).join("");

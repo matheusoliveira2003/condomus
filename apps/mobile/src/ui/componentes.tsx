@@ -183,7 +183,13 @@ export function Lista<T extends { id: string }>({
         </>
       }
       ListEmptyComponent={
-        carregando ? null : (
+        carregando ? (
+          // Carregamento inicial: o RefreshControl não aparece sozinho ao montar a tela
+          // (só quando o usuário puxa a lista), então sem isto a tela ficava em branco.
+          <View style={styles.vazio}>
+            <ActivityIndicator color={cores.primaria} />
+          </View>
+        ) : (
           <View style={styles.vazio}>
             <Ionicons name="file-tray-outline" size={40} color={cores.textoSecundario} />
             <Text style={styles.vazioTexto}>{vazio}</Text>

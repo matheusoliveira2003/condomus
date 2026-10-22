@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
+import { enviarCodigoRecuperacao } from "../../lib/email.js";
+import { gerarCodigoNumerico } from "../../lib/codigo.js";
+
+/** O código de recuperação vale por este tempo após ser gerado. */
+const VALIDADE_CODIGO_MINUTOS = 15;
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -15,6 +20,16 @@ const trocarSenhaSchema = z
     novaSenha: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
   })
   .refine((s) => s.senhaAtual !== s.novaSenha, { message: "A nova senha deve ser diferente da atual", path: ["novaSenha"] });
+
+const pedirRecuperacaoSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+});
+
+const redefinirSenhaSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+  codigo: z.string().trim().regex(/^\d{6}$/, "O código tem 6 números"),
+  novaSenha: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
+});
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/login", async (req) => {
@@ -53,5 +68,43 @@ export async function authRoutes(app: FastifyInstance) {
     if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
     await prisma.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await bcrypt.hash(novaSenha, 10) } });
     return reply.status(204).send();
+  });
+
+  // Esqueci a senha — passo 1: pede o código por e-mail. A resposta é sempre a mesma, exista ou
+  // não o e-mail (e exista ou não erro no envio), para não revelar quais e-mails têm conta.
+  app.post("/auth/recuperar-senha", async (req, reply) => {
+    const { email } = pedirRecuperacaoSchema.parse(req.body);
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    if (usuario?.ativo) {
+      const codigo = gerarCodigoNumerico();
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: {
+          codigoRecuperacaoHash: await bcrypt.hash(codigo, 10),
+          codigoRecuperacaoExpira: new Date(Date.now() + VALIDADE_CODIGO_MINUTOS * 60 * 1000),
+        },
+      });
+      enviarCodigoRecuperacao(usuario.email, usuario.nome, codigo);
+    }
+    return reply.status(204).send();
+  });
+
+  // Esqueci a senha — passo 2: confere o código e define a nova senha.
+  app.post("/auth/redefinir-senha", async (req) => {
+    const { email, codigo, novaSenha } = redefinirSenhaSchema.parse(req.body);
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    const codigoValido =
+      usuario?.ativo &&
+      usuario.codigoRecuperacaoHash &&
+      usuario.codigoRecuperacaoExpira &&
+      usuario.codigoRecuperacaoExpira > new Date() &&
+      (await bcrypt.compare(codigo, usuario.codigoRecuperacaoHash));
+    if (!codigoValido) throw new HttpError(400, "Código inválido ou expirado");
+    // Invalida o código: ele não pode ser usado de novo.
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { senhaHash: await bcrypt.hash(novaSenha, 10), codigoRecuperacaoHash: null, codigoRecuperacaoExpira: null },
+    });
+    return { ok: true };
   });
 }

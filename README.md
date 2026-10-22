@@ -13,7 +13,7 @@ docs/       Requisitos, regras de acesso e modelo de dados
 
 ## Como rodar
 
-Pré-requisitos: Node.js 20+ e PostgreSQL 16 (via Homebrew ou Docker).
+Pré-requisitos: Node.js 20+ e PostgreSQL 16 (via Homebrew; use um Postgres já instalado de outra forma se preferir, ajustando `DATABASE_URL`).
 
 ```bash
 brew install postgresql@16  # uma vez só, se ainda não tiver o Postgres instalado
@@ -56,6 +56,14 @@ O Expo Go no Android não recebe notificações push. Para testá-las, gere um *
 3. Inicie o servidor com `npm run dev:mobile` e abra o app Condomus (não o Expo Go).
 
 O celular é registrado ao fazer login; a API avisa os moradores da unidade quando a portaria registra uma encomenda ou a entrada de um visitante.
+
+### Recuperação de senha
+
+O fluxo "Esqueci minha senha" (pede um código por e-mail, depois redefine) funciona sem nenhuma configuração extra: sem a chave do Resend, o código só fica registrado no log da API em vez de ser enviado por e-mail. Para o envio de verdade:
+
+1. Crie uma conta gratuita em [resend.com](https://resend.com) e gere uma API key.
+2. Adicione `RESEND_API_KEY="sua-chave"` em `apps/api/.env` (nunca versionado).
+3. Em conta nova, sem domínio verificado, o Resend só entrega e-mails para o endereço da própria conta (modo sandbox) — suficiente para testar o fluxo.
 
 ### Usuários de exemplo (senha `123456`)
 

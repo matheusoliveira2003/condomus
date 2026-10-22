@@ -50,6 +50,7 @@ Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e
 ### Conta
 - **RF18** — Todo usuário consulta seus dados e troca a própria senha, informando a senha atual.
 - **RF20** — Todo usuário pode definir uma foto de perfil (galeria ou câmera, recortada em quadrado e reduzida para 400×400 no app) e removê-la. A foto aparece no cabeçalho, no Início e nos Cadastros; a portaria vê a foto de quem autorizou cada visita e dos moradores da unidade ao registrar a retirada de uma encomenda. Só a própria pessoa, a portaria e o síndico podem ver a foto.
+- **RF21** — Quem esqueceu a senha pede um código de 6 dígitos por e-mail (válido por 15 minutos, de uso único) e o usa para definir uma nova senha, sem precisar da senha atual. O pedido não revela se o e-mail tem conta cadastrada.
 
 ## Requisitos não funcionais
 - **RNF01** — Autenticação por e-mail e senha, com token JWT (validade de 8h) e senhas armazenadas com bcrypt.
@@ -62,6 +63,7 @@ Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e
 | Endpoint                          | Morador        | Porteiro | Síndico |
 |-----------------------------------|----------------|----------|---------|
 | `POST /auth/login`                | ✔              | ✔        | ✔       |
+| `POST /auth/recuperar-senha`, `/redefinir-senha` | sem login (qualquer um) | | |
 | `GET /auth/me`, `PATCH /auth/senha` | ✔            | ✔        | ✔       |
 | `PUT /auth/foto`, `DELETE /auth/foto` (própria) | ✔ | ✔        | ✔       |
 | `GET /usuarios/:id/foto`          | só a própria   | ✔        | ✔       |

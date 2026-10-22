@@ -63,6 +63,10 @@ model Usuario {
   unidadeId String?
   unidade   Unidade? @relation(fields: [unidadeId], references: [id])
 
+  /// Código de recuperação de senha (hash), válido só até codigoRecuperacaoExpira.
+  codigoRecuperacaoHash   String?
+  codigoRecuperacaoExpira DateTime?
+
   visitasAutorizadas  Visita[]    @relation("VisitaAutorizadaPor")
   visitasRegistradas  Visita[]    @relation("VisitaRegistradaPor")
   encomendasRecebidas Encomenda[]
