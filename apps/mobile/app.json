@@ -31,8 +31,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-condomus.png",
-          "imageWidth": 337,
+          "image": "./assets/icon.png",
+          "imageWidth": 80,
           "backgroundColor": "#1E3A5F"
         }
       ],

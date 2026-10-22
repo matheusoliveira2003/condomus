@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { Botao } from "../ui/componentes";
-import { FUNDO_MARCA, LOGO_C, LOGO_CASA, TAMANHO_LOGO } from "../ui/logo";
+import { FUNDO_MARCA, GRADIENTE_MARCA, LOGO_C, LOGO_CASA } from "../ui/logo";
 import { cores } from "../ui/tema";
 
+/** Tamanho da logo nas Boas-vindas (igual ao usado na abertura, ver AberturaAnimada). */
+const TAMANHO_LOGO = 88;
+
 /**
- * Primeira tela sem login: o logo no centro (exatamente onde a abertura animada o deixa)
- * e o painel com "Entrar" e "Criar conta", que sobe por baixo quando `painelVisivel` fica verdadeiro.
+ * Primeira tela sem login: o logo no centro e o painel com "Entrar" e "Criar conta",
+ * que sobe por baixo quando `painelVisivel` fica verdadeiro.
  */
 export function BoasVindasScreen({
   painelVisivel,
@@ -28,10 +32,12 @@ export function BoasVindasScreen({
 
   return (
     <View style={styles.tela}>
-      <View style={styles.centro} pointerEvents="none">
-        <View style={{ width: TAMANHO_LOGO, height: TAMANHO_LOGO }}>
-          <Image source={LOGO_C} style={StyleSheet.absoluteFill} />
-          <Image source={LOGO_CASA} style={StyleSheet.absoluteFill} accessibilityLabel="Logo do Condomus" />
+      <LinearGradient colors={GRADIENTE_MARCA} style={StyleSheet.absoluteFill} />
+      {/* Logo só na faixa azul de cima — centralizar na tela inteira a deixava atrás do painel. */}
+      <View style={styles.areaLogo} pointerEvents="none">
+        <View style={styles.caixaLogo}>
+          <Image source={LOGO_C} style={styles.imagemLogo} />
+          <Image source={LOGO_CASA} style={styles.imagemLogo} accessibilityLabel="Logo do Condomus" />
         </View>
       </View>
 
@@ -57,16 +63,19 @@ export function BoasVindasScreen({
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: FUNDO_MARCA },
-  // Centro da tela inteira: o mesmo ponto em que a abertura deixa o logo.
-  centro: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+  // Ocupa só a parte de cima da tela (acima de onde o painel sobe), para a logo
+  // ficar centralizada na faixa azul em vez de atrás do painel branco.
+  areaLogo: { position: "absolute", top: 0, left: 0, right: 0, bottom: "40%", alignItems: "center", justifyContent: "center" },
+  // Tamanho fixo e explícito na própria caixa e em cada imagem (sem depender de
+  // absoluteFill), para a logo nunca render no tamanho intrínseco do PNG (768x768).
+  caixaLogo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO },
+  imagemLogo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
   painel: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: cores.superficie,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 28,
     gap: 12,

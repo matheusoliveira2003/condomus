@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { BackHandler, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
+import { GRADIENTE_MARCA, LOGO_C, LOGO_CASA } from "../ui/logo";
 import { cores } from "../ui/tema";
+
+/** Altura do topo colorido com a logo; o painel branco cobre o resto da tela. */
+const ALTURA_TOPO = 190;
+/** Tamanho da logo no topo (menor que nas Boas-vindas, só para identificar a marca aqui). */
+const TAMANHO_LOGO = 56;
 
 export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
   const { entrar } = useAuth();
@@ -34,20 +41,29 @@ export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
   }
 
   return (
-    // "padding" também no Android: com a tela edge-to-edge, o sistema não redimensiona
-    // a janela quando o teclado abre, então o próprio app empurra o conteúdo para cima.
-    <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-        <Ionicons name="arrow-back" size={26} color={cores.texto} />
-      </Pressable>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.marca}>
-            <Image source={require("../../assets/icon.png")} style={styles.logo} accessibilityLabel="Logo do Condomus" />
-            <Text style={styles.titulo}>Condomus</Text>
-            <Text style={styles.subtitulo}>Seu condomínio em um só lugar</Text>
-          </View>
+    <View style={styles.tela}>
+      <LinearGradient colors={GRADIENTE_MARCA} style={styles.topo}>
+        <SafeAreaView edges={["top"]}>
+          <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </Pressable>
+        </SafeAreaView>
+        <View style={styles.logoTopo}>
+          <Image source={LOGO_C} style={styles.imagemLogoTopo} />
+          <Image source={LOGO_CASA} style={styles.imagemLogoTopo} accessibilityLabel="Logo do Condomus" />
+        </View>
+      </LinearGradient>
+
+      {/* "padding" também no Android: com a tela edge-to-edge, o sistema não redimensiona
+          a janela quando o teclado abre, então o próprio app empurra o conteúdo para cima. */}
+      <KeyboardAvoidingView style={styles.painel} behavior="padding">
+        <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+          <Text style={styles.ola}>Olá!</Text>
+          <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
+
+          <View style={{ height: 8 }} />
           <Campo
+            icone="mail-outline"
             placeholder="E-mail"
             autoCapitalize="none"
             autoComplete="email"
@@ -56,6 +72,7 @@ export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
             onChangeText={setEmail}
           />
           <Campo
+            icone="lock-closed-outline"
             placeholder="Senha"
             senha
             autoComplete="current-password"
@@ -64,20 +81,31 @@ export function LoginScreen({ onVoltar }: { onVoltar: () => void }) {
             onSubmitEditing={aoEntrar}
           />
           <MensagemErro texto={erro} />
+          <View style={{ height: 4 }} />
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // flexGrow centraliza quando sobra espaço e deixa rolar quando o teclado ocupa a tela.
-  container: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 16 },
-  voltar: { paddingHorizontal: 16, paddingTop: 8, alignSelf: "flex-start" },
-  marca: { alignItems: "center", marginBottom: 24, gap: 8 },
-  // O ícone do app é um quadrado cheio; o arredondamento vem do estilo, como nos launchers.
-  logo: { width: 96, height: 96, borderRadius: 24 },
-  titulo: { fontSize: 30, fontWeight: "700", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario },
+  tela: { flex: 1, backgroundColor: cores.superficie },
+  topo: { height: ALTURA_TOPO, alignItems: "center" },
+  voltar: { alignSelf: "flex-start", marginLeft: 8, marginTop: 4, padding: 8 },
+  logoTopo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO, marginTop: 4 },
+  // Tamanho fixo e explícito (sem depender de absoluteFill), para a logo nunca
+  // render no tamanho intrínseco do PNG (768x768) em vez do tamanho do container.
+  imagemLogoTopo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
+  // O painel sobrepõe a parte de baixo do topo colorido, criando a borda arredondada "subindo".
+  painel: {
+    flex: 1,
+    marginTop: -28,
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+  ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
+  subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
 });

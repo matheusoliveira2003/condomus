@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Alert, Pressable, View } from "react-native";
-import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -12,7 +11,7 @@ import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
 import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
-import { FONTE_MARCA, FUNDO_MARCA } from "./src/ui/logo";
+import { FUNDO_MARCA } from "./src/ui/logo";
 import { AvisosScreen } from "./src/screens/AvisosScreen";
 import { VisitasMoradorScreen } from "./src/screens/VisitasMoradorScreen";
 import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
@@ -81,6 +80,9 @@ function Navegacao() {
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
   // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
+  // "app" cobre dois casos (já logado, ou a pessoa pulou/tocou Entrar antes da abertura acabar):
+  // em ambos a abertura só precisa sumir por completo (fundo + logo juntos), sem deixar o logo
+  // "flutuando" sozinho por cima da tela de trás.
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica === "login" ? "app" : "boasVindas";
   const fundoEscuro = abertura || restaurando || (!usuario && telaPublica === "boasVindas");
 
@@ -152,10 +154,6 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
 }
 
 export default function App() {
-  // Fonte da marca (a mesma da tela de abertura nativa). Se falhar, segue com a fonte do sistema.
-  const [fonteCarregada, erroFonte] = useFonts({ [FONTE_MARCA]: require("./assets/fontes/inter_bold.ttf") });
-  if (!fonteCarregada && !erroFonte) return <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />;
-
   return (
     <SafeAreaProvider>
       <AuthProvider>

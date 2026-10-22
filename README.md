@@ -13,13 +13,21 @@ docs/       Requisitos, regras de acesso e modelo de dados
 
 ## Como rodar
 
-Pré-requisitos: Node.js 20+ e PostgreSQL 16 (via Docker ou instalado localmente).
+Pré-requisitos: Node.js 20+ e PostgreSQL 16 (via Homebrew ou Docker).
 
 ```bash
+brew install postgresql@16  # uma vez só, se ainda não tiver o Postgres instalado
 npm install                 # instala dependências de todos os pacotes
 
-npm run db:up               # sobe o PostgreSQL com Docker (ou use um Postgres local
-                            # e ajuste DATABASE_URL em apps/api/.env)
+npm run db:up               # inicia o PostgreSQL (brew services start postgresql@16)
+
+# Uma vez só: cria o usuário e o banco usados em apps/api/.env (DATABASE_URL).
+# A senha abaixo é só para a URL de conexão funcionar — o Postgres do Homebrew
+# usa autenticação "trust" para conexões locais, então ela não é checada de fato.
+createuser condomus --superuser
+createdb condomus --owner=condomus
+psql postgres -c "ALTER USER condomus WITH PASSWORD 'condomus';"
+
 npm run db:migrate          # cria as tabelas
 npm run db:seed             # cria usuários e áreas de exemplo
 
@@ -32,7 +40,7 @@ No celular físico, defina `EXPO_PUBLIC_API_URL=http://<IP-da-sua-máquina>:3333
 ### Testes automatizados
 
 ```bash
-npm test        # roda os testes da API (com o PostgreSQL do Docker ligado)
+npm test        # roda os testes da API (com o PostgreSQL ligado)
 ```
 
 Os testes chamam a API sem rede (Fastify `inject`) e usam um banco separado, `condomus_teste`, criado e migrado automaticamente — o banco de desenvolvimento nunca é tocado (há uma trava que só permite limpar bancos terminados em `_teste`). Notificações push são simuladas: nada é enviado ao Expo. Cobrem login e permissões de cada perfil, visitas e convites com QR code, encomendas, reservas (conflito de horário e aprovação), avisos, resumo do Início, cadastros, fotos de perfil e notificações.

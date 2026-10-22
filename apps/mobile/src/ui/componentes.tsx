@@ -58,17 +58,25 @@ export function Botao({
 /**
  * Campo de texto. Sem `rotulo`, o nome do campo deve ir no placeholder.
  * Com `senha`, o texto fica oculto e um ícone de olho permite exibi-lo.
+ * Com `icone`, mostra um ícone fixo à esquerda (ex.: envelope no e-mail).
  */
-export function Campo({ rotulo, senha, style, ...props }: TextInputProps & { rotulo?: string; senha?: boolean }) {
+export function Campo({
+  rotulo,
+  senha,
+  icone,
+  style,
+  ...props
+}: TextInputProps & { rotulo?: string; senha?: boolean; icone?: keyof typeof Ionicons.glyphMap }) {
   const [visivel, setVisivel] = useState(false);
   return (
     <View style={{ gap: 4 }}>
       {rotulo && <Text style={styles.rotulo}>{rotulo}</Text>}
       <View style={styles.campoLinha}>
+        {icone && <Ionicons name={icone} size={20} color={cores.textoSecundario} style={styles.iconeEsquerda} />}
         <TextInput
           placeholderTextColor={cores.textoSecundario}
           {...props}
-          style={[styles.input, senha && { paddingRight: 48 }, style]}
+          style={[styles.input, icone && { paddingLeft: 44 }, senha && { paddingRight: 48 }, style]}
           // Depois de {...props}, para o botão de exibir senha sempre ter a palavra final.
           {...(senha && { secureTextEntry: !visivel, autoCapitalize: "none", autoCorrect: false })}
         />
@@ -243,6 +251,7 @@ const styles = StyleSheet.create({
   rotulo: { fontSize: 14, fontWeight: "500", color: cores.texto },
   campoLinha: { justifyContent: "center" },
   olho: { position: "absolute", right: 12, padding: 4 },
+  iconeEsquerda: { position: "absolute", left: 14, zIndex: 1 },
   input: {
     borderWidth: 1,
     borderColor: cores.borda,
