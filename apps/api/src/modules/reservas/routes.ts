@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { StatusReserva } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
@@ -69,17 +70,27 @@ export async function reservasRoutes(app: FastifyInstance) {
     const area = await prisma.areaComum.findUnique({ where: { id: areaId } });
     if (!area || !area.ativa) throw naoEncontrado("Área comum");
 
-    // Dois intervalos se sobrepõem quando um começa antes do outro terminar.
-    // Obs.: verificação simples, sem lock — duas requisições simultâneas podem passar.
-    const conflito = await prisma.reserva.findFirst({
-      where: { areaId, status: { in: OCUPAM_HORARIO }, inicio: { lt: fim }, fim: { gt: inicio } },
-    });
-    if (conflito) throw new HttpError(409, "Horário indisponível para esta área");
+    const reserva = await prisma.$transaction(async (tx) => {
+      // Lock exclusivo por área: garante que duas requisições simultâneas para a mesma
+      // área não passem pela verificação de conflito ao mesmo tempo. O Postgres libera
+      // o lock automaticamente ao final da transação (commit ou rollback).
+      // $executeRaw com cast explícito: pg_advisory_xact_lock exige int8 (bigint).
+      // O Prisma não serializa bigint nativo como parâmetro, então embutimos o
+      // literal decimal com cast ::bigint para que o Postgres resolva a sobrecarga certa.
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${Prisma.raw(lockId(areaId) + "::bigint")})`);
 
-    const reserva = await prisma.reserva.create({
-      data: { areaId, inicio, fim, unidadeId: req.user.unidadeId!, usuarioId: req.user.sub },
-      include: incluir,
+      // Dois intervalos se sobrepõem quando um começa antes do outro terminar.
+      const conflito = await tx.reserva.findFirst({
+        where: { areaId, status: { in: OCUPAM_HORARIO }, inicio: { lt: fim }, fim: { gt: inicio } },
+      });
+      if (conflito) throw new HttpError(409, "Horário indisponível para esta área");
+
+      return tx.reserva.create({
+        data: { areaId, inicio, fim, unidadeId: req.user.unidadeId!, usuarioId: req.user.sub },
+        include: incluir,
+      });
     });
+
     notificarPapel("SINDICO", {
       titulo: "📅 Reserva aguardando aprovação",
       corpo: `${area.nome} · ${dataHora(inicio)} · Bloco ${reserva.unidade.bloco}-${reserva.unidade.numero}`,
@@ -143,4 +154,18 @@ async function buscarPendente(params: unknown) {
   if (!reserva) throw naoEncontrado("Reserva");
   if (reserva.status !== "PENDENTE") throw new HttpError(409, "Esta reserva já foi analisada");
   return reserva;
+}
+
+/**
+ * Deriva um inteiro signed de 64 bits (como string decimal) a partir do UUID da
+ * área para uso como chave do advisory lock do Postgres (que usa int8 signed).
+ * Se o valor unsigned exceder 2^63-1, converte para a representação signed
+ * equivalente subtraindo 2^64 — preservando unicidade e distribuição.
+ */
+function lockId(areaId: string): string {
+  const MAX_SIGNED = BigInt("0x7fffffffffffffff");
+  const TWO_64 = BigInt("0x10000000000000000");
+  let v = BigInt("0x" + areaId.replace(/-/g, "").slice(0, 16));
+  if (v > MAX_SIGNED) v -= TWO_64;
+  return v.toString();
 }

@@ -47,6 +47,18 @@ describe("pedido de reserva", () => {
     await pedir(c.tokens.morador, 24, 28);
     expect((await pedir(c.tokens.vizinho, 28, 30)).status).toBe(201);
   });
+
+  it("requisições simultâneas para o mesmo horário: apenas uma é aceita", async () => {
+    // Dispara dois pedidos exatamente ao mesmo tempo para exercitar o advisory lock.
+    const resultados = await Promise.all([
+      pedir(c.tokens.morador, 24, 28),
+      pedir(c.tokens.vizinho, 24, 28),
+    ]);
+    const aceitas = resultados.filter((r) => r.status === 201);
+    const recusadas = resultados.filter((r) => r.status === 409);
+    expect(aceitas).toHaveLength(1);
+    expect(recusadas).toHaveLength(1);
+  });
 });
 
 describe("aprovação pelo síndico", () => {
