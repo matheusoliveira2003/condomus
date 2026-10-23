@@ -11,6 +11,19 @@ const schema = z.object({
   /// Remetente do e-mail de recuperação. O domínio onboarding@resend.dev funciona sem
   /// verificação de domínio, mas só envia para o e-mail da conta Resend (modo teste).
   EMAIL_REMETENTE: z.string().default("Condomus <onboarding@resend.dev>"),
+
+  // --- Object Storage (S3 ou compatível) para fotos de perfil ---
+  /// Nome do bucket onde as fotos são armazenadas.
+  STORAGE_BUCKET: z.string().optional(),
+  /// Região do bucket (ex.: us-east-1). Obrigatório para AWS; para R2/MinIO pode ser qualquer valor.
+  STORAGE_REGION: z.string().default("us-east-1"),
+  /// Endpoint customizado para serviços compatíveis (Cloudflare R2, MinIO, etc.).
+  /// Para AWS S3 padrão, omitir.
+  STORAGE_ENDPOINT: z.string().url().optional(),
+  /// Access key ID da credencial com permissão no bucket.
+  STORAGE_ACCESS_KEY_ID: z.string().optional(),
+  /// Secret access key correspondente.
+  STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
 });
 
 export const env = schema.parse(process.env);

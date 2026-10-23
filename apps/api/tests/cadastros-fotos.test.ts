@@ -1,6 +1,17 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { type Cenario, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
+
+// Mock do storage: as funções de upload/download/delete não precisam de bucket real nos testes.
+// Cada teste que enviar uma foto recebe os bytes de volta via downloadFoto.
+const fotoStorage = new Map<string, Buffer>();
+
+vi.mock("../src/lib/storage.js", () => ({
+  uploadFoto: vi.fn(async (usuarioId: string, bytes: Buffer) => { fotoStorage.set(usuarioId, bytes); }),
+  downloadFoto: vi.fn(async (usuarioId: string) => fotoStorage.get(usuarioId) ?? null),
+  deletarFoto: vi.fn(async (usuarioId: string) => { fotoStorage.delete(usuarioId); }),
+  StorageNaoConfiguradoError: class StorageNaoConfiguradoError extends Error {},
+}));
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -13,6 +24,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 beforeEach(async () => {
+  fotoStorage.clear();
   await limparBanco();
   c = await criarCenario(app);
 });

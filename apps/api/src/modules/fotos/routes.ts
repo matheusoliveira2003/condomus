@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
+import { StorageNaoConfiguradoError, deletarFoto, downloadFoto, uploadFoto } from "../../lib/storage.js";
 
 /** O app envia a foto já reduzida (~30–50 KB); o limite só barra envios fora do padrão. */
 const TAMANHO_MAXIMO = 500 * 1024;
@@ -18,16 +19,23 @@ export async function fotosRoutes(app: FastifyInstance) {
     const bytes = Buffer.from(imagem, "base64");
     if (!ehJpeg(bytes)) throw new HttpError(400, "A foto deve ser uma imagem JPEG");
     if (bytes.length > TAMANHO_MAXIMO) throw new HttpError(400, "A foto deve ter no máximo 500 KB");
+    try {
+      await uploadFoto(req.user.sub, bytes);
+    } catch (e) {
+      if (e instanceof StorageNaoConfiguradoError) throw new HttpError(503, e.message);
+      throw e;
+    }
     const { fotoAtualizadaEm } = await prisma.usuario.update({
       where: { id: req.user.sub },
-      data: { foto: bytes, fotoAtualizadaEm: new Date() },
+      data: { fotoAtualizadaEm: new Date() },
       select: { fotoAtualizadaEm: true },
     });
     return { fotoAtualizadaEm };
   });
 
   app.delete("/auth/foto", { preHandler: app.autorizar() }, async (req, reply) => {
-    await prisma.usuario.update({ where: { id: req.user.sub }, data: { foto: null, fotoAtualizadaEm: null } });
+    await deletarFoto(req.user.sub);
+    await prisma.usuario.update({ where: { id: req.user.sub }, data: { fotoAtualizadaEm: null } });
     return reply.status(204).send();
   });
 
@@ -35,10 +43,20 @@ export async function fotosRoutes(app: FastifyInstance) {
   app.get("/usuarios/:id/foto", { preHandler: app.autorizar() }, async (req, reply) => {
     const { id } = idParam.parse(req.params);
     if (req.user.papel === "MORADOR" && id !== req.user.sub) throw proibido();
-    const usuario = await prisma.usuario.findUnique({ where: { id }, select: { foto: true } });
-    if (!usuario?.foto) throw naoEncontrado("Foto");
-    // A URL do app inclui a versão (?v=...), então a imagem pode ficar em cache sem risco de ficar velha.
-    return reply.header("Content-Type", "image/jpeg").header("Cache-Control", "private, max-age=86400").send(Buffer.from(usuario.foto));
+
+    // Verifica se o usuário tem foto registrada antes de ir ao storage.
+    const usuario = await prisma.usuario.findUnique({ where: { id }, select: { fotoAtualizadaEm: true } });
+    if (!usuario?.fotoAtualizadaEm) throw naoEncontrado("Foto");
+
+    try {
+      const bytes = await downloadFoto(id);
+      if (!bytes) throw naoEncontrado("Foto");
+      // A URL do app inclui a versão (?v=...), então a imagem pode ficar em cache sem risco de ficar velha.
+      return reply.header("Content-Type", "image/jpeg").header("Cache-Control", "private, max-age=86400").send(bytes);
+    } catch (e) {
+      if (e instanceof StorageNaoConfiguradoError) throw new HttpError(503, e.message);
+      throw e;
+    }
   });
 
   // Moradores de uma unidade, para a portaria reconhecer quem retira uma encomenda.
