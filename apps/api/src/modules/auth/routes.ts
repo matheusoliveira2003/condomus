@@ -38,6 +38,12 @@ export async function authRoutes(app: FastifyInstance) {
     if (!usuario || !usuario.ativo || !(await bcrypt.compare(senha, usuario.senhaHash))) {
       throw new HttpError(401, "E-mail ou senha inválidos");
     }
+    // Limpa código de recuperação expirado que porventura ficou para trás (fire-and-forget).
+    if (usuario.codigoRecuperacaoExpira && usuario.codigoRecuperacaoExpira < new Date()) {
+      prisma.usuario
+        .update({ where: { id: usuario.id }, data: { codigoRecuperacaoHash: null, codigoRecuperacaoExpira: null } })
+        .catch(() => {});
+    }
     const token = app.jwt.sign({ sub: usuario.id, papel: usuario.papel, unidadeId: usuario.unidadeId, tokenVersion: usuario.tokenVersion });
     return {
       token,
