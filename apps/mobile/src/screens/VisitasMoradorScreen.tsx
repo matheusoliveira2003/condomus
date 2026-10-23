@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Alert, Image, StyleSheet, Text, View } from "react-native";
-import { api, enviar, obterToken, type Pagina, type Visita } from "../api/client";
+import { api, obterToken, type Visita } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
 import { cores } from "../ui/tema";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery, useCancelarVisita, useCriarVisita, useVisitas } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
   BotaoFlutuante,
@@ -22,23 +22,20 @@ import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Pagina<Visita>>("/visitas?situacao=ativas").then((p) => p.itens), []),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas("situacao=ativas"));
+  const cancelar = useCancelarVisita();
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
   const [convite, setConvite] = useState<Visita | null>(null);
   useAbrirPorParametro("novo", useCallback(() => setAgendando(true), []));
 
-  function cancelar(visita: Visita) {
+  function confirmarCancelamento(visita: Visita) {
     Alert.alert("Cancelar visita", `Cancelar a autorização de ${visita.nomeVisitante}?`, [
       { text: "Voltar", style: "cancel" },
       {
         text: "Cancelar visita",
         style: "destructive",
-        onPress: () =>
-          enviar("PATCH", `/visitas/${visita.id}/cancelar`).then(recarregar).catch((e: Error) => Alert.alert("Erro", e.message)),
+        onPress: () => cancelar.mutate(visita.id, { onError: (e) => Alert.alert("Erro", (e as Error).message) }),
       },
     ]);
   }
@@ -57,7 +54,7 @@ export function VisitasMoradorScreen() {
             {visita.status === "AGENDADA" && (
               <View style={{ flexDirection: "row", gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Botao titulo="Cancelar" variante="secundario" pequeno onPress={() => cancelar(visita)} />
+                  <Botao titulo="Cancelar" variante="secundario" pequeno onPress={() => confirmarCancelamento(visita)} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Botao titulo="Enviar convite" pequeno onPress={() => setConvite(visita)} />
@@ -104,10 +101,7 @@ const LIMITE_HISTORICO = 50;
 
 /** Últimas visitas finalizadas ou canceladas da unidade. */
 function HistoricoVisitas() {
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Pagina<Visita>>(`/visitas?situacao=historico&limite=${LIMITE_HISTORICO}`).then((p) => p.itens), []),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas(`situacao=historico&limite=${LIMITE_HISTORICO}`));
   return (
     <Lista
       dados={dados}
@@ -187,13 +181,12 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
   const [placa, setPlaca] = useState("");
   const [dia, setDia] = useState<string>(SEM_DATA);
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
+  const criar = useCriarVisita();
 
   async function autorizar() {
-    setSalvando(true);
     setErro(null);
     try {
-      const visita = await enviar<Visita>("POST", "/visitas", {
+      const visita = await criar.mutateAsync({
         nomeVisitante: nome.trim(),
         documento: documento.trim() || undefined,
         placaVeiculo: placa.trim().toUpperCase() || undefined,
@@ -206,8 +199,6 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
       onCriada(visita);
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -221,7 +212,7 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
         <Chips opcoes={[{ valor: SEM_DATA, rotulo: "Qualquer dia" }, ...proximosDias(7)]} valor={dia} onChange={setDia} />
       </View>
       <MensagemErro texto={erro} />
-      <Botao titulo="Autorizar" onPress={autorizar} carregando={salvando} desabilitado={nome.trim().length < 2} />
+      <Botao titulo="Autorizar" onPress={autorizar} carregando={criar.isPending} desabilitado={nome.trim().length < 2} />
     </ModalFormulario>
   );
 }

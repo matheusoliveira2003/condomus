@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
-import { api, enviar, type Pagina, type StatusVisita, type Visita } from "../api/client";
-import { useCarregar } from "../hooks/useCarregar";
+import { type StatusVisita, type Visita } from "../api/client";
+import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useVisitas } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
@@ -22,10 +22,8 @@ export function PortariaVisitasScreen() {
   const [lendo, setLendo] = useState(false);
   /** Visita da lista cujo convite está sendo conferido. */
   const [conferindo, setConferindo] = useState<Visita | null>(null);
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Pagina<Visita>>(`/visitas?status=${status}`).then((p) => p.itens), [status]),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas(`status=${status}`));
+  const registrarAcao = useRegistrarEntradaSaida();
 
   // Busca por nome do visitante, documento, placa ou unidade (ex.: "A-101").
   const filtradas = useMemo(() => {
@@ -40,8 +38,7 @@ export function PortariaVisitasScreen() {
 
   async function registrar(visita: Visita, acao: "entrada" | "saida") {
     try {
-      await enviar("PATCH", `/visitas/${visita.id}/${acao}`);
-      await recarregar();
+      await registrarAcao.mutateAsync({ id: visita.id, acao });
     } catch (e) {
       Alert.alert("Erro", (e as Error).message);
     }
@@ -102,9 +99,7 @@ export function PortariaVisitasScreen() {
         onEntrada={() => {
           setLendo(false);
           setConferindo(null);
-          // Mostra a lista de quem está no condomínio, onde o visitante acabou de entrar.
-          if (status === "EM_ANDAMENTO") void recarregar();
-          else setStatus("EM_ANDAMENTO");
+          setStatus("EM_ANDAMENTO");
         }}
       />
       <EntradaDiretaModal
@@ -126,13 +121,13 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
   const [documento, setDocumento] = useState("");
   const [placa, setPlaca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
+  const entradaDireta = useEntradaDireta();
 
   async function registrar() {
-    setSalvando(true);
+    if (!unidadeId) return;
     setErro(null);
     try {
-      await enviar("POST", "/visitas/entrada-direta", {
+      await entradaDireta.mutateAsync({
         unidadeId,
         nomeVisitante: nome.trim(),
         documento: documento.trim() || undefined,
@@ -145,8 +140,6 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
       onRegistrada();
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -157,7 +150,7 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
       <Campo rotulo="Documento" value={documento} onChangeText={setDocumento} placeholder="RG ou CPF" />
       <Campo rotulo="Placa do veículo (opcional)" value={placa} onChangeText={setPlaca} autoCapitalize="characters" />
       <MensagemErro texto={erro} />
-      <Botao titulo="Registrar entrada" onPress={registrar} carregando={salvando} desabilitado={!unidadeId || nome.trim().length < 2} />
+      <Botao titulo="Registrar entrada" onPress={registrar} carregando={entradaDireta.isPending} desabilitado={!unidadeId || nome.trim().length < 2} />
     </ModalFormulario>
   );
 }

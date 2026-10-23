@@ -3,9 +3,8 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import { api, type Resumo } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery, useResumo } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { AvisosScreen } from "./AvisosScreen";
 import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
@@ -18,14 +17,8 @@ type Icone = keyof typeof Ionicons.glyphMap;
 export function InicioScreen() {
   const { usuario } = useAuth();
   const navegacao = useNavigation<BottomTabNavigationProp<ParamListBase>>();
-  const { dados: resumo, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => {
-      const inicioDoDia = new Date();
-      inicioDoDia.setHours(0, 0, 0, 0);
-      return api<Resumo>(`/resumo?inicioDoDia=${inicioDoDia.toISOString()}`);
-    }, []),
-    null,
-  );
+  const query = useResumo();
+  const { dados: resumo, carregando, erro, recarregar } = adaptarQuery(query);
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.

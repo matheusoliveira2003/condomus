@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Alert, Pressable, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Aviso, type Pagina } from "../api/client";
+import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery, useCriarAviso, useAvisos, useRemoverAviso } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
 import { dataHora } from "../ui/formatar";
 import { cores } from "../ui/tema";
@@ -11,19 +11,17 @@ import { cores } from "../ui/tema";
 export function AvisosScreen() {
   const { usuario } = useAuth();
   const ehSindico = usuario?.papel === "SINDICO";
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Pagina<Aviso>>("/avisos").then((p) => p.itens), []),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useAvisos());
+  const remover = useRemoverAviso();
   const [criando, setCriando] = useState(false);
 
-  function remover(aviso: Aviso) {
+  function confirmarRemocao(aviso: Aviso) {
     Alert.alert("Remover aviso", `Remover "${aviso.titulo}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Remover",
         style: "destructive",
-        onPress: () => enviar("DELETE", `/avisos/${aviso.id}`).then(recarregar).catch((e: Error) => Alert.alert("Erro", e.message)),
+        onPress: () => remover.mutate(aviso.id, { onError: (e) => Alert.alert("Erro", (e as Error).message) }),
       },
     ]);
   }
@@ -44,7 +42,7 @@ export function AvisosScreen() {
                 <Text style={estilosTexto.titulo}>{aviso.titulo}</Text>
               </View>
               {ehSindico && (
-                <Pressable onPress={() => remover(aviso)} hitSlop={10}>
+                <Pressable onPress={() => confirmarRemocao(aviso)} hitSlop={10}>
                   <Ionicons name="trash-outline" size={20} color={cores.perigo} />
                 </Pressable>
               )}
@@ -60,10 +58,7 @@ export function AvisosScreen() {
       <NovoAvisoModal
         visivel={criando}
         onFechar={() => setCriando(false)}
-        onCriado={() => {
-          setCriando(false);
-          void recarregar();
-        }}
+        onCriado={() => setCriando(false)}
       />
     </View>
   );
@@ -74,21 +69,18 @@ function NovoAvisoModal({ visivel, onFechar, onCriado }: { visivel: boolean; onF
   const [conteudo, setConteudo] = useState("");
   const [fixado, setFixado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
+  const criar = useCriarAviso();
 
   async function publicar() {
-    setSalvando(true);
     setErro(null);
     try {
-      await enviar("POST", "/avisos", { titulo, conteudo, fixado });
+      await criar.mutateAsync({ titulo, conteudo, fixado });
       setTitulo("");
       setConteudo("");
       setFixado(false);
       onCriado();
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -108,7 +100,7 @@ function NovoAvisoModal({ visivel, onFechar, onCriado }: { visivel: boolean; onF
         <Switch value={fixado} onValueChange={setFixado} trackColor={{ true: cores.primaria, false: cores.borda }} />
       </View>
       <MensagemErro texto={erro} />
-      <Botao titulo="Publicar" onPress={publicar} carregando={salvando} desabilitado={titulo.length < 3 || !conteudo} />
+      <Botao titulo="Publicar" onPress={publicar} carregando={criar.isPending} desabilitado={titulo.length < 3 || !conteudo} />
     </ModalFormulario>
   );
 }

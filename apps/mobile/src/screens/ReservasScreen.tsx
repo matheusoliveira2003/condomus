@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
-import { api, enviar, type AreaComum, type Reserva, type StatusReserva } from "../api/client";
+import { api, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery, useAprovarReserva, useAreas, useCancelarReserva, useCriarReserva, useReservas, useReservasMinhas, useRecusarReserva } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
@@ -29,7 +29,8 @@ export function ReservasScreen() {
 function ReservasMorador() {
   const [reservando, setReservando] = useState(false);
   useAbrirPorParametro("novo", useCallback(() => setReservando(true), []));
-  const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Reserva[]>("/reservas/minhas"), []), []);
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
+  const cancelar = useCancelarReserva();
 
   return (
     <View style={{ flex: 1 }}>
@@ -47,7 +48,7 @@ function ReservasMorador() {
                 titulo={r.status === "PENDENTE" ? "Cancelar solicitação" : "Cancelar reserva"}
                 variante="secundario"
                 pequeno
-                onPress={() => confirmarCancelamento(r, recarregar)}
+                onPress={() => confirmarCancelamento(r, () => cancelar.mutate(r.id))}
               />
             )}
           </CardReserva>
@@ -59,7 +60,6 @@ function ReservasMorador() {
         onFechar={() => setReservando(false)}
         onCriada={() => {
           setReservando(false);
-          void recarregar();
           Alert.alert("Solicitação enviada", "O síndico vai analisar sua reserva. Você será avisado quando ela for aprovada.");
         }}
       />
@@ -72,15 +72,13 @@ type FiltroSindico = "PENDENTE" | "CONFIRMADA";
 function ReservasSindico() {
   const [filtro, setFiltro] = useState<FiltroSindico>("PENDENTE");
   const [recusando, setRecusando] = useState<Reserva | null>(null);
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Reserva[]>(`/reservas?status=${filtro}&de=${new Date().toISOString()}`), [filtro]),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${new Date().toISOString()}`));
+  const aprovarMut = useAprovarReserva();
+  const cancelar = useCancelarReserva();
 
   async function aprovar(r: Reserva) {
     try {
-      await enviar("PATCH", `/reservas/${r.id}/aprovar`);
-      await recarregar();
+      await aprovarMut.mutateAsync(r.id);
     } catch (e) {
       Alert.alert("Erro", (e as Error).message);
     }
@@ -118,7 +116,7 @@ function ReservasSindico() {
                 </View>
               </View>
             ) : (
-              <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(r, recarregar)} />
+              <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(r, () => cancelar.mutate(r.id))} />
             )}
           </CardReserva>
         )}
@@ -158,27 +156,25 @@ function confirmarCancelamento(reserva: Reserva, aoCancelar: () => void) {
     {
       text: "Cancelar reserva",
       style: "destructive",
-      onPress: () =>
-        enviar("PATCH", `/reservas/${reserva.id}/cancelar`).then(aoCancelar).catch((e: Error) => Alert.alert("Erro", e.message)),
+      onPress: () => {
+        try { aoCancelar(); } catch (e) { Alert.alert("Erro", (e as Error).message); }
+      },
     },
   ]);
 }
 
 function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | null; onFechar: () => void; onRecusada: () => void }) {
   const [motivo, setMotivo] = useState("");
-  const [salvando, setSalvando] = useState(false);
+  const recusar = useRecusarReserva();
 
-  async function recusar() {
+  async function confirmarRecusa() {
     if (!reserva) return;
-    setSalvando(true);
     try {
-      await enviar("PATCH", `/reservas/${reserva.id}/recusar`, { motivo: motivo.trim() || undefined });
+      await recusar.mutateAsync({ id: reserva.id, motivo: motivo.trim() || undefined });
       setMotivo("");
       onRecusada();
     } catch (e) {
       Alert.alert("Erro", (e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -199,13 +195,14 @@ function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | nul
         placeholder="Ex.: área em manutenção nesta data"
       />
       <Text style={estilosTexto.secundario}>O morador será avisado da recusa e do motivo.</Text>
-      <Botao titulo="Recusar reserva" variante="perigo" onPress={recusar} carregando={salvando} />
+      <Botao titulo="Recusar reserva" variante="perigo" onPress={confirmarRecusa} carregando={recusar.isPending} />
     </ModalFormulario>
   );
 }
 
 function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: () => void }) {
-  const [areas, setAreas] = useState<AreaComum[]>([]);
+  const areasQuery = useAreas();
+  const areas = areasQuery.data ?? [];
   const [areaId, setAreaId] = useState<string | null>(null);
   const hoje = useMemo(() => {
     const d = new Date();
@@ -222,11 +219,7 @@ function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; o
   const [inicio, setInicio] = useState<number | null>(null);
   const [fim, setFim] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    if (visivel) api<AreaComum[]>("/areas").then(setAreas).catch((e: Error) => setErro(e.message));
-  }, [visivel]);
+  const criarReserva = useCriarReserva();
 
   // Ao trocar de área ou dia, busca o que já está reservado e limpa os horários escolhidos.
   useEffect(() => {
@@ -264,17 +257,14 @@ function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; o
         }));
 
   async function reservar() {
-    if (inicio === null || fim === null) return;
-    setSalvando(true);
+    if (inicio === null || fim === null || !areaId) return;
     setErro(null);
     try {
-      await enviar("POST", "/reservas", { areaId, inicio: emHora(inicio).toISOString(), fim: emHora(fim).toISOString() });
+      await criarReserva.mutateAsync({ areaId, inicio: emHora(inicio).toISOString(), fim: emHora(fim).toISOString() });
       setAreaId(null);
       onCriada();
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -324,7 +314,7 @@ function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; o
         </>
       )}
       <MensagemErro texto={erro} />
-      <Botao titulo="Reservar" onPress={reservar} carregando={salvando} desabilitado={!areaId || !dia || inicio === null || fim === null} />
+      <Botao titulo="Reservar" onPress={reservar} carregando={criarReserva.isPending} desabilitado={!areaId || !dia || inicio === null || fim === null} />
     </ModalFormulario>
   );
 }

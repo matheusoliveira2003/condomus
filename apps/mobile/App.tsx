@@ -5,6 +5,7 @@ import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type T
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import type { Papel } from "./src/api/client";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
@@ -162,14 +163,27 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
   );
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Dados considerados frescos por 30s — evita re-fetch desnecessário ao alternar abas rapidamente.
+      staleTime: 30_000,
+      // Retry automático 2x em caso de falha de rede (padrão seria 3x).
+      retry: 2,
+    },
+  },
+});
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <NavigationContainer ref={navegacao} theme={temaNavegacao}>
-          <Navegacao />
-        </NavigationContainer>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <NavigationContainer ref={navegacao} theme={temaNavegacao}>
+            <Navegacao />
+          </NavigationContainer>
+        </AuthProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }

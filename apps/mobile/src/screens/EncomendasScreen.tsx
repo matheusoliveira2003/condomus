@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Encomenda, type Pagina, type Pessoa } from "../api/client";
+import { api, type Encomenda, type Pessoa } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery, useEncomendas, useRegistrarEncomenda, useRegistrarRetirada } from "../hooks/queries";
 import {
   BotaoFlutuante,
   Botao,
@@ -35,11 +35,9 @@ export function EncomendasScreen() {
   const [registrando, setRegistrando] = useState(false);
   const [retirando, setRetirando] = useState<Encomenda | null>(null);
   const [vendoHistorico, setVendoHistorico] = useState(false);
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    // O morador vê só o que está na portaria (retiradas ficam no histórico); a portaria filtra por status.
-    useCallback(() => api<Pagina<Encomenda>>(`/encomendas?status=${ehPortaria ? filtro : "AGUARDANDO_RETIRADA"}`).then((p) => p.itens), [ehPortaria, filtro]),
-    [],
-  );
+
+  const statusQuery = ehPortaria ? filtro : "AGUARDANDO_RETIRADA";
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useEncomendas(statusQuery));
 
   return (
     <View style={{ flex: 1 }}>
@@ -71,11 +69,7 @@ export function EncomendasScreen() {
       <NovaEncomendaModal
         visivel={registrando}
         onFechar={() => setRegistrando(false)}
-        onCriada={() => {
-          setRegistrando(false);
-          if (filtro === "AGUARDANDO_RETIRADA") void recarregar();
-          else setFiltro("AGUARDANDO_RETIRADA");
-        }}
+        onCriada={() => setRegistrando(false)}
       />
       <ModalTela visivel={vendoHistorico} titulo="Encomendas retiradas" onFechar={() => setVendoHistorico(false)}>
         <HistoricoEncomendas />
@@ -83,10 +77,7 @@ export function EncomendasScreen() {
       <RetiradaModal
         encomenda={retirando}
         onFechar={() => setRetirando(null)}
-        onRetirada={() => {
-          setRetirando(null);
-          void recarregar();
-        }}
+        onRetirada={() => setRetirando(null)}
       />
     </View>
   );
@@ -114,10 +105,7 @@ function CardEncomenda({ encomenda: e, ehPortaria, onRetirar }: { encomenda: Enc
 
 /** Últimas encomendas retiradas da unidade do morador. */
 function HistoricoEncomendas() {
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Pagina<Encomenda>>(`/encomendas?status=RETIRADA&limite=${LIMITE_HISTORICO}`).then((p) => p.itens), []),
-    [],
-  );
+  const { dados, carregando, erro, recarregar } = adaptarQuery(useEncomendas(`RETIRADA&limite=${LIMITE_HISTORICO}`));
   return (
     <Lista
       dados={dados}
@@ -135,21 +123,19 @@ function NovaEncomendaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
   const [descricao, setDescricao] = useState("");
   const [remetente, setRemetente] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState(false);
+  const registrar = useRegistrarEncomenda();
 
-  async function registrar() {
-    setSalvando(true);
+  async function enviar() {
+    if (!unidadeId) return;
     setErro(null);
     try {
-      await enviar("POST", "/encomendas", { unidadeId, descricao: descricao.trim(), remetente: remetente.trim() || undefined });
+      await registrar.mutateAsync({ unidadeId, descricao: descricao.trim(), remetente: remetente.trim() || undefined });
       setUnidadeId(null);
       setDescricao("");
       setRemetente("");
       onCriada();
     } catch (e) {
       setErro((e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -159,15 +145,15 @@ function NovaEncomendaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
       <Campo rotulo="Descrição" value={descricao} onChangeText={setDescricao} placeholder="Ex.: Caixa média, envelope" />
       <Campo rotulo="Remetente (opcional)" value={remetente} onChangeText={setRemetente} placeholder="Ex.: Correios, Mercado Livre" />
       <MensagemErro texto={erro} />
-      <Botao titulo="Registrar" onPress={registrar} carregando={salvando} desabilitado={!unidadeId || descricao.trim().length < 2} />
+      <Botao titulo="Registrar" onPress={enviar} carregando={registrar.isPending} desabilitado={!unidadeId || descricao.trim().length < 2} />
     </ModalFormulario>
   );
 }
 
 function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomenda | null; onFechar: () => void; onRetirada: () => void }) {
   const [nome, setNome] = useState("");
-  const [salvando, setSalvando] = useState(false);
   const [moradores, setMoradores] = useState<Pessoa[]>([]);
+  const retirar = useRegistrarRetirada();
 
   // Moradores da unidade, com foto, para o porteiro reconhecer quem veio buscar.
   useEffect(() => {
@@ -177,15 +163,12 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
 
   async function confirmar() {
     if (!encomenda) return;
-    setSalvando(true);
     try {
-      await enviar("PATCH", `/encomendas/${encomenda.id}/retirada`, { retiradaPor: nome.trim() });
+      await retirar.mutateAsync({ id: encomenda.id, retiradaPor: nome.trim() });
       setNome("");
       onRetirada();
     } catch (e) {
       Alert.alert("Erro", (e as Error).message);
-    } finally {
-      setSalvando(false);
     }
   }
 
@@ -216,7 +199,7 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
         </View>
       )}
       <Campo rotulo="Retirada por" value={nome} onChangeText={setNome} placeholder="Nome de quem retirou" />
-      <Botao titulo="Confirmar retirada" onPress={confirmar} carregando={salvando} desabilitado={nome.trim().length < 2} />
+      <Botao titulo="Confirmar retirada" onPress={confirmar} carregando={retirar.isPending} desabilitado={nome.trim().length < 2} />
     </ModalFormulario>
   );
 }
