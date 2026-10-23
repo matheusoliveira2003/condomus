@@ -71,8 +71,8 @@ describe("listagem", () => {
     await autorizar(c.tokens.vizinho, "Visita do B");
     const doMorador = await chamar(app, "GET", "/visitas", { token: c.tokens.morador });
     const daPortaria = await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro });
-    expect(doMorador.corpo.map((v: { nomeVisitante: string }) => v.nomeVisitante)).toEqual(["Visita do A"]);
-    expect(daPortaria.corpo).toHaveLength(2);
+    expect(doMorador.corpo.itens.map((v: { nomeVisitante: string }) => v.nomeVisitante)).toEqual(["Visita do A"]);
+    expect(daPortaria.corpo.itens).toHaveLength(2);
   });
 
   it("situacao=ativas e situacao=historico separam visitas em aberto das encerradas", async () => {
@@ -82,14 +82,14 @@ describe("listagem", () => {
 
     const ativas = await chamar(app, "GET", "/visitas?situacao=ativas", { token: c.tokens.morador });
     const historico = await chamar(app, "GET", "/visitas?situacao=historico", { token: c.tokens.morador });
-    expect(ativas.corpo.map((v: { id: string }) => v.id)).toEqual([aberta.id]);
-    expect(historico.corpo.map((v: { id: string }) => v.id)).toEqual([encerrada.id]);
+    expect(ativas.corpo.itens.map((v: { id: string }) => v.id)).toEqual([aberta.id]);
+    expect(historico.corpo.itens.map((v: { id: string }) => v.id)).toEqual([encerrada.id]);
   });
 
   it("o código do convite aparece para o morador e não para a portaria", async () => {
     await autorizar(c.tokens.morador);
-    const [doMorador] = (await chamar(app, "GET", "/visitas", { token: c.tokens.morador })).corpo;
-    const [daPortaria] = (await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro })).corpo;
+    const [doMorador] = (await chamar(app, "GET", "/visitas", { token: c.tokens.morador })).corpo.itens;
+    const [daPortaria] = (await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro })).corpo.itens;
     expect(doMorador.codigoAcesso).toMatch(/^[A-Z0-9]{6}$/);
     expect(daPortaria).not.toHaveProperty("codigoAcesso");
     expect(daPortaria.temConvite).toBe(true);
@@ -176,7 +176,7 @@ describe("entrada exige o convite", () => {
     const antiga = await prisma.visita.create({
       data: { nomeVisitante: "Antiga", unidadeId: c.unidades.a101.id, autorizadoPorId: c.usuarios.morador.id },
     });
-    const [daPortaria] = (await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro })).corpo;
+    const [daPortaria] = (await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro })).corpo.itens;
     expect(daPortaria.temConvite).toBe(false);
     expect((await chamar(app, "PATCH", `/visitas/${antiga.id}/entrada`, { token: c.tokens.porteiro })).corpo.status).toBe("EM_ANDAMENTO");
   });

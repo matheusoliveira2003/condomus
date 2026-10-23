@@ -26,7 +26,7 @@ describe("encomendas", () => {
     await registrar(c.unidades.b201.id, "Caixa do vizinho");
 
     const doMorador = await chamar(app, "GET", "/encomendas", { token: c.tokens.morador });
-    expect(doMorador.corpo.map((e: { descricao: string }) => e.descricao)).toEqual(["Minha caixa"]);
+    expect(doMorador.corpo.itens.map((e: { descricao: string }) => e.descricao)).toEqual(["Minha caixa"]);
 
     const retirada = await chamar(app, "PATCH", `/encomendas/${minha.id}/retirada`, { token: c.tokens.porteiro, corpo: { retiradaPor: "Morador A" } });
     expect(retirada.corpo).toMatchObject({ status: "RETIRADA", retiradaPor: "Morador A" });
@@ -38,7 +38,7 @@ describe("encomendas", () => {
     await registrar(c.unidades.a101.id, "Na portaria");
     await chamar(app, "PATCH", `/encomendas/${e1.id}/retirada`, { token: c.tokens.porteiro, corpo: { retiradaPor: "Morador A" } });
     const naPortaria = await chamar(app, "GET", "/encomendas?status=AGUARDANDO_RETIRADA", { token: c.tokens.morador });
-    expect(naPortaria.corpo.map((e: { descricao: string }) => e.descricao)).toEqual(["Na portaria"]);
+    expect(naPortaria.corpo.itens.map((e: { descricao: string }) => e.descricao)).toEqual(["Na portaria"]);
   });
 
   it("porteiro vê os moradores da unidade para reconhecer quem retira", async () => {
@@ -54,7 +54,7 @@ describe("avisos", () => {
     await chamar(app, "POST", "/avisos", { token: c.tokens.sindico, corpo: { titulo: "Mais novo", conteudo: "..." } });
 
     const lista = await chamar(app, "GET", "/avisos", { token: c.tokens.morador });
-    expect(lista.corpo.map((a: { titulo: string }) => a.titulo)).toEqual(["Fixado", "Mais novo", "Comum"]);
+    expect(lista.corpo.itens.map((a: { titulo: string }) => a.titulo)).toEqual(["Fixado", "Mais novo", "Comum"]);
 
     expect((await chamar(app, "DELETE", `/avisos/${fixado.id}`, { token: c.tokens.sindico })).status).toBe(204);
     expect((await chamar(app, "DELETE", `/avisos/${fixado.id}`, { token: c.tokens.sindico })).status).toBe(404);

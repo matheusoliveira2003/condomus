@@ -23,10 +23,14 @@ const SITUACOES = {
   historico: ["FINALIZADA", "CANCELADA"],
 } as const;
 
+const PAGE_SIZE = 20;
+
 const filtroSchema = z.object({
   status: z.enum(["AGENDADA", "EM_ANDAMENTO", "FINALIZADA", "CANCELADA"]).optional(),
   situacao: z.enum(["ativas", "historico"]).optional(),
-  limite: z.coerce.number().int().min(1).max(100).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(PAGE_SIZE),
+  /** ID da última visita recebida; omitir para a primeira página. */
+  cursor: z.uuid().optional(),
 });
 
 const idParam = z.object({ id: z.uuid() });
@@ -36,21 +40,38 @@ const entradaSchema = z.object({ codigo: z.string().optional() });
 export async function visitasRoutes(app: FastifyInstance) {
   // Morador vê as visitas da própria unidade; portaria e síndico veem todas.
   app.get("/visitas", { preHandler: app.autorizar() }, async (req) => {
-    const { status, situacao, limite } = filtroSchema.parse(req.query);
+    const { status, situacao, limite, cursor } = filtroSchema.parse(req.query);
     const { papel, unidadeId } = req.user;
+
+    // Paginação por cursor: busca `limite + 1` itens para saber se há próxima página.
+    const ancoraCursor = cursor
+      ? await prisma.visita.findUnique({ where: { id: cursor }, select: { criadoEm: true } })
+      : null;
+
     const visitas = await prisma.visita.findMany({
       where: {
         status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
+        // Cursor: registros mais antigos que o último recebido (mesma data → desambigua pelo id).
+        ...(ancoraCursor && { OR: [
+          { criadoEm: { lt: ancoraCursor.criadoEm } },
+          { criadoEm: ancoraCursor.criadoEm, id: { lt: cursor! } },
+        ]}),
       },
-      // Morador que autorizou, com a versão da foto: a portaria mostra o rosto de quem liberou a visita.
       include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
       orderBy: { criadoEm: "desc" },
-      take: limite,
+      take: limite + 1,
     });
-    if (papel === "MORADOR") return visitas;
-    // O código do convite é do morador: a portaria só sabe *se* há convite (e então precisa lê-lo para liberar).
-    return visitas.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
+
+    const temMais = visitas.length > limite;
+    const itens = temMais ? visitas.slice(0, limite) : visitas;
+    const proximoCursor = temMais ? itens[itens.length - 1].id : null;
+
+    const resultado = papel === "MORADOR"
+      ? itens
+      : itens.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
+
+    return { itens: resultado, proximoCursor };
   });
 
   app.post("/visitas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
