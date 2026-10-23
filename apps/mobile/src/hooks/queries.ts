@@ -6,7 +6,8 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import { api, enviar, type Aviso, type Encomenda, type Pagina, type Reserva, type Resumo, type StatusReserva, type StatusVisita, type Visita } from "../api/client";
+import type { Aviso, AreaComum, Encomenda, Pagina, Reserva, Resumo, Visita } from "@condomus/types";
+import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
 // Query keys — centralizados para invalidação consistente
@@ -161,7 +162,7 @@ export function useReservas(filtro: string) {
 export function useAreas() {
   return useQuery({
     queryKey: keys.areas,
-    queryFn: () => api<{ id: string; nome: string; descricao: string | null; capacidade: number | null }[]>("/areas"),
+    queryFn: () => api<AreaComum[]>("/areas"),
     // Áreas raramente mudam — cache de 5 minutos.
     staleTime: 5 * 60_000,
   });

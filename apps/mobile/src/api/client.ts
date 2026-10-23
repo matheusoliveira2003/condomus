@@ -1,6 +1,26 @@
 // No celular físico, use o IP da sua máquina na rede local (ex.: http://192.168.0.10:3333).
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3333";
 
+// Re-exporta todos os tipos de domínio compartilhados — imports nas telas e hooks devem vir daqui.
+export type {
+  Papel,
+  Usuario,
+  Pessoa,
+  Unidade,
+  UnidadeComMoradores,
+  UsuarioCadastro,
+  Aviso,
+  StatusVisita,
+  Visita,
+  Encomenda,
+  StatusEncomenda,
+  AreaComum,
+  StatusReserva,
+  Reserva,
+  Pagina,
+  Resumo,
+} from "@condomus/types";
+
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
 const TEMPO_LIMITE_MS = 15000;
 
@@ -51,114 +71,3 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
 
 export const enviar = <T>(metodo: "POST" | "PUT" | "PATCH" | "DELETE", caminho: string, corpo?: unknown) =>
   api<T>(caminho, { method: metodo, body: corpo === undefined ? undefined : JSON.stringify(corpo) });
-
-export type Papel = "MORADOR" | "PORTEIRO" | "SINDICO";
-
-export interface Usuario {
-  id: string;
-  nome: string;
-  papel: Papel;
-  unidadeId: string | null;
-  /** Versão da foto de perfil (data da última troca); null quando não há foto. */
-  fotoAtualizadaEm: string | null;
-}
-
-/** Dados mínimos para exibir o avatar de alguém. */
-export interface Pessoa {
-  id: string;
-  nome: string;
-  fotoAtualizadaEm: string | null;
-}
-
-export interface Unidade {
-  id: string;
-  bloco: string;
-  numero: string;
-}
-
-export interface UnidadeComMoradores extends Unidade {
-  _count: { moradores: number };
-}
-
-export interface UsuarioCadastro extends Pessoa {
-  email: string;
-  papel: Papel;
-  ativo: boolean;
-  unidade: Unidade | null;
-}
-
-export interface Aviso {
-  id: string;
-  titulo: string;
-  conteudo: string;
-  fixado: boolean;
-  criadoEm: string;
-  autor: { nome: string };
-}
-
-export type StatusVisita = "AGENDADA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
-
-export interface Visita {
-  id: string;
-  nomeVisitante: string;
-  documento: string | null;
-  placaVeiculo: string | null;
-  dataPrevista: string | null;
-  status: StatusVisita;
-  entradaEm: string | null;
-  saidaEm: string | null;
-  criadoEm: string;
-  unidade: Unidade;
-  /** Morador que pré-autorizou (null quando a portaria registrou direto). */
-  autorizadoPor: Pessoa | null;
-  /** Só na visão da portaria: a visita tem convite, então a entrada exige ler o QR code (ou digitar o código). */
-  temConvite?: boolean;
-}
-
-export interface Encomenda {
-  id: string;
-  descricao: string;
-  remetente: string | null;
-  status: "AGUARDANDO_RETIRADA" | "RETIRADA";
-  recebidaEm: string;
-  retiradaEm: string | null;
-  retiradaPor: string | null;
-  unidade: Unidade;
-}
-
-export interface AreaComum {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  capacidade: number | null;
-}
-
-export type StatusReserva = "PENDENTE" | "CONFIRMADA" | "RECUSADA" | "CANCELADA";
-
-export interface Reserva {
-  id: string;
-  inicio: string;
-  fim: string;
-  status: StatusReserva;
-  motivoRecusa: string | null;
-  area: AreaComum;
-  unidade: Unidade;
-}
-
-/** Resposta paginada genérica retornada por GET /visitas, /encomendas e /avisos. */
-export interface Pagina<T> {
-  itens: T[];
-  /** ID do último item; passe como ?cursor= para buscar a próxima página. null = não há mais. */
-  proximoCursor: string | null;
-}
-
-export interface Resumo {
-  unidade: Unidade;
-  encomendas: { total: number; itens: { id: string; descricao: string; remetente: string | null; recebidaEm: string }[] };
-  visitas: {
-    noCondominio: { id: string; nomeVisitante: string; entradaEm: string }[];
-    esperadasHoje: { id: string; nomeVisitante: string; dataPrevista: string | null }[];
-  };
-  proximaReserva: { id: string; inicio: string; fim: string; status: StatusReserva; area: { nome: string } } | null;
-  avisos: { id: string; titulo: string; conteudo: string; fixado: boolean; criadoEm: string }[];
-}
