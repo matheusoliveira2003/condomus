@@ -47,13 +47,15 @@ model Unidade {
 }
 
 model Usuario {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  senhaHash String
-  papel     Papel
-  ativo     Boolean  @default(true)
-  criadoEm  DateTime @default(now())
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  papel        Papel
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  /// Incrementado ao desativar a conta ou trocar a senha; invalida todos os tokens emitidos antes.
+  tokenVersion Int      @default(0)
   /// Foto de perfil em JPEG (já reduzida pelo app, ~400x400).
   foto             Bytes?
   /// Muda a cada troca de foto; o app usa como versão para não reaproveitar a imagem antiga do cache.

@@ -49,6 +49,8 @@ export async function usuariosRoutes(app: FastifyInstance) {
     if (id === req.user.sub && !ativo) throw new HttpError(409, "Você não pode desativar a própria conta");
     const existe = await prisma.usuario.findUnique({ where: { id } });
     if (!existe) throw naoEncontrado("Usuário");
-    return prisma.usuario.update({ where: { id }, data: { ativo }, select: publico });
+    // Incrementa tokenVersion ao desativar (e também ao reativar, por precaução):
+    // qualquer token emitido antes da mudança fica inválido imediatamente.
+    return prisma.usuario.update({ where: { id }, data: { ativo, tokenVersion: { increment: 1 } }, select: publico });
   });
 }

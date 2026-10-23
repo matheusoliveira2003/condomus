@@ -74,6 +74,18 @@ describe("troca de senha", () => {
     await expect(entrar(app, "morador@teste.dev", "nova-senha")).resolves.toEqual(expect.any(String));
   });
 
+  it("token emitido antes da troca de senha fica inválido imediatamente", async () => {
+    const tokenAntigo = c.tokens.morador;
+    // Confirma que o token antigo ainda funciona antes da troca.
+    expect((await chamar(app, "GET", "/auth/me", { token: tokenAntigo })).status).toBe(200);
+    // Troca a senha.
+    await chamar(app, "PATCH", "/auth/senha", { token: tokenAntigo, corpo: { senhaAtual: SENHA, novaSenha: "nova-senha" } });
+    // O token antigo agora deve ser recusado.
+    const r = await chamar(app, "GET", "/auth/me", { token: tokenAntigo });
+    expect(r.status).toBe(401);
+    expect(r.corpo.erro).toBe("Sessão inválida");
+  });
+
   it("senha atual errada é 400, não 401 (não desloga o app)", async () => {
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "errada", novaSenha: "nova-senha" } });
     expect(r.status).toBe(400);

@@ -38,7 +38,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (!usuario || !usuario.ativo || !(await bcrypt.compare(senha, usuario.senhaHash))) {
       throw new HttpError(401, "E-mail ou senha inválidos");
     }
-    const token = app.jwt.sign({ sub: usuario.id, papel: usuario.papel, unidadeId: usuario.unidadeId });
+    const token = app.jwt.sign({ sub: usuario.id, papel: usuario.papel, unidadeId: usuario.unidadeId, tokenVersion: usuario.tokenVersion });
     return {
       token,
       usuario: {
@@ -66,7 +66,8 @@ export async function authRoutes(app: FastifyInstance) {
     if (!usuario) throw naoEncontrado("Usuário");
     // 400 e não 401: o token é válido, só a senha informada está errada (401 deslogaria o app).
     if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
-    await prisma.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await bcrypt.hash(novaSenha, 10) } });
+    // Incrementa tokenVersion: invalida todos os tokens emitidos antes desta troca de senha.
+    await prisma.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await bcrypt.hash(novaSenha, 10), tokenVersion: { increment: 1 } } });
     return reply.status(204).send();
   });
 
