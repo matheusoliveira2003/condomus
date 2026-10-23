@@ -30,7 +30,7 @@ export class StorageNaoConfiguradoError extends Error {
 }
 
 /** Chave do objeto no bucket para a foto de um usuário. */
-export const chavefoto = (usuarioId: string) => `fotos/${usuarioId}.jpg`;
+export const chavefoto = (usuarioId: string) => `profile-photos/${usuarioId}.jpg`;
 
 /**
  * Faz upload de uma foto JPEG para o bucket.
