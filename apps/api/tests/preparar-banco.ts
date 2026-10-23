@@ -1,14 +1,12 @@
 import { execSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
-import { BANCO_TESTE } from "./banco.js";
 
 /**
  * Roda uma vez antes de todos os testes: cria o banco de testes (se não existir)
  * e aplica as migrations, para ele ter exatamente o mesmo esquema do app.
  */
 export default async function prepararBanco() {
-  // Este processo não recebe o `test.env` da configuração; usa a URL diretamente.
-  const url = BANCO_TESTE;
+  const url = process.env.TEST_DATABASE_URL ?? "postgresql://condomus:condomus@localhost:5432/condomus_teste";
   const nome = new URL(url).pathname.slice(1);
   if (!nome.endsWith("_teste")) throw new Error(`Por segurança, o banco de testes precisa terminar em "_teste" (recebido: ${nome})`);
 

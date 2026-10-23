@@ -1,8 +1,9 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCarregar } from "../hooks/useCarregar";
+import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
@@ -21,11 +22,10 @@ const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Port
 export function CadastrosScreen() {
   const [aba, setAba] = useState<Aba>("moradores");
   const [criando, setCriando] = useState(false);
-  // Incrementado ao fechar o formulário, para a lista remontar e buscar os dados novos.
-  const [versao, setVersao] = useState(0);
+  const qc = useQueryClient();
   const fechar = () => {
     setCriando(false);
-    setVersao((v) => v + 1);
+    void qc.invalidateQueries({ queryKey: ["cadastros"] });
   };
   const seletor = (
     <View style={{ marginBottom: 4 }}>
@@ -36,9 +36,9 @@ export function CadastrosScreen() {
   return (
     <View style={{ flex: 1 }}>
       {aba === "unidades" ? (
-        <ListaUnidades key={versao} cabecalho={seletor} />
+        <ListaUnidades cabecalho={seletor} />
       ) : (
-        <ListaUsuarios key={`${aba}-${versao}`} aba={aba} cabecalho={seletor} />
+        <ListaUsuarios aba={aba} cabecalho={seletor} />
       )}
       <BotaoFlutuante onPress={() => setCriando(true)} />
       {aba === "unidades" ? (
@@ -52,13 +52,14 @@ export function CadastrosScreen() {
 
 function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabecalho: ReactNode }) {
   const { usuario: eu } = useAuth();
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(async () => {
-      const todos = await api<UsuarioCadastro[]>("/usuarios");
-      return todos.filter((u) => (aba === "moradores" ? u.papel === "MORADOR" : u.papel !== "MORADOR"));
-    }, [aba]),
-    [],
-  );
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: ["cadastros", "usuarios"],
+    queryFn: () => api<UsuarioCadastro[]>("/usuarios"),
+  });
+  const todos = query.data ?? [];
+  const dados = todos.filter((u) => (aba === "moradores" ? u.papel === "MORADOR" : u.papel !== "MORADOR"));
+  const { carregando, erro, recarregar } = adaptarQuery(query);
 
   function alternarAtivo(u: UsuarioCadastro) {
     const acao = u.ativo ? "Desativar" : "Reativar";
@@ -68,7 +69,9 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
         text: acao,
         style: u.ativo ? "destructive" : "default",
         onPress: () =>
-          enviar("PATCH", `/usuarios/${u.id}/ativo`, { ativo: !u.ativo }).then(recarregar).catch((e: Error) => Alert.alert("Erro", e.message)),
+          enviar("PATCH", `/usuarios/${u.id}/ativo`, { ativo: !u.ativo })
+            .then(() => qc.invalidateQueries({ queryKey: ["cadastros"] }))
+            .catch((e: Error) => Alert.alert("Erro", e.message)),
       },
     ]);
   }
@@ -102,10 +105,11 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
 }
 
 function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
-  const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<UnidadeComMoradores[]>("/unidades"), []),
-    [],
-  );
+  const query = useQuery({
+    queryKey: ["cadastros", "unidades"],
+    queryFn: () => api<UnidadeComMoradores[]>("/unidades"),
+  });
+  const { dados, carregando, erro, recarregar } = adaptarQuery(query);
   return (
     <Lista
       dados={dados}

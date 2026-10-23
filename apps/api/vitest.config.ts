@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
-import { BANCO_TESTE } from "./tests/banco.js";
+
+const BANCO_TESTE = process.env.TEST_DATABASE_URL ?? "postgresql://condomus:condomus@localhost:5432/condomus_teste";
 
 export default defineConfig({
   test: {
