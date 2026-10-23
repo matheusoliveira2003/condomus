@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Alert, Pressable, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Aviso } from "../api/client";
+import { api, enviar, type Aviso, type Pagina } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCarregar } from "../hooks/useCarregar";
 import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
@@ -11,7 +11,10 @@ import { cores } from "../ui/tema";
 export function AvisosScreen() {
   const { usuario } = useAuth();
   const ehSindico = usuario?.papel === "SINDICO";
-  const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Aviso[]>("/avisos"), []), []);
+  const { dados, carregando, erro, recarregar } = useCarregar(
+    useCallback(() => api<Pagina<Aviso>>("/avisos").then((p) => p.itens), []),
+    [],
+  );
   const [criando, setCriando] = useState(false);
 
   function remover(aviso: Aviso) {

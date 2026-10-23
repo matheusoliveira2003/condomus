@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Encomenda, type Pessoa } from "../api/client";
+import { api, enviar, type Encomenda, type Pagina, type Pessoa } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCarregar } from "../hooks/useCarregar";
 import {
@@ -37,7 +37,7 @@ export function EncomendasScreen() {
   const [vendoHistorico, setVendoHistorico] = useState(false);
   const { dados, carregando, erro, recarregar } = useCarregar(
     // O morador vê só o que está na portaria (retiradas ficam no histórico); a portaria filtra por status.
-    useCallback(() => api<Encomenda[]>(`/encomendas?status=${ehPortaria ? filtro : "AGUARDANDO_RETIRADA"}`), [ehPortaria, filtro]),
+    useCallback(() => api<Pagina<Encomenda>>(`/encomendas?status=${ehPortaria ? filtro : "AGUARDANDO_RETIRADA"}`).then((p) => p.itens), [ehPortaria, filtro]),
     [],
   );
 
@@ -115,7 +115,7 @@ function CardEncomenda({ encomenda: e, ehPortaria, onRetirar }: { encomenda: Enc
 /** Últimas encomendas retiradas da unidade do morador. */
 function HistoricoEncomendas() {
   const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Encomenda[]>(`/encomendas?status=RETIRADA&limite=${LIMITE_HISTORICO}`), []),
+    useCallback(() => api<Pagina<Encomenda>>(`/encomendas?status=RETIRADA&limite=${LIMITE_HISTORICO}`).then((p) => p.itens), []),
     [],
   );
   return (

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
-import { api, enviar, type StatusVisita, type Visita } from "../api/client";
+import { api, enviar, type Pagina, type StatusVisita, type Visita } from "../api/client";
 import { useCarregar } from "../hooks/useCarregar";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
@@ -23,7 +23,7 @@ export function PortariaVisitasScreen() {
   /** Visita da lista cujo convite está sendo conferido. */
   const [conferindo, setConferindo] = useState<Visita | null>(null);
   const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Visita[]>(`/visitas?status=${status}`), [status]),
+    useCallback(() => api<Pagina<Visita>>(`/visitas?status=${status}`).then((p) => p.itens), [status]),
     [],
   );
 

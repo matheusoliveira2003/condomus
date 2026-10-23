@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Alert, Image, StyleSheet, Text, View } from "react-native";
-import { api, enviar, obterToken, type Visita } from "../api/client";
+import { api, enviar, obterToken, type Pagina, type Visita } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
 import { cores } from "../ui/tema";
 import { useCarregar } from "../hooks/useCarregar";
@@ -22,7 +22,10 @@ import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
-  const { dados, carregando, erro, recarregar } = useCarregar(useCallback(() => api<Visita[]>("/visitas?situacao=ativas"), []), []);
+  const { dados, carregando, erro, recarregar } = useCarregar(
+    useCallback(() => api<Pagina<Visita>>("/visitas?situacao=ativas").then((p) => p.itens), []),
+    [],
+  );
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
   const [convite, setConvite] = useState<Visita | null>(null);
@@ -102,7 +105,7 @@ const LIMITE_HISTORICO = 50;
 /** Últimas visitas finalizadas ou canceladas da unidade. */
 function HistoricoVisitas() {
   const { dados, carregando, erro, recarregar } = useCarregar(
-    useCallback(() => api<Visita[]>(`/visitas?situacao=historico&limite=${LIMITE_HISTORICO}`), []),
+    useCallback(() => api<Pagina<Visita>>(`/visitas?situacao=historico&limite=${LIMITE_HISTORICO}`).then((p) => p.itens), []),
     [],
   );
   return (

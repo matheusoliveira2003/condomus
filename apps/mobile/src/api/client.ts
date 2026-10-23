@@ -145,6 +145,13 @@ export interface Reserva {
   unidade: Unidade;
 }
 
+/** Resposta paginada genérica retornada por GET /visitas, /encomendas e /avisos. */
+export interface Pagina<T> {
+  itens: T[];
+  /** ID do último item; passe como ?cursor= para buscar a próxima página. null = não há mais. */
+  proximoCursor: string | null;
+}
+
 export interface Resumo {
   unidade: Unidade;
   encomendas: { total: number; itens: { id: string; descricao: string; remetente: string | null; recebidaEm: string }[] };
