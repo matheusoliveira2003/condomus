@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { useActionSheet } from "@expo/react-native-action-sheet";
+import { useRef, useState } from "react";
+import { Animated, ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -106,17 +105,16 @@ function PlanoDoCondominio() {
   );
 }
 
-/** Avatar grande; tocar abre ActionSheet com Galeria, Câmera e Remover. */
+/** Avatar grande; tocar abre sheet customizado com Galeria, Câmera e Remover. */
 function FotoDePerfil() {
   const { usuario: usuarioOuNull, definirFoto } = useAuth();
-  const { showActionSheetWithOptions } = useActionSheet();
+  const [sheetAberto, setSheetAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   if (!usuarioOuNull) return null;
-  // Capturamos numa constante não-nula para que o TypeScript estreite o tipo
-  // dentro das closures (abrirOpcoes, etc.) sem precisar de asserções.
   const usuario = usuarioOuNull;
 
   async function trocar(origem: OrigemFoto) {
+    setSheetAberto(false);
     try {
       const imagem = await escolherFoto(origem);
       if (!imagem) return;
@@ -131,6 +129,7 @@ function FotoDePerfil() {
   }
 
   function remover() {
+    setSheetAberto(false);
     Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -144,39 +143,115 @@ function FotoDePerfil() {
     ]);
   }
 
-  function abrirOpcoes() {
-    const opcoes = ["Galeria", "Câmera", ...(usuario.fotoAtualizadaEm ? ["Remover foto"] : []), "Cancelar"];
-    const indiceDestruir = usuario.fotoAtualizadaEm ? opcoes.indexOf("Remover foto") : -1;
-    const indiceCancelar = opcoes.indexOf("Cancelar");
+  return (
+    <>
+      <Pressable
+        onPress={() => setSheetAberto(true)}
+        disabled={enviando}
+        accessibilityRole="button"
+        accessibilityLabel="Alterar foto de perfil"
+      >
+        <Avatar pessoa={usuario} tamanho={96} />
+        {enviando ? (
+          <View style={styles.carregandoFoto}>
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : (
+          <View style={styles.seloCamera}>
+            <Ionicons name="camera" size={16} color="#fff" />
+          </View>
+        )}
+      </Pressable>
+      <FotoSheet
+        visivel={sheetAberto}
+        temFoto={!!usuario.fotoAtualizadaEm}
+        onGaleria={() => void trocar("galeria")}
+        onCamera={() => void trocar("camera")}
+        onRemover={remover}
+        onFechar={() => setSheetAberto(false)}
+      />
+    </>
+  );
+}
 
-    showActionSheetWithOptions(
-      { options: opcoes, destructiveButtonIndex: indiceDestruir, cancelButtonIndex: indiceCancelar, title: "Foto de perfil" },
-      (idx) => {
-        if (idx === undefined) return;
-        if (idx === 0) void trocar("galeria");
-        else if (idx === 1) void trocar("camera");
-        else if (indiceDestruir >= 0 && idx === indiceDestruir) remover();
-      },
-    );
+/** Bottom sheet customizado para seleção de foto de perfil. */
+function FotoSheet({
+  visivel,
+  temFoto,
+  onGaleria,
+  onCamera,
+  onRemover,
+  onFechar,
+}: {
+  visivel: boolean;
+  temFoto: boolean;
+  onGaleria: () => void;
+  onCamera: () => void;
+  onRemover: () => void;
+  onFechar: () => void;
+}) {
+  const translateY = useRef(new Animated.Value(300)).current;
+  const opacidade = useRef(new Animated.Value(0)).current;
+
+  // Anima entrada e saída do sheet.
+  if (visivel) {
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
+      Animated.timing(opacidade, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+  } else {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: 300, duration: 200, useNativeDriver: true }),
+      Animated.timing(opacidade, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
   }
 
+  if (!visivel && (translateY as any)._value >= 300) return null;
+
+  return (
+    <Animated.View style={[stylesSheet.fundo, { opacity: opacidade }]}>
+      <Pressable style={{ flex: 1 }} onPress={onFechar} />
+      <Animated.View style={[stylesSheet.sheet, { transform: [{ translateY }] }]}>
+        <View style={stylesSheet.alca} />
+        <Text style={stylesSheet.titulo}>Foto de perfil</Text>
+        <OpcaoSheet icone="images-outline" texto="Escolher da galeria" onPress={onGaleria} />
+        <OpcaoSheet icone="camera-outline" texto="Tirar foto" onPress={onCamera} />
+        {temFoto && (
+          <>
+            <View style={stylesSheet.separador} />
+            <OpcaoSheet icone="trash-outline" texto="Remover foto" onPress={onRemover} perigo />
+          </>
+        )}
+        <Pressable onPress={onFechar} style={stylesSheet.cancelar}>
+          <Text style={stylesSheet.cancelarTexto}>Cancelar</Text>
+        </Pressable>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+function OpcaoSheet({
+  icone,
+  texto,
+  onPress,
+  perigo,
+}: {
+  icone: keyof typeof Ionicons.glyphMap;
+  texto: string;
+  onPress: () => void;
+  perigo?: boolean;
+}) {
+  const cor = perigo ? cores.perigo : cores.texto;
   return (
     <Pressable
-      onPress={abrirOpcoes}
-      disabled={enviando}
-      accessibilityRole="button"
-      accessibilityLabel="Alterar foto de perfil"
+      onPress={onPress}
+      style={({ pressed }) => [stylesSheet.opcao, pressed && { backgroundColor: cores.fundo }]}
     >
-      <Avatar pessoa={usuario} tamanho={96} />
-      {enviando ? (
-        <View style={styles.carregandoFoto}>
-          <ActivityIndicator color="#fff" />
-        </View>
-      ) : (
-        <View style={styles.seloCamera}>
-          <Ionicons name="camera" size={16} color="#fff" />
-        </View>
-      )}
+      <View style={[stylesSheet.opcaoIcone, perigo && { backgroundColor: "#fff0f0" }]}>
+        <Ionicons name={icone} size={20} color={cor} />
+      </View>
+      <Text style={[stylesSheet.opcaoTexto, { color: cor }]}>{texto}</Text>
+      {!perigo && <Ionicons name="chevron-forward" size={16} color={cores.textoSecundario} style={{ marginLeft: "auto" }} />}
     </Pressable>
   );
 }
@@ -271,4 +346,64 @@ const styles = StyleSheet.create({
   linkSenhaTexto: { fontSize: 15, fontWeight: "500", color: cores.primaria },
   separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
   sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
+});
+
+const stylesSheet = StyleSheet.create({
+  fundo: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+    zIndex: 100,
+  },
+  sheet: {
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 12,
+  },
+  alca: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: cores.borda,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  titulo: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: cores.textoSecundario,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  opcao: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+  },
+  opcaoIcone: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: cores.primariaClara,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  opcaoTexto: { fontSize: 16, fontWeight: "500" },
+  separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
+  cancelar: {
+    marginTop: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: cores.fundo,
+  },
+  cancelarTexto: { fontSize: 16, fontWeight: "600", color: cores.textoSecundario },
 });
