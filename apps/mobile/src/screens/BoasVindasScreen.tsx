@@ -70,7 +70,7 @@ export function BoasVindasScreen({
             },
           ]}
         >
-          <Text style={styles.titulo}>Bem-vindo(a)!</Text>
+          <Text style={styles.titulo}>Olá!</Text>
           <Text style={styles.subtitulo}>Inicie sua sessão ou crie uma conta.</Text>
           <Botao titulo="Entrar" onPress={onEntrar} />
           <Botao titulo="Criar conta" variante="secundario" onPress={onCriarConta} />
