@@ -1,32 +1,61 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { enviar } from "../api/client";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
 
-/**
- * Esqueci a senha, em duas etapas: pedir o código por e-mail, depois informar
- * o código recebido junto com a nova senha. `onConcluido` volta para o login.
- */
-export function RecuperarSenhaScreen({ onVoltar, onConcluido }: { onVoltar: () => void; onConcluido: () => void }) {
+const DISTANCIA_ENTRADA = 600;
+
+export function RecuperarSenhaScreen({
+  onVoltar,
+  onConcluido,
+  progresso,
+}: {
+  onVoltar: () => void;
+  onConcluido: () => void;
+  /** Animated.Value 0→1: 0 = fora de cena, 1 = visível. */
+  progresso?: Animated.Value;
+}) {
   const [email, setEmail] = useState("");
   const [codigoPedido, setCodigoPedido] = useState(false);
 
+  const translateY = progresso
+    ? progresso.interpolate({ inputRange: [0, 1], outputRange: [DISTANCIA_ENTRADA, 0] })
+    : new Animated.Value(0);
+
+  const opacity = progresso
+    ? progresso.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
+    : new Animated.Value(1);
+
+  const [ativo, setAtivo] = useState(!progresso);
+  useEffect(() => {
+    if (!progresso) { setAtivo(true); return; }
+    const id = progresso.addListener(({ value }) => {
+      if (value > 0.05 && !ativo) setAtivo(true);
+      if (value < 0.05 && ativo) setAtivo(false);
+    });
+    return () => progresso.removeListener(id);
+  });
+
   return (
-    <SafeAreaView style={styles.tela} edges={["top", "bottom"]}>
-      <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-        <Ionicons name="arrow-back" size={24} color={cores.texto} />
-      </Pressable>
-      <View style={styles.conteudo}>
-        {codigoPedido ? (
-          <EtapaRedefinir email={email} onConcluido={onConcluido} onVoltar={() => setCodigoPedido(false)} />
-        ) : (
-          <EtapaPedirCodigo email={email} onEmailMudou={setEmail} onPedido={() => setCodigoPedido(true)} />
-        )}
-      </View>
-    </SafeAreaView>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
+      <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+            {codigoPedido ? (
+              <EtapaRedefinir email={email} onConcluido={onConcluido} onVoltar={() => setCodigoPedido(false)} />
+            ) : (
+              <EtapaPedirCodigo
+                email={email}
+                onEmailMudou={setEmail}
+                onPedido={() => setCodigoPedido(true)}
+                onVoltar={onVoltar}
+              />
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -34,10 +63,12 @@ function EtapaPedirCodigo({
   email,
   onEmailMudou,
   onPedido,
+  onVoltar,
 }: {
   email: string;
   onEmailMudou: (v: string) => void;
   onPedido: () => void;
+  onVoltar: () => void;
 }) {
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -46,8 +77,6 @@ function EtapaPedirCodigo({
     setErro(null);
     setEnviando(true);
     try {
-      // A API sempre responde 204, exista ou não o e-mail — então aqui não há como saber,
-      // e é assim mesmo (evita confirmar quais e-mails têm conta no condomínio).
       await enviar("POST", "/auth/recuperar-senha", { email: email.trim().toLowerCase() });
       onPedido();
     } catch (e) {
@@ -72,9 +101,9 @@ function EtapaPedirCodigo({
         onChangeText={onEmailMudou}
         onSubmitEditing={pedir}
       />
-      <MensagemErro texto={erro} />
-      <View style={{ height: 4 }} />
       <Botao titulo="Enviar código" onPress={pedir} carregando={enviando} desabilitado={!email.includes("@")} />
+      <MensagemErro texto={erro} />
+      <Botao titulo="Voltar ao login" variante="secundario" onPress={onVoltar} />
     </>
   );
 }
@@ -132,26 +161,27 @@ function EtapaRedefinir({ email, onConcluido, onVoltar }: { email: string; onCon
         autoComplete="new-password"
         onSubmitEditing={redefinir}
       />
-      <MensagemErro texto={erro} />
-      <View style={{ height: 4 }} />
       <Botao
         titulo="Redefinir senha"
         onPress={redefinir}
         carregando={salvando}
         desabilitado={codigo.length !== 6 || novaSenha.length < 6 || !confirmacao}
       />
-      <Pressable onPress={onVoltar} hitSlop={8} style={{ alignSelf: "center", marginTop: 8 }}>
-        <Text style={styles.link}>Pedir um novo código</Text>
-      </Pressable>
+      <MensagemErro texto={erro} />
+      <Botao titulo="Pedir um novo código" variante="secundario" onPress={onVoltar} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: cores.superficie },
-  voltar: { marginLeft: 8, marginTop: 4, padding: 8, alignSelf: "flex-start" },
-  conteudo: { flex: 1, padding: 24, paddingTop: 16, gap: 14 },
+  painel: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: 80,
+  },
+  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
-  link: { color: cores.primaria, fontWeight: "600", fontSize: 14 },
 });

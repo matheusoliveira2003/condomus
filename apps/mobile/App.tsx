@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
@@ -90,6 +90,10 @@ function Navegacao() {
   const progresso = useRef(new Animated.Value(0)).current;
   // 0 = fora de cena; 1 = cadastro visível.
   const progressoCadastro = useRef(new Animated.Value(0)).current;
+  // 0 = fora de cena; 1 = recuperar senha visível.
+  const progressoRecuperar = useRef(new Animated.Value(0)).current;
+  // 0 = invisível; 1 = área logada visível (fade-in ao entrar).
+  const opacidadeApp = useRef(new Animated.Value(0)).current;
 
   function irParaLogin() {
     setTelaPublica("login");
@@ -111,39 +115,55 @@ function Navegacao() {
       .start(() => setTelaPublica("boasVindas"));
   }
 
+  function irParaRecuperar() {
+    setTelaPublica("recuperarSenha");
+    Animated.timing(progressoRecuperar, { toValue: 1, duration: DURACAO_PAINEL, useNativeDriver: true }).start();
+  }
+
+  function voltarDeRecuperar() {
+    Animated.timing(progressoRecuperar, { toValue: 0, duration: DURACAO_PAINEL, useNativeDriver: true })
+      .start(() => setTelaPublica("login"));
+  }
+
+  // Fade-in da área logada ao fazer login.
+  useEffect(() => {
+    if (usuario) {
+      opacidadeApp.setValue(0);
+      Animated.timing(opacidadeApp, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    }
+  }, [!!usuario]);
+
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
-  const fundoEscuro = abertura || restaurando || (!usuario && telaPublica !== "recuperarSenha");
+  const fundoEscuro = abertura || restaurando || (!usuario);
 
   return (
     <>
       {restaurando ? (
         <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />
       ) : !usuario ? (
-        telaPublica === "recuperarSenha" ? (
-          <RecuperarSenhaScreen
-            onVoltar={() => setTelaPublica("login")}
-            onConcluido={() => {
-              Alert.alert("Senha redefinida", "Sua senha foi alterada. Entre com a nova senha.");
-              setTelaPublica("login");
-            }}
-          />
-        ) : (
-          // Gradiente fixo + painéis brancos animados verticalmente.
-          <TelasPublicas
-            progresso={progresso}
-            progressoCadastro={progressoCadastro}
-            abertura={abertura}
-            onEntrar={irParaLogin}
-            onCriarConta={irParaCadastro}
-            onVoltar={voltarParaBoasVindas}
-            onVoltarDoCadastro={voltarDoCadastro}
-            onEsqueciSenha={() => setTelaPublica("recuperarSenha")}
-          />
-        )
+        // Gradiente fixo + painéis brancos animados verticalmente para todas as telas públicas.
+        <TelasPublicas
+          progresso={progresso}
+          progressoCadastro={progressoCadastro}
+          progressoRecuperar={progressoRecuperar}
+          abertura={abertura}
+          onEntrar={irParaLogin}
+          onCriarConta={irParaCadastro}
+          onVoltar={voltarParaBoasVindas}
+          onVoltarDoCadastro={voltarDoCadastro}
+          onEsqueciSenha={irParaRecuperar}
+          onVoltarDeRecuperar={voltarDeRecuperar}
+          onRecuperado={() => {
+            Alert.alert("Senha redefinida", "Sua senha foi alterada. Entre com a nova senha.");
+            voltarDeRecuperar();
+          }}
+        />
       ) : planoInativo && usuario.papel !== "SINDICO" ? (
         <PlanoInativoScreen />
       ) : (
-        <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
+        <Animated.View style={{ flex: 1, opacity: opacidadeApp }}>
+          <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
+        </Animated.View>
       )}
       {abertura && <AberturaAnimada destino={destinoAbertura} onTerminar={() => setAbertura(false)} />}
       <StatusBar style={fundoEscuro ? "light" : "dark"} />
@@ -152,27 +172,33 @@ function Navegacao() {
 }
 
 /**
- * Boas-vindas, Login e Cadastro compartilham o mesmo fundo gradiente.
+ * Todas as telas públicas compartilham o mesmo fundo gradiente.
  * Apenas os painéis brancos animam verticalmente.
  */
 function TelasPublicas({
   progresso,
   progressoCadastro,
+  progressoRecuperar,
   abertura,
   onEntrar,
   onCriarConta,
   onVoltar,
   onVoltarDoCadastro,
   onEsqueciSenha,
+  onVoltarDeRecuperar,
+  onRecuperado,
 }: {
   progresso: Animated.Value;
   progressoCadastro: Animated.Value;
+  progressoRecuperar: Animated.Value;
   abertura: boolean;
   onEntrar: () => void;
   onCriarConta: () => void;
   onVoltar: () => void;
   onVoltarDoCadastro: () => void;
   onEsqueciSenha: () => void;
+  onVoltarDeRecuperar: () => void;
+  onRecuperado: () => void;
 }) {
   return (
     <View style={{ flex: 1 }}>
@@ -191,6 +217,11 @@ function TelasPublicas({
         onVoltar={onVoltarDoCadastro}
         progresso={progressoCadastro}
       />
+      <RecuperarSenhaScreen
+        onVoltar={onVoltarDeRecuperar}
+        onConcluido={onRecuperado}
+        progresso={progressoRecuperar}
+      />
     </View>
   );
 }
@@ -206,6 +237,7 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
         screenOptions={{
           tabBarActiveTintColor: cores.primaria,
           tabBarInactiveTintColor: cores.textoSecundario,
+          animation: "shift",
           headerRight: () => (
             <Pressable
               onPress={() => setContaAberta(true)}
