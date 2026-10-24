@@ -70,8 +70,8 @@ export function BoasVindasScreen({
             },
           ]}
         >
-          <Text style={styles.titulo}>Bem-vindo!</Text>
-          <Text style={styles.subtitulo}>Entre com sua conta ou peça acesso ao seu condomínio.</Text>
+          <Text style={styles.titulo}>Olá!</Text>
+          <Text style={styles.subtitulo}>Inicie sua sessão ou crie uma conta.</Text>
           <Botao titulo="Entrar" onPress={onEntrar} />
           <Botao titulo="Criar conta" variante="secundario" onPress={onCriarConta} />
         </Animated.View>
