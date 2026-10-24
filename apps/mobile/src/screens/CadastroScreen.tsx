@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Alert, Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
-import { Botao, Campo, MensagemErro } from "../ui/componentes";
+import { Botao, Campo, InfoSheet, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
 
 /** Distância que o painel percorre ao entrar (vindo de baixo). */
@@ -23,6 +23,7 @@ export function CadastroScreen({
 }) {
   const [codigo, setCodigo] = useState("");
   const [confirmado, setConfirmado] = useState(false);
+  const [ajudaVisivel, setAjudaVisivel] = useState(false);
   const convite = useConvite(codigo);
 
   // Painel sobe de DISTANCIA_ENTRADA → 0 conforme progresso vai de 0 → 1.
@@ -76,10 +77,24 @@ export function CadastroScreen({
                 info={convite.data ? `${convite.data.condominio.nome} · Bloco ${convite.data.unidade.bloco} · ${convite.data.unidade.numero}` : null}
                 onConfirmar={() => setConfirmado(true)}
                 onVoltar={onVoltar}
+                onAjuda={() => setAjudaVisivel(true)}
               />
             )}
           </ScrollView>
         </KeyboardAvoidingView>
+        {/* Fora do ScrollView para o position:absolute funcionar corretamente */}
+        <InfoSheet
+          visivel={ajudaVisivel}
+          titulo="Como obter o código?"
+          onFechar={() => setAjudaVisivel(false)}
+        >
+          <Text style={styles.ajudaTexto}>
+            O síndico do seu condomínio gera um código de convite de 8 caracteres para cada unidade.
+          </Text>
+          <Text style={styles.ajudaTexto}>
+            Peça ao síndico que acesse o app, vá em <Text style={{ fontWeight: "700" }}>Cadastros</Text> e crie um convite para a sua unidade.
+          </Text>
+        </InfoSheet>
       </Animated.View>
     </Animated.View>
   );
@@ -93,6 +108,7 @@ function EtapaCodigo({
   info,
   onConfirmar,
   onVoltar,
+  onAjuda,
 }: {
   codigo: string;
   onCodigoMudou: (v: string) => void;
@@ -101,6 +117,7 @@ function EtapaCodigo({
   info: string | null;
   onConfirmar: () => void;
   onVoltar: () => void;
+  onAjuda: () => void;
 }) {
   return (
     <>
@@ -115,11 +132,7 @@ function EtapaCodigo({
         onChangeText={onCodigoMudou}
         acaoDireita={
           <Pressable
-            onPress={() => Alert.alert(
-              "Como obter o código?",
-              "O síndico do seu condomínio gera um código de convite de 8 caracteres para cada unidade. Peça ao síndico que acesse o app e crie um convite para a sua unidade.",
-              [{ text: "Entendi" }],
-            )}
+            onPress={onAjuda}
             hitSlop={8}
             accessibilityLabel="Saiba como obter o código de convite"
           >
@@ -214,6 +227,7 @@ const styles = StyleSheet.create({
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
+  ajudaTexto: { fontSize: 15, color: cores.texto, lineHeight: 22 },
   confirmacao: {
     flexDirection: "row",
     alignItems: "center",

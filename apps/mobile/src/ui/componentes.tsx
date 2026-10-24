@@ -462,3 +462,90 @@ const link = StyleSheet.create({
   container: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingVertical: 4, marginBottom: 4 },
   texto: { color: cores.primaria, fontWeight: "600", fontSize: 14 },
 });
+
+/**
+ * Bottom sheet informativo genérico — slide de baixo para cima com fundo escurecido.
+ * Ideal para explicações contextuais sem sair da tela atual.
+ */
+export function InfoSheet({
+  visivel,
+  titulo,
+  children,
+  onFechar,
+}: {
+  visivel: boolean;
+  titulo: string;
+  children: ReactNode;
+  onFechar: () => void;
+}) {
+  const translateY = useRef(new Animated.Value(400)).current;
+  const opacidade = useRef(new Animated.Value(0)).current;
+  const [montado, setMontado] = useState(visivel);
+
+  useEffect(() => {
+    if (visivel) {
+      setMontado(true);
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 5 }),
+        Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: 400, duration: 220, useNativeDriver: true }),
+        Animated.timing(opacidade, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start(({ finished }) => { if (finished) setMontado(false); });
+    }
+  }, [visivel]);
+
+  if (!montado) return null;
+
+  return (
+    <Animated.View style={[infoSheet.fundo, { opacity: opacidade }]}>
+      <Pressable style={{ flex: 1 }} onPress={onFechar} />
+      <Animated.View style={[infoSheet.sheet, { transform: [{ translateY }] }]}>
+        <View style={infoSheet.alca} />
+        <Text style={infoSheet.titulo}>{titulo}</Text>
+        <View style={infoSheet.corpo}>{children}</View>
+        <Pressable onPress={onFechar} style={infoSheet.botaoFechar}>
+          <Text style={infoSheet.botaoFecharTexto}>Entendi</Text>
+        </Pressable>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const infoSheet = StyleSheet.create({
+  fundo: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+    zIndex: 100,
+  },
+  sheet: {
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+    paddingTop: 12,
+    gap: 12,
+  },
+  alca: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: cores.borda,
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  titulo: { fontSize: 18, fontWeight: "700", color: cores.texto },
+  corpo: { gap: 10 },
+  botaoFechar: {
+    marginTop: 4,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: cores.primariaClara,
+  },
+  botaoFecharTexto: { fontSize: 15, fontWeight: "600", color: cores.primaria },
+});
