@@ -235,6 +235,7 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
     <>
       <Tab.Navigator
         screenOptions={{
+          lazy: false,
           tabBarActiveTintColor: cores.primaria,
           tabBarInactiveTintColor: cores.textoSecundario,
           headerRight: () => (
