@@ -88,6 +88,8 @@ function Navegacao() {
 
   // 0 = boas-vindas visível; 1 = login visível.
   const progresso = useRef(new Animated.Value(0)).current;
+  // 0 = fora de cena; 1 = cadastro visível.
+  const progressoCadastro = useRef(new Animated.Value(0)).current;
 
   function irParaLogin() {
     setTelaPublica("login");
@@ -99,17 +101,25 @@ function Navegacao() {
       .start(() => setTelaPublica("boasVindas"));
   }
 
+  function irParaCadastro() {
+    setTelaPublica("cadastro");
+    Animated.timing(progressoCadastro, { toValue: 1, duration: DURACAO_PAINEL, useNativeDriver: true }).start();
+  }
+
+  function voltarDoCadastro() {
+    Animated.timing(progressoCadastro, { toValue: 0, duration: DURACAO_PAINEL, useNativeDriver: true })
+      .start(() => setTelaPublica("boasVindas"));
+  }
+
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
-  const fundoEscuro = abertura || restaurando || (!usuario && (telaPublica === "boasVindas" || telaPublica === "login"));
+  const fundoEscuro = abertura || restaurando || (!usuario && telaPublica !== "recuperarSenha");
 
   return (
     <>
       {restaurando ? (
         <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />
       ) : !usuario ? (
-        telaPublica === "cadastro" ? (
-          <CadastroScreen onVoltar={() => setTelaPublica("boasVindas")} />
-        ) : telaPublica === "recuperarSenha" ? (
+        telaPublica === "recuperarSenha" ? (
           <RecuperarSenhaScreen
             onVoltar={() => setTelaPublica("login")}
             onConcluido={() => {
@@ -118,14 +128,15 @@ function Navegacao() {
             }}
           />
         ) : (
-          // Gradiente fixo + dois painéis brancos animados verticalmente.
-          // O painel de boas-vindas desce e some; o de login sobe e aparece.
+          // Gradiente fixo + painéis brancos animados verticalmente.
           <TelasPublicas
             progresso={progresso}
+            progressoCadastro={progressoCadastro}
             abertura={abertura}
             onEntrar={irParaLogin}
-            onCriarConta={() => setTelaPublica("cadastro")}
+            onCriarConta={irParaCadastro}
             onVoltar={voltarParaBoasVindas}
+            onVoltarDoCadastro={voltarDoCadastro}
             onEsqueciSenha={() => setTelaPublica("recuperarSenha")}
           />
         )
@@ -141,22 +152,26 @@ function Navegacao() {
 }
 
 /**
- * Boas-vindas e Login compartilham o mesmo fundo gradiente.
- * Apenas os painéis brancos animam: o de boas-vindas desce, o de login sobe.
+ * Boas-vindas, Login e Cadastro compartilham o mesmo fundo gradiente.
+ * Apenas os painéis brancos animam verticalmente.
  */
 function TelasPublicas({
   progresso,
+  progressoCadastro,
   abertura,
   onEntrar,
   onCriarConta,
   onVoltar,
+  onVoltarDoCadastro,
   onEsqueciSenha,
 }: {
   progresso: Animated.Value;
+  progressoCadastro: Animated.Value;
   abertura: boolean;
   onEntrar: () => void;
   onCriarConta: () => void;
   onVoltar: () => void;
+  onVoltarDoCadastro: () => void;
   onEsqueciSenha: () => void;
 }) {
   return (
@@ -171,6 +186,10 @@ function TelasPublicas({
         onVoltar={onVoltar}
         onEsqueciSenha={onEsqueciSenha}
         progresso={progresso}
+      />
+      <CadastroScreen
+        onVoltar={onVoltarDoCadastro}
+        progresso={progressoCadastro}
       />
     </View>
   );

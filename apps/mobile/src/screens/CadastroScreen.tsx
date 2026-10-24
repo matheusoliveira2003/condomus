@@ -1,59 +1,85 @@
 import { useEffect, useState } from "react";
-import { BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Animated, BackHandler, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
 
+/** Distância que o painel percorre ao entrar (vindo de baixo). */
+const DISTANCIA_ENTRADA = 600;
+
 /**
- * Cadastro do morador por convite, em duas etapas: o código de 8 caracteres gerado pelo síndico
- * (mostra condomínio e unidade para confirmar) e depois nome, e-mail e senha. Ao concluir, já entra no app.
+ * Cadastro do morador por convite, em duas etapas.
+ * Anima verticalmente da mesma forma que o LoginScreen quando `progresso` é fornecido.
  */
-export function CadastroScreen({ onVoltar }: { onVoltar: () => void }) {
+export function CadastroScreen({
+  onVoltar,
+  progresso,
+}: {
+  onVoltar: () => void;
+  /** Animated.Value 0→1: 0 = fora de cena, 1 = visível. */
+  progresso?: Animated.Value;
+}) {
   const [codigo, setCodigo] = useState("");
   const [confirmado, setConfirmado] = useState(false);
   const convite = useConvite(codigo);
 
-  // O botão voltar do Android volta uma etapa (e na primeira, para as boas-vindas).
   useEffect(() => {
     const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (confirmado) setConfirmado(false);
-      else onVoltar();
+      if (confirmado) { setConfirmado(false); return true; }
+      onVoltar();
       return true;
     });
     return () => assinatura.remove();
   }, [confirmado, onVoltar]);
 
+  // Painel sobe de DISTANCIA_ENTRADA → 0 conforme progresso vai de 0 → 1.
+  const translateY = progresso
+    ? progresso.interpolate({ inputRange: [0, 1], outputRange: [DISTANCIA_ENTRADA, 0] })
+    : new Animated.Value(0);
+
+  // Invisível quando fora de cena; aparece rapidamente ao iniciar o slide.
+  const opacity = progresso
+    ? progresso.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
+    : new Animated.Value(1);
+
+  // Bloqueia toques enquanto não está visível.
+  const [ativo, setAtivo] = useState(false);
+  useEffect(() => {
+    if (!progresso) { setAtivo(true); return; }
+    const id = progresso.addListener(({ value }) => {
+      if (value > 0.05 && !ativo) setAtivo(true);
+      if (value < 0.05 && ativo) setAtivo(false);
+    });
+    return () => progresso.removeListener(id);
+  });
+
   return (
-    <SafeAreaView style={styles.tela} edges={["top", "bottom"]}>
-      <Pressable
-        onPress={confirmado ? () => setConfirmado(false) : onVoltar}
-        hitSlop={12}
-        style={styles.voltar}
-        accessibilityRole="button"
-        accessibilityLabel="Voltar"
-      >
-        <Ionicons name="arrow-back" size={24} color={cores.texto} />
-      </Pressable>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-        <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-          {confirmado && convite.data ? (
-            <EtapaDados codigo={codigo} />
-          ) : (
-            <EtapaCodigo
-              codigo={codigo}
-              onCodigoMudou={(v) => setCodigo(v.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-              carregando={convite.isFetching}
-              erro={convite.error ? (convite.error as Error).message : null}
-              info={convite.data ? `${convite.data.condominio.nome} · Bloco ${convite.data.unidade.bloco} · ${convite.data.unidade.numero}` : null}
-              onConfirmar={() => setConfirmado(true)}
-            />
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
+      <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+            {confirmado && convite.data ? (
+              <EtapaDados
+                codigo={codigo}
+                onVoltar={() => setConfirmado(false)}
+              />
+            ) : (
+              <EtapaCodigo
+                codigo={codigo}
+                onCodigoMudou={(v) => setCodigo(v.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                carregando={convite.isFetching}
+                erro={convite.error ? (convite.error as Error).message : null}
+                info={convite.data ? `${convite.data.condominio.nome} · Bloco ${convite.data.unidade.bloco} · ${convite.data.unidade.numero}` : null}
+                onConfirmar={() => setConfirmado(true)}
+                onVoltar={onVoltar}
+              />
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -64,6 +90,7 @@ function EtapaCodigo({
   erro,
   info,
   onConfirmar,
+  onVoltar,
 }: {
   codigo: string;
   onCodigoMudou: (v: string) => void;
@@ -71,6 +98,7 @@ function EtapaCodigo({
   erro: string | null;
   info: string | null;
   onConfirmar: () => void;
+  onVoltar: () => void;
 }) {
   return (
     <>
@@ -95,11 +123,12 @@ function EtapaCodigo({
       )}
       <View style={{ height: 4 }} />
       <Botao titulo="Continuar" onPress={onConfirmar} carregando={carregando} desabilitado={!info} />
+      <Botao titulo="Voltar ao início" variante="secundario" onPress={onVoltar} />
     </>
   );
 }
 
-function EtapaDados({ codigo }: { codigo: string }) {
+function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void }) {
   const { iniciarSessao } = useAuth();
   const cadastro = useCadastro();
   const [nome, setNome] = useState("");
@@ -113,7 +142,6 @@ function EtapaDados({ codigo }: { codigo: string }) {
     if (senha !== confirmacao) return setErro("A confirmação não confere com a senha");
     try {
       const { token, usuario } = await cadastro.mutateAsync({ codigo, nome: nome.trim(), email: email.trim().toLowerCase(), senha });
-      // Entra direto: a API devolve token e usuário como no login.
       await iniciarSessao(token, usuario);
     } catch (e) {
       setErro((e as Error).message);
@@ -160,14 +188,20 @@ function EtapaDados({ codigo }: { codigo: string }) {
         carregando={cadastro.isPending}
         desabilitado={nome.trim().length < 2 || !email.includes("@") || senha.length < 6 || !confirmacao}
       />
+      <Botao titulo="Voltar" variante="secundario" onPress={onVoltar} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: cores.superficie },
-  voltar: { marginLeft: 8, marginTop: 4, padding: 8, alignSelf: "flex-start" },
-  conteudo: { flexGrow: 1, padding: 24, paddingTop: 16, gap: 14 },
+  painel: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: cores.superficie,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: 80, // deixa o gradiente visível no topo, alinhado com o LoginScreen
+  },
+  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   confirmacao: {
