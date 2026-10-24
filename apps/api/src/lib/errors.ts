@@ -8,5 +8,6 @@ export class HttpError extends Error {
   }
 }
 
-export const naoEncontrado = (recurso: string) => new HttpError(404, `${recurso} não encontrado(a)`);
+export const naoEncontrado = (recurso: string, genero: "m" | "f" = "m") =>
+  new HttpError(404, `${recurso} não encontrad${genero === "f" ? "a" : "o"}`);
 export const proibido = () => new HttpError(403, "Acesso negado para este perfil");

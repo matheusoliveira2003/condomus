@@ -49,11 +49,11 @@ export async function fotosRoutes(app: FastifyInstance) {
       where: { id, condominioId: req.user.condominioId },
       select: { fotoAtualizadaEm: true },
     });
-    if (!usuario?.fotoAtualizadaEm) throw naoEncontrado("Foto");
+    if (!usuario?.fotoAtualizadaEm) throw naoEncontrado("Foto", "f");
 
     try {
       const bytes = await downloadFoto(id);
-      if (!bytes) throw naoEncontrado("Foto");
+      if (!bytes) throw naoEncontrado("Foto", "f");
       // A URL do app inclui a versão (?v=...), então a imagem pode ficar em cache sem risco de ficar velha.
       return reply.header("Content-Type", "image/jpeg").header("Cache-Control", "private, max-age=86400").send(bytes);
     } catch (e) {

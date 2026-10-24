@@ -134,7 +134,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   app.patch("/reservas/:id/cancelar", { preHandler: app.autorizar("MORADOR", "SINDICO") }, async (req) => {
     const { id } = idParam.parse(req.params);
     const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId: req.user.condominioId } } });
-    if (!reserva) throw naoEncontrado("Reserva");
+    if (!reserva) throw naoEncontrado("Reserva", "f");
     if (req.user.papel === "MORADOR" && reserva.unidadeId !== req.user.unidadeId) throw proibido();
     if (!OCUPAM_HORARIO.includes(reserva.status)) throw new HttpError(409, "Só é possível cancelar reservas pendentes ou confirmadas");
     const cancelada = await prisma.reserva.update({ where: { id }, data: { status: "CANCELADA" }, include: incluir });
@@ -152,7 +152,7 @@ export async function reservasRoutes(app: FastifyInstance) {
 async function buscarPendente(params: unknown, condominioId: string) {
   const { id } = idParam.parse(params);
   const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId } } });
-  if (!reserva) throw naoEncontrado("Reserva");
+  if (!reserva) throw naoEncontrado("Reserva", "f");
   if (reserva.status !== "PENDENTE") throw new HttpError(409, "Esta reserva já foi analisada");
   return reserva;
 }

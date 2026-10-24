@@ -184,6 +184,6 @@ function avisarChegada(unidadeId: string, nomeVisitante: string) {
 async function buscar(params: unknown, condominioId: string) {
   const { id } = idParam.parse(params);
   const visita = await prisma.visita.findFirst({ where: { id, unidade: { condominioId } } });
-  if (!visita) throw naoEncontrado("Visita");
+  if (!visita) throw naoEncontrado("Visita", "f");
   return visita;
 }

@@ -38,7 +38,7 @@ export async function usuariosRoutes(app: FastifyInstance) {
     const { senha, ...dados } = usuarioSchema.parse(req.body);
     const { condominioId } = req.user;
     if (dados.unidadeId && !(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId } }))) {
-      throw naoEncontrado("Unidade");
+      throw naoEncontrado("Unidade", "f");
     }
     const usuario = await prisma.usuario.create({
       data: { ...dados, condominioId, senhaHash: await bcrypt.hash(senha, 10) },

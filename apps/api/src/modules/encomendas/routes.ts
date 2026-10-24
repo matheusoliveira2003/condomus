@@ -74,7 +74,7 @@ export async function encomendasRoutes(app: FastifyInstance) {
     const { id } = idParam.parse(req.params);
     const { retiradaPor } = retirarSchema.parse(req.body);
     const encomenda = await prisma.encomenda.findFirst({ where: { id, unidade: { condominioId: req.user.condominioId } } });
-    if (!encomenda) throw naoEncontrado("Encomenda");
+    if (!encomenda) throw naoEncontrado("Encomenda", "f");
     if (encomenda.status === "RETIRADA") throw new HttpError(409, "Encomenda já retirada");
     return prisma.encomenda.update({
       where: { id },

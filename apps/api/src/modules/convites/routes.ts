@@ -32,7 +32,7 @@ export async function convitesRoutes(app: FastifyInstance) {
   app.post("/unidades/:id/convite", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
     const { id } = idParam.parse(req.params);
     const unidade = await prisma.unidade.findFirst({ where: { id, condominioId: req.user.condominioId } });
-    if (!unidade) throw naoEncontrado("Unidade");
+    if (!unidade) throw naoEncontrado("Unidade", "f");
 
     const expiraEm = new Date(Date.now() + VALIDADE_CONVITE_DIAS * 24 * 60 * 60 * 1000);
     const codigo = gerarCodigoConvite();
