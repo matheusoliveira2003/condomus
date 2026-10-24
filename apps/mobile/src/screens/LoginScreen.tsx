@@ -83,9 +83,8 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
           <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
             <Text style={styles.link}>Esqueci minha senha</Text>
           </Pressable>
-          <MensagemErro texto={erro} />
-          <View style={{ height: 4 }} />
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
+          <MensagemErro texto={erro} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
