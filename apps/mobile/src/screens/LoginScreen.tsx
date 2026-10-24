@@ -81,7 +81,7 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
             onSubmitEditing={aoEntrar}
           />
           <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
-            <Text style={styles.link}>Esqueci minha senha</Text>
+            <Text style={styles.link}>Esqueceu sua senha?</Text>
           </Pressable>
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
           <MensagemErro texto={erro} />
@@ -110,5 +110,5 @@ const styles = StyleSheet.create({
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
-  link: { color: cores.primaria, fontWeight: "600", fontSize: 14 },
+  link: { color: cores.primaria, fontWeight: "500", fontSize: 13, textDecorationLine: "underline" },
 });
