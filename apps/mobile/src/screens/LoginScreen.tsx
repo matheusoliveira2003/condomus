@@ -145,5 +145,5 @@ const styles = StyleSheet.create({
   },
   checkboxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   checkboxTexto: { fontSize: 13, color: cores.textoSecundario },
-  link: { color: cores.primaria, fontWeight: "500", fontSize: 13, textDecorationLine: "underline" },
+  link: { color: cores.primaria, fontSize: 13 },
 });
