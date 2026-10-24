@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
@@ -105,7 +105,20 @@ function EtapaCodigo({
   return (
     <>
       <Text style={styles.titulo}>Criar conta</Text>
-      <Text style={styles.subtitulo}>Digite o código de convite de 8 caracteres que o síndico do seu condomínio gerou para a sua unidade.</Text>
+      <View style={styles.subtituloLinha}>
+        <Text style={styles.subtitulo}>Digite o código de convite do seu condomínio</Text>
+        <Pressable
+          onPress={() => Alert.alert(
+            "Como obter o código?",
+            "O síndico do seu condomínio gera um código de convite de 8 caracteres para cada unidade. Peça ao síndico que acesse o app e crie um convite para a sua unidade.",
+            [{ text: "Entendi" }],
+          )}
+          hitSlop={8}
+          accessibilityLabel="Saiba como obter o código de convite"
+        >
+          <Ionicons name="help-circle-outline" size={19} color={cores.textoSecundario} />
+        </Pressable>
+      </View>
       <Campo
         icone="keypad-outline"
         placeholder="Código do convite"
@@ -201,7 +214,8 @@ const styles = StyleSheet.create({
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
+  subtituloLinha: { flexDirection: "row", alignItems: "center", gap: 6 },
+  subtitulo: { flex: 1, fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   confirmacao: {
     flexDirection: "row",
     alignItems: "center",
