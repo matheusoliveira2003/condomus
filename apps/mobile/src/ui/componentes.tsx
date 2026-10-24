@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import {
   ActivityIndicator,
   Animated,
@@ -223,21 +224,25 @@ export function ModalFormulario({
 }) {
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
-      {/* No Android o modal ocupa a tela toda, por trás da barra de status; a área segura reserva esse espaço. */}
-      <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
-        {/* "padding" também no Android: com edge-to-edge o sistema não redimensiona a janela pelo teclado. */}
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <View style={styles.modalCabecalho}>
-            <Text style={styles.modalTitulo}>{titulo}</Text>
-            <Pressable onPress={onFechar} hitSlop={12}>
-              <Ionicons name="close" size={26} color={cores.texto} />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
-            {children}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      {/* ActionSheetProvider aqui garante que sheets abertos dentro deste modal
+          renderizem na mesma janela (necessário no Android). */}
+      <ActionSheetProvider>
+        {/* No Android o modal ocupa a tela toda, por trás da barra de status; a área segura reserva esse espaço. */}
+        <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
+          {/* "padding" também no Android: com edge-to-edge o sistema não redimensiona a janela pelo teclado. */}
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+            <View style={styles.modalCabecalho}>
+              <Text style={styles.modalTitulo}>{titulo}</Text>
+              <Pressable onPress={onFechar} hitSlop={12}>
+                <Ionicons name="close" size={26} color={cores.texto} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
+              {children}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </ActionSheetProvider>
     </Modal>
   );
 }
