@@ -66,6 +66,19 @@ describe("token", () => {
   });
 });
 
+describe("token do condomínio", () => {
+  it("o token carrega o condomínio e morador cadastrado por convite já entra autenticado", async () => {
+    const convite = await chamar(app, "POST", `/unidades/${c.unidades.a101.id}/convite`, { token: c.tokens.sindico });
+    const cadastro = await chamar(app, "POST", "/cadastro", {
+      corpo: { codigo: convite.corpo.codigo, nome: "Morador Novo", email: "novo@teste.dev", senha: SENHA },
+    });
+    expect(cadastro.status).toBe(201);
+    const payload = JSON.parse(Buffer.from(cadastro.corpo.token.split(".")[1], "base64url").toString());
+    expect(payload.condominioId).toBe(c.condominio.id);
+    expect((await chamar(app, "GET", "/auth/me", { token: cadastro.corpo.token })).status).toBe(200);
+  });
+});
+
 describe("troca de senha", () => {
   it("troca a senha: a antiga para de funcionar e a nova passa a valer", async () => {
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: "nova-senha" } });

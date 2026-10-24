@@ -66,18 +66,18 @@ export function notificarUnidade(unidadeId: string, mensagem: Mensagem) {
     .catch((erro) => console.error("[push] Falha ao buscar moradores da unidade", erro));
 }
 
-/** Envia uma notificação para todos os usuários ativos de um perfil (ex.: síndicos). */
-export function notificarPapel(papel: Papel, mensagem: Mensagem) {
+/** Envia uma notificação para todos os usuários ativos de um perfil dentro de um condomínio (ex.: síndicos). */
+export function notificarPapel(papel: Papel, condominioId: string, mensagem: Mensagem) {
   void prisma.usuario
-    .findMany({ where: { papel, ativo: true }, select: { id: true } })
+    .findMany({ where: { papel, condominioId, ativo: true }, select: { id: true } })
     .then((usuarios) => enviarPush(usuarios.map((u) => u.id), mensagem))
     .catch((erro) => console.error(`[push] Falha ao buscar usuários do perfil ${papel}`, erro));
 }
 
-/** Envia uma notificação para todos os usuários ativos, exceto quem a originou. */
-export function notificarTodos(excetoUsuarioId: string, mensagem: Mensagem) {
+/** Envia uma notificação para todos os usuários ativos de um condomínio, exceto quem a originou. */
+export function notificarTodos(condominioId: string, excetoUsuarioId: string, mensagem: Mensagem) {
   void prisma.usuario
-    .findMany({ where: { ativo: true, id: { not: excetoUsuarioId } }, select: { id: true } })
+    .findMany({ where: { condominioId, ativo: true, id: { not: excetoUsuarioId } }, select: { id: true } })
     .then((usuarios) => enviarPush(usuarios.map((u) => u.id), mensagem))
     .catch((erro) => console.error("[push] Falha ao buscar usuários", erro));
 }

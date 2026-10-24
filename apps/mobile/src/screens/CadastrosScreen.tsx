@@ -104,6 +104,18 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
   );
 }
 
+/** Gera o código de convite da unidade (vale 7 dias) para o síndico repassar ao morador. */
+function gerarConvite(u: UnidadeComMoradores) {
+  enviar<{ codigo: string; expiraEm: string }>("POST", `/unidades/${u.id}/convite`)
+    .then(({ codigo, expiraEm }) =>
+      Alert.alert(
+        `Convite · ${unidadeTexto(u)}`,
+        `Código: ${codigo}\n\nVálido até ${new Date(expiraEm).toLocaleDateString("pt-BR")}. Envie ao morador: ele usa em "Criar conta". Gerar outro código invalida este.`,
+      ),
+    )
+    .catch((e: Error) => Alert.alert("Erro", e.message));
+}
+
 function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
   const query = useQuery({
     queryKey: ["cadastros", "unidades"],
@@ -126,6 +138,7 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
               {u._count.moradores} {u._count.moradores === 1 ? "morador" : "moradores"}
             </Text>
           </View>
+          <Botao titulo="Gerar convite" variante="secundario" pequeno onPress={() => gerarConvite(u)} />
         </Card>
       )}
     />

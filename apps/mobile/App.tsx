@@ -11,6 +11,8 @@ import type { Papel } from "./src/api/client";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RecuperarSenhaScreen } from "./src/screens/RecuperarSenhaScreen";
+import { CadastroScreen } from "./src/screens/CadastroScreen";
+import { PlanoInativoScreen } from "./src/screens/PlanoInativoScreen";
 import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
 import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
 import { FUNDO_MARCA } from "./src/ui/logo";
@@ -74,11 +76,11 @@ const Tab = createBottomTabNavigator();
 const navegacao = createNavigationContainerRef();
 
 function Navegacao() {
-  const { usuario, restaurando } = useAuth();
+  const { usuario, restaurando, planoInativo } = useAuth();
   const [contaAberta, setContaAberta] = useState(false);
   /** A abertura animada roda uma vez por abertura do app (não ao voltar de outro app). */
   const [abertura, setAbertura] = useState(true);
-  const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login" | "recuperarSenha">("boasVindas");
+  const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login" | "recuperarSenha" | "cadastro">("boasVindas");
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
   // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
@@ -95,6 +97,9 @@ function Navegacao() {
       ) : !usuario ? (
         telaPublica === "login" ? (
           <LoginScreen onVoltar={() => setTelaPublica("boasVindas")} onEsqueciSenha={() => setTelaPublica("recuperarSenha")} />
+        ) : telaPublica === "cadastro" ? (
+          // Ao concluir o cadastro a API já devolve a sessão: o usuário passa a existir e o app abre sozinho.
+          <CadastroScreen onVoltar={() => setTelaPublica("boasVindas")} />
         ) : telaPublica === "recuperarSenha" ? (
           <RecuperarSenhaScreen
             onVoltar={() => setTelaPublica("login")}
@@ -108,9 +113,12 @@ function Navegacao() {
             // O painel sobe quando a abertura sai de cena (ao voltar do login, já aparece pronto).
             painelVisivel={!abertura}
             onEntrar={() => setTelaPublica("login")}
-            onCriarConta={() => Alert.alert("Criar conta", "O pedido de acesso ao condomínio estará disponível em breve.")}
+            onCriarConta={() => setTelaPublica("cadastro")}
           />
         )
+      ) : planoInativo && usuario.papel !== "SINDICO" ? (
+        // Síndico segue usando o app para ver o status do plano; os demais perfis ficam bloqueados.
+        <PlanoInativoScreen />
       ) : (
         <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
       )}

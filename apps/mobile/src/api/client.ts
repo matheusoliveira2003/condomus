@@ -19,6 +19,9 @@ export type {
   Reserva,
   Pagina,
   Resumo,
+  PlanoStatus,
+  Condominio,
+  ConviteInfo,
 } from "@condomus/types";
 
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
@@ -26,6 +29,7 @@ const TEMPO_LIMITE_MS = 15000;
 
 let token: string | null = null;
 let aoExpirarSessao: (() => void) | null = null;
+let aoPlanoInativo: (() => void) | null = null;
 
 export function definirToken(novo: string | null) {
   token = novo;
@@ -37,6 +41,11 @@ export const obterToken = () => token;
 /** Chamado quando a API responde 401 (token expirado ou inválido). */
 export function definirAoExpirarSessao(callback: (() => void) | null) {
   aoExpirarSessao = callback;
+}
+
+/** Chamado quando a API responde 402 (plano do condomínio expirado ou suspenso). */
+export function definirAoPlanoInativo(callback: (() => void) | null) {
+  aoPlanoInativo = callback;
 }
 
 export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
@@ -61,6 +70,7 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
   if (resposta.status === 204) return undefined as T;
   const corpo = await resposta.json();
   if (resposta.status === 401 && token) aoExpirarSessao?.();
+  if (resposta.status === 402 && token) aoPlanoInativo?.();
   if (!resposta.ok) {
     // Erros de validação trazem o motivo por campo; mostra o primeiro.
     const detalhe = corpo.detalhes && (Object.values(corpo.detalhes) as string[][]).flat()[0];

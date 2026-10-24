@@ -27,16 +27,21 @@ const publico = { id: true, nome: true, email: true, papel: true, ativo: true, u
 export async function usuariosRoutes(app: FastifyInstance) {
   app.get("/usuarios", { preHandler: app.autorizar("SINDICO") }, async (req) => {
     const { papel } = filtroSchema.parse(req.query);
-    return prisma.usuario.findMany({ where: { papel }, select: publico, orderBy: [{ ativo: "desc" }, { nome: "asc" }] });
+    return prisma.usuario.findMany({
+      where: { papel, condominioId: req.user.condominioId },
+      select: publico,
+      orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+    });
   });
 
   app.post("/usuarios", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
     const { senha, ...dados } = usuarioSchema.parse(req.body);
-    if (dados.unidadeId && !(await prisma.unidade.findUnique({ where: { id: dados.unidadeId } }))) {
+    const { condominioId } = req.user;
+    if (dados.unidadeId && !(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId } }))) {
       throw naoEncontrado("Unidade");
     }
     const usuario = await prisma.usuario.create({
-      data: { ...dados, senhaHash: await bcrypt.hash(senha, 10) },
+      data: { ...dados, condominioId, senhaHash: await bcrypt.hash(senha, 10) },
       select: publico,
     });
     return reply.status(201).send(usuario);
@@ -47,7 +52,7 @@ export async function usuariosRoutes(app: FastifyInstance) {
     const { id } = idParam.parse(req.params);
     const { ativo } = ativoSchema.parse(req.body);
     if (id === req.user.sub && !ativo) throw new HttpError(409, "Você não pode desativar a própria conta");
-    const existe = await prisma.usuario.findUnique({ where: { id } });
+    const existe = await prisma.usuario.findFirst({ where: { id, condominioId: req.user.condominioId } });
     if (!existe) throw naoEncontrado("Usuário");
     // Incrementa tokenVersion ao desativar (e também ao reativar, por precaução):
     // qualquer token emitido antes da mudança fica inválido imediatamente.

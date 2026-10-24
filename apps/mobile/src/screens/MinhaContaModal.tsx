@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Papel, type Unidade } from "../api/client";
+import { api, enviar, type Papel, type PlanoStatus, type Unidade } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, estilosTexto } from "../ui/componentes";
+import { useCondominio } from "../hooks/queries";
+import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { cores } from "../ui/tema";
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
+
+const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primario" | "alerta" | "neutro" }> = {
+  TRIAL: { texto: "Período de teste", tom: "primario" },
+  ATIVO: { texto: "Ativo", tom: "sucesso" },
+  EXPIRADO: { texto: "Expirado", tom: "alerta" },
+  SUSPENSO: { texto: "Suspenso", tom: "neutro" },
+};
 
 interface Perfil {
   nome: string;
@@ -53,9 +61,32 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
           </Text>
         </View>
       )}
+      {perfil?.papel === "SINDICO" && <PlanoDoCondominio />}
       <TrocarSenha />
       <Botao titulo="Sair da conta" variante="perigo" onPress={confirmarSaida} />
     </ModalFormulario>
+  );
+}
+
+/** Situação do plano do condomínio (visível só ao síndico). */
+function PlanoDoCondominio() {
+  const { data: condominio } = useCondominio();
+  if (!condominio) return null;
+  const { texto, tom } = rotuloPlano[condominio.planoStatus];
+  return (
+    <Card>
+      <Secao titulo="Plano do condomínio" />
+      <Text style={estilosTexto.corpo}>{condominio.nome}</Text>
+      <View style={styles.planoLinha}>
+        <Selo texto={texto} tom={tom} />
+        {condominio.planoExpiraEm && (
+          <Text style={estilosTexto.secundario}>
+            {condominio.planoStatus === "EXPIRADO" ? "Expirou em " : "Válido até "}
+            {new Date(condominio.planoExpiraEm).toLocaleDateString("pt-BR")}
+          </Text>
+        )}
+      </View>
+    </Card>
   );
 }
 
@@ -196,4 +227,5 @@ const styles = StyleSheet.create({
   },
   opcoesFoto: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
   sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
+  planoLinha: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
 });

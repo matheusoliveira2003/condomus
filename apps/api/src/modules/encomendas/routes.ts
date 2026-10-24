@@ -26,19 +26,20 @@ const idParam = z.object({ id: z.uuid() });
 export async function encomendasRoutes(app: FastifyInstance) {
   app.get("/encomendas", { preHandler: app.autorizar() }, async (req) => {
     const { status, limite, cursor } = filtroSchema.parse(req.query);
-    const { papel, unidadeId } = req.user;
+    const { papel, unidadeId, condominioId } = req.user;
 
     // Encomendas retiradas ordenam por retiradaEm; aguardando por recebidaEm.
     const ordenarPor = status === "RETIRADA" ? "retiradaEm" : "recebidaEm";
 
     const ancoraCursor = cursor
-      ? await prisma.encomenda.findUnique({ where: { id: cursor }, select: { [ordenarPor]: true } })
+      ? await prisma.encomenda.findFirst({ where: { id: cursor, unidade: { condominioId } }, select: { [ordenarPor]: true } })
       : null;
     const dataAncora = ancoraCursor ? (ancoraCursor as Record<string, Date | null>)[ordenarPor] : null;
 
     const encomendas = await prisma.encomenda.findMany({
       where: {
         status,
+        unidade: { condominioId },
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
         ...(dataAncora && { OR: [
           { [ordenarPor]: { lt: dataAncora } },
@@ -57,6 +58,9 @@ export async function encomendasRoutes(app: FastifyInstance) {
 
   app.post("/encomendas", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
     const dados = registrarSchema.parse(req.body);
+    if (!(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId: req.user.condominioId } }))) {
+      throw naoEncontrado("Unidade");
+    }
     const encomenda = await prisma.encomenda.create({ data: { ...dados, recebidaPorId: req.user.sub } });
     notificarUnidade(dados.unidadeId, {
       titulo: "📦 Encomenda na portaria",
@@ -69,7 +73,7 @@ export async function encomendasRoutes(app: FastifyInstance) {
   app.patch("/encomendas/:id/retirada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const { id } = idParam.parse(req.params);
     const { retiradaPor } = retirarSchema.parse(req.body);
-    const encomenda = await prisma.encomenda.findUnique({ where: { id } });
+    const encomenda = await prisma.encomenda.findFirst({ where: { id, unidade: { condominioId: req.user.condominioId } } });
     if (!encomenda) throw naoEncontrado("Encomenda");
     if (encomenda.status === "RETIRADA") throw new HttpError(409, "Encomenda já retirada");
     return prisma.encomenda.update({

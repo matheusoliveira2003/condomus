@@ -23,30 +23,34 @@ const idParam = z.object({ id: z.uuid() });
 export async function avisosRoutes(app: FastifyInstance) {
   app.get("/avisos", { preHandler: app.autorizar() }, async (req) => {
     const { limite, cursor } = filtroSchema.parse(req.query);
+    const { condominioId } = req.user;
 
     // Avisos fixados sempre aparecem antes dos não-fixados.
     // O cursor precisa saber se o item âncora era fixado para paginar corretamente:
     // - Se era fixado: próxima página começa nos fixados mais antigos + todos os não-fixados.
     // - Se não era fixado: próxima página são apenas não-fixados mais antigos.
     const ancoraCursor = cursor
-      ? await prisma.aviso.findUnique({ where: { id: cursor }, select: { fixado: true, criadoEm: true } })
+      ? await prisma.aviso.findFirst({ where: { id: cursor, condominioId }, select: { fixado: true, criadoEm: true } })
       : null;
 
     const avisos = await prisma.aviso.findMany({
-      where: ancoraCursor
-        ? ancoraCursor.fixado
-          // Âncora é fixado: pega fixados mais antigos OU todos os não-fixados.
-          ? { OR: [
-              { fixado: true, criadoEm: { lt: ancoraCursor.criadoEm } },
-              { fixado: true, criadoEm: ancoraCursor.criadoEm, id: { lt: cursor! } },
-              { fixado: false },
-            ]}
-          // Âncora não é fixado: só pega não-fixados mais antigos.
-          : { fixado: false, OR: [
-              { criadoEm: { lt: ancoraCursor.criadoEm } },
-              { criadoEm: ancoraCursor.criadoEm, id: { lt: cursor! } },
-            ]}
-        : {},
+      where: {
+        condominioId,
+        ...(ancoraCursor
+          ? ancoraCursor.fixado
+            // Âncora é fixado: pega fixados mais antigos OU todos os não-fixados.
+            ? { OR: [
+                { fixado: true, criadoEm: { lt: ancoraCursor.criadoEm } },
+                { fixado: true, criadoEm: ancoraCursor.criadoEm, id: { lt: cursor! } },
+                { fixado: false },
+              ]}
+            // Âncora não é fixado: só pega não-fixados mais antigos.
+            : { fixado: false, OR: [
+                { criadoEm: { lt: ancoraCursor.criadoEm } },
+                { criadoEm: ancoraCursor.criadoEm, id: { lt: cursor! } },
+              ]}
+          : {}),
+      },
       include: { autor: { select: { nome: true } } },
       orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }, { id: "desc" }],
       take: limite + 1,
@@ -59,8 +63,8 @@ export async function avisosRoutes(app: FastifyInstance) {
 
   app.post("/avisos", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
     const dados = avisoSchema.parse(req.body);
-    const aviso = await prisma.aviso.create({ data: { ...dados, autorId: req.user.sub } });
-    notificarTodos(req.user.sub, {
+    const aviso = await prisma.aviso.create({ data: { ...dados, autorId: req.user.sub, condominioId: req.user.condominioId } });
+    notificarTodos(req.user.condominioId, req.user.sub, {
       titulo: `📢 ${aviso.titulo}`,
       // O corpo da notificação é curto; o texto completo fica na aba Avisos.
       corpo: aviso.conteudo.length > 120 ? `${aviso.conteudo.slice(0, 117)}…` : aviso.conteudo,
@@ -71,7 +75,7 @@ export async function avisosRoutes(app: FastifyInstance) {
 
   app.delete("/avisos/:id", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
     const { id } = idParam.parse(req.params);
-    const { count } = await prisma.aviso.deleteMany({ where: { id } });
+    const { count } = await prisma.aviso.deleteMany({ where: { id, condominioId: req.user.condominioId } });
     if (count === 0) throw naoEncontrado("Aviso");
     return reply.status(204).send();
   });

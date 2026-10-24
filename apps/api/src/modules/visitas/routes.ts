@@ -41,15 +41,16 @@ export async function visitasRoutes(app: FastifyInstance) {
   // Morador vê as visitas da própria unidade; portaria e síndico veem todas.
   app.get("/visitas", { preHandler: app.autorizar() }, async (req) => {
     const { status, situacao, limite, cursor } = filtroSchema.parse(req.query);
-    const { papel, unidadeId } = req.user;
+    const { papel, unidadeId, condominioId } = req.user;
 
     // Paginação por cursor: busca `limite + 1` itens para saber se há próxima página.
     const ancoraCursor = cursor
-      ? await prisma.visita.findUnique({ where: { id: cursor }, select: { criadoEm: true } })
+      ? await prisma.visita.findFirst({ where: { id: cursor, unidade: { condominioId } }, select: { criadoEm: true } })
       : null;
 
     const visitas = await prisma.visita.findMany({
       where: {
+        unidade: { condominioId },
         status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
         // Cursor: registros mais antigos que o último recebido (mesma data → desambigua pelo id).
@@ -84,6 +85,9 @@ export async function visitasRoutes(app: FastifyInstance) {
 
   app.post("/visitas/entrada-direta", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
     const dados = entradaDiretaSchema.parse(req.body);
+    if (!(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId: req.user.condominioId } }))) {
+      throw naoEncontrado("Unidade");
+    }
     const visita = await prisma.visita.create({
       data: { ...dados, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
     });
@@ -92,7 +96,7 @@ export async function visitasRoutes(app: FastifyInstance) {
   });
 
   app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
-    const visita = await buscar(req.params);
+    const visita = await buscar(req.params, req.user.condominioId);
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível registrar entrada de visitas agendadas");
     // Visita com convite só entra com o código dele (lido do QR code ou digitado).
     // Visitas antigas, criadas antes do convite existir, não têm código e seguem sem exigência.
@@ -110,13 +114,13 @@ export async function visitasRoutes(app: FastifyInstance) {
   });
 
   app.patch("/visitas/:id/saida", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
-    const visita = await buscar(req.params);
+    const visita = await buscar(req.params, req.user.condominioId);
     if (visita.status !== "EM_ANDAMENTO") throw new HttpError(409, "Visitante não está no condomínio");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "FINALIZADA", saidaEm: new Date() } });
   });
 
   app.patch("/visitas/:id/cancelar", { preHandler: app.autorizar("MORADOR") }, async (req) => {
-    const visita = await buscar(req.params);
+    const visita = await buscar(req.params, req.user.condominioId);
     if (visita.unidadeId !== req.user.unidadeId) throw proibido();
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível cancelar visitas agendadas");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "CANCELADA" } });
@@ -124,12 +128,12 @@ export async function visitasRoutes(app: FastifyInstance) {
 
   // Convite do visitante: código (para digitar) e QR code em PNG (para compartilhar).
   app.get("/visitas/:id/convite", { preHandler: app.autorizar("MORADOR") }, async (req) => {
-    const visita = await conviteDoMorador(req.params, req.user.unidadeId);
+    const visita = await conviteDoMorador(req.params, req.user.unidadeId, req.user.condominioId);
     return { codigo: visita.codigoAcesso, nomeVisitante: visita.nomeVisitante };
   });
 
   app.get("/visitas/:id/convite.png", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
-    const visita = await conviteDoMorador(req.params, req.user.unidadeId);
+    const visita = await conviteDoMorador(req.params, req.user.unidadeId, req.user.condominioId);
     const png = await gerarCartaoConvite({
       codigo: visita.codigoAcesso!,
       nomeVisitante: visita.nomeVisitante,
@@ -141,8 +145,8 @@ export async function visitasRoutes(app: FastifyInstance) {
   // Portaria lê o QR code (ou digita o código) e vê os dados da visita antes de liberar.
   app.get("/visitas/codigo/:codigo", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const { codigo } = z.object({ codigo: z.string().min(1) }).parse(req.params);
-    const visita = await prisma.visita.findUnique({
-      where: { codigoAcesso: normalizarCodigo(codigo) },
+    const visita = await prisma.visita.findFirst({
+      where: { codigoAcesso: normalizarCodigo(codigo), unidade: { condominioId: req.user.condominioId } },
       include: { unidade: true, autorizadoPor: { select: { id: true, nome: true, fotoAtualizadaEm: true } } },
       omit: { codigoAcesso: true },
     });
@@ -152,8 +156,8 @@ export async function visitasRoutes(app: FastifyInstance) {
 }
 
 /** Visita agendada da unidade do morador, garantindo que tenha código (visitas antigas não tinham). */
-async function conviteDoMorador(params: unknown, unidadeId: string | null) {
-  const visita = await buscar(params);
+async function conviteDoMorador(params: unknown, unidadeId: string | null, condominioId: string) {
+  const visita = await buscar(params, condominioId);
   if (visita.unidadeId !== unidadeId) throw proibido();
   if (visita.status !== "AGENDADA") throw new HttpError(409, "O convite só vale para visitas agendadas");
   if (visita.codigoAcesso) return visita;
@@ -177,9 +181,9 @@ function avisarChegada(unidadeId: string, nomeVisitante: string) {
   });
 }
 
-async function buscar(params: unknown) {
+async function buscar(params: unknown, condominioId: string) {
   const { id } = idParam.parse(params);
-  const visita = await prisma.visita.findUnique({ where: { id } });
+  const visita = await prisma.visita.findFirst({ where: { id, unidade: { condominioId } } });
   if (!visita) throw naoEncontrado("Visita");
   return visita;
 }

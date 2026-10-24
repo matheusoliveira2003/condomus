@@ -45,7 +45,10 @@ export async function fotosRoutes(app: FastifyInstance) {
     if (req.user.papel === "MORADOR" && id !== req.user.sub) throw proibido();
 
     // Verifica se o usuário tem foto registrada antes de ir ao storage.
-    const usuario = await prisma.usuario.findUnique({ where: { id }, select: { fotoAtualizadaEm: true } });
+    const usuario = await prisma.usuario.findFirst({
+      where: { id, condominioId: req.user.condominioId },
+      select: { fotoAtualizadaEm: true },
+    });
     if (!usuario?.fotoAtualizadaEm) throw naoEncontrado("Foto");
 
     try {
@@ -63,7 +66,7 @@ export async function fotosRoutes(app: FastifyInstance) {
   app.get("/unidades/:id/moradores", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const { id } = idParam.parse(req.params);
     return prisma.usuario.findMany({
-      where: { unidadeId: id, papel: "MORADOR", ativo: true },
+      where: { unidadeId: id, condominioId: req.user.condominioId, papel: "MORADOR", ativo: true },
       select: { id: true, nome: true, fotoAtualizadaEm: true },
       orderBy: { nome: "asc" },
     });

@@ -6,7 +6,7 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Encomenda, Pagina, Reserva, Resumo, Visita } from "@condomus/types";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Encomenda, Pagina, Reserva, Resumo, Usuario, Visita } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +20,37 @@ export const keys = {
   reservas: (filtro: string) => ["reservas", filtro] as const,
   reservasMinhas: ["reservas", "minhas"] as const,
   areas: ["areas"] as const,
+  condominio: ["condominio"] as const,
 };
+
+// ---------------------------------------------------------------------------
+// Condomínio (plano) e cadastro por convite
+// ---------------------------------------------------------------------------
+export function useCondominio(habilitado = true) {
+  return useQuery({
+    queryKey: keys.condominio,
+    queryFn: () => api<Condominio>("/condominios/meu"),
+    enabled: habilitado,
+  });
+}
+
+/** Valida o código de convite (público); só consulta quando o código tem os 8 caracteres. */
+export function useConvite(codigo: string) {
+  return useQuery({
+    queryKey: ["convite", codigo],
+    queryFn: () => api<ConviteInfo>(`/convite/${codigo}`),
+    enabled: codigo.length === 8,
+    retry: false,
+  });
+}
+
+/** Cria a conta do morador a partir do convite; a API devolve a mesma resposta do login. */
+export function useCadastro() {
+  return useMutation({
+    mutationFn: (dados: { codigo: string; nome: string; email: string; senha: string }) =>
+      enviar<{ token: string; usuario: Usuario }>("POST", "/cadastro", dados),
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Início (resumo do morador)

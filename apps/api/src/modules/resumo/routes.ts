@@ -20,7 +20,7 @@ export async function resumoRoutes(app: FastifyInstance) {
     const unidadeId = req.user.unidadeId!;
 
     const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, avisos] = await Promise.all([
-      prisma.unidade.findUnique({ where: { id: unidadeId } }),
+      prisma.unidade.findFirst({ where: { id: unidadeId, condominioId: req.user.condominioId } }),
       prisma.encomenda.findMany({
         where: { unidadeId, status: "AGUARDANDO_RETIRADA" },
         select: { id: true, descricao: true, remetente: true, recebidaEm: true },
@@ -50,6 +50,7 @@ export async function resumoRoutes(app: FastifyInstance) {
       }),
       // Mesma ordem do mural: fixados primeiro, depois os mais recentes.
       prisma.aviso.findMany({
+        where: { condominioId: req.user.condominioId },
         select: { id: true, titulo: true, conteudo: true, fixado: true, criadoEm: true },
         orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }],
         take: MAX_AVISOS,

@@ -11,11 +11,14 @@ export async function limparBanco() {
   const [{ current_database: nome }] = await prisma.$queryRawUnsafe<{ current_database: string }[]>("SELECT current_database()");
   if (!nome.endsWith("_teste")) throw new Error(`Recusando limpar o banco "${nome}": os testes só rodam em bancos *_teste`);
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "Unidade", "AreaComum" RESTART IDENTITY CASCADE`,
+    `TRUNCATE "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "ConviteUnidade", "Unidade", "AreaComum", "Condominio" RESTART IDENTITY CASCADE`,
   );
 }
 
 export const SENHA = "123456";
+
+/** Segredo das rotas /admin/*, igual ao definido em vitest.config.ts. */
+export const ADMIN_SECRET = "segredo-admin-dos-testes";
 
 /**
  * Condomínio mínimo para os testes: duas unidades, um morador em cada,
@@ -23,24 +26,27 @@ export const SENHA = "123456";
  */
 export async function criarCenario(app: FastifyInstance) {
   const senhaHash = await bcrypt.hash(SENHA, 4); // custo baixo: só para os testes serem rápidos
+  const condominio = await prisma.condominio.create({ data: { nome: "Condomínio Teste", planoStatus: "ATIVO" } });
+  const condominioId = condominio.id;
   const [a101, b201] = await Promise.all([
-    prisma.unidade.create({ data: { bloco: "A", numero: "101" } }),
-    prisma.unidade.create({ data: { bloco: "B", numero: "201" } }),
+    prisma.unidade.create({ data: { bloco: "A", numero: "101", condominioId } }),
+    prisma.unidade.create({ data: { bloco: "B", numero: "201", condominioId } }),
   ]);
   const criar = (nome: string, email: string, papel: "MORADOR" | "PORTEIRO" | "SINDICO", unidadeId: string | null = null) =>
-    prisma.usuario.create({ data: { nome, email, papel, unidadeId, senhaHash } });
+    prisma.usuario.create({ data: { nome, email, papel, unidadeId, senhaHash, condominioId } });
   const [morador, vizinho, porteiro, sindico] = await Promise.all([
     criar("Morador A", "morador@teste.dev", "MORADOR", a101.id),
     criar("Vizinho B", "vizinho@teste.dev", "MORADOR", b201.id),
     criar("Porteiro", "porteiro@teste.dev", "PORTEIRO"),
     criar("Síndico", "sindico@teste.dev", "SINDICO"),
   ]);
-  const area = await prisma.areaComum.create({ data: { nome: "Salão de festas" } });
+  const area = await prisma.areaComum.create({ data: { nome: "Salão de festas", condominioId } });
 
   const [tMorador, tVizinho, tPorteiro, tSindico] = await Promise.all(
     [morador, vizinho, porteiro, sindico].map((u) => entrar(app, u.email)),
   );
   return {
+    condominio,
     unidades: { a101, b201 },
     area,
     usuarios: { morador, vizinho, porteiro, sindico },

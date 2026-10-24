@@ -6,15 +6,25 @@ const prisma = new PrismaClient();
 async function main() {
   const senhaHash = await bcrypt.hash("123456", 10);
 
+  // Condomínio de demonstração (plano ativo). Em produção, condomínios são criados via POST /admin/condominios.
+  const condominio =
+    (await prisma.condominio.findFirst({ where: { nome: "Condomínio Demo" } })) ??
+    (await prisma.condominio.create({ data: { nome: "Condomínio Demo", planoStatus: "ATIVO" } }));
+  const condominioId = condominio.id;
+
   const unidade = await prisma.unidade.upsert({
-    where: { bloco_numero: { bloco: "A", numero: "101" } },
+    where: { condominioId_bloco_numero: { condominioId, bloco: "A", numero: "101" } },
     update: {},
-    create: { bloco: "A", numero: "101" },
+    create: { condominioId, bloco: "A", numero: "101" },
   });
 
   // Unidades extras para a portaria ter opções ao registrar encomendas e visitas.
   for (const [bloco, numero] of [["A", "102"], ["A", "201"], ["B", "101"], ["B", "102"]]) {
-    await prisma.unidade.upsert({ where: { bloco_numero: { bloco, numero } }, update: {}, create: { bloco, numero } });
+    await prisma.unidade.upsert({
+      where: { condominioId_bloco_numero: { condominioId, bloco, numero } },
+      update: {},
+      create: { condominioId, bloco, numero },
+    });
   }
 
   const usuarios = [
@@ -23,11 +33,15 @@ async function main() {
     { nome: "Nathan Martinez Lazarete", email: "nathanml@condomus.dev", papel: "PORTEIRO" as const, unidadeId: null },
   ];
   for (const u of usuarios) {
-    await prisma.usuario.upsert({ where: { email: u.email }, update: {}, create: { ...u, senhaHash } });
+    await prisma.usuario.upsert({ where: { email: u.email }, update: {}, create: { ...u, condominioId, senhaHash } });
   }
 
   for (const nome of ["Salão de festas", "Churrasqueira", "Quadra"]) {
-    await prisma.areaComum.upsert({ where: { nome }, update: {}, create: { nome } });
+    await prisma.areaComum.upsert({
+      where: { condominioId_nome: { condominioId, nome } },
+      update: {},
+      create: { condominioId, nome },
+    });
   }
 
   console.log("Seed concluído. Senha de todos os usuários: 123456");

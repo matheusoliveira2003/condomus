@@ -33,6 +33,41 @@ enum StatusReserva {
   CANCELADA
 }
 
+enum PlanoStatus {
+  TRIAL
+  ATIVO
+  EXPIRADO
+  SUSPENSO
+}
+
+/// Condomínio: é o tenant (cliente pagante) do sistema.
+model Condominio {
+  id            String      @id @default(uuid())
+  nome          String
+  cnpj          String?     @unique
+  endereco      String?
+  planoStatus   PlanoStatus @default(TRIAL)
+  planoExpiraEm DateTime?
+  criadoEm      DateTime    @default(now())
+
+  unidades Unidade[]
+  usuarios Usuario[]
+  areas    AreaComum[]
+  avisos   Aviso[]
+}
+
+/// Código de convite gerado pelo síndico para o morador se cadastrar numa unidade.
+model ConviteUnidade {
+  id       String    @id @default(uuid())
+  codigo   String    @unique
+  expiraEm DateTime
+  usadoEm  DateTime?
+  criadoEm DateTime  @default(now())
+
+  unidadeId String
+  unidade   Unidade  @relation(fields: [unidadeId], references: [id])
+}
+
 /// Apartamento/casa do condomínio.
 model Unidade {
   id        String      @id @default(uuid())
@@ -42,8 +77,12 @@ model Unidade {
   visitas   Visita[]
   encomendas Encomenda[]
   reservas  Reserva[]
+  convites  ConviteUnidade[]
 
-  @@unique([bloco, numero])
+  condominioId String
+  condominio   Condominio @relation(fields: [condominioId], references: [id])
+
+  @@unique([condominioId, bloco, numero])
 }
 
 model Usuario {
@@ -59,6 +98,9 @@ model Usuario {
   /// Muda a cada troca de foto; o app usa como versão para não reaproveitar a imagem antiga do cache.
   /// A foto em si fica no object storage (S3/compatível), não no banco.
   fotoAtualizadaEm DateTime?
+
+  condominioId String
+  condominio   Condominio @relation(fields: [condominioId], references: [id])
 
   /// Obrigatório para moradores; nulo para funcionários.
   unidadeId String?
@@ -135,15 +177,23 @@ model Aviso {
 
   autorId  String
   autor    Usuario  @relation(fields: [autorId], references: [id])
+
+  condominioId String
+  condominio   Condominio @relation(fields: [condominioId], references: [id])
 }
 
 model AreaComum {
   id         String    @id @default(uuid())
-  nome       String    @unique
+  nome       String
   descricao  String?
   capacidade Int?
   ativa      Boolean   @default(true)
   reservas   Reserva[]
+
+  condominioId String
+  condominio   Condominio @relation(fields: [condominioId], references: [id])
+
+  @@unique([condominioId, nome])
 }
 
 model Reserva {

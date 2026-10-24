@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { enviarCodigoRecuperacao } from "../../lib/email.js";
 import { gerarCodigoNumerico } from "../../lib/codigo.js";
+import { emitirSessao } from "../../lib/sessao.js";
 
 /** O código de recuperação vale por este tempo após ser gerado. */
 const VALIDADE_CODIGO_MINUTOS = 15;
@@ -44,17 +45,7 @@ export async function authRoutes(app: FastifyInstance) {
         .update({ where: { id: usuario.id }, data: { codigoRecuperacaoHash: null, codigoRecuperacaoExpira: null } })
         .catch(() => {});
     }
-    const token = app.jwt.sign({ sub: usuario.id, papel: usuario.papel, unidadeId: usuario.unidadeId, tokenVersion: usuario.tokenVersion });
-    return {
-      token,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        papel: usuario.papel,
-        unidadeId: usuario.unidadeId,
-        fotoAtualizadaEm: usuario.fotoAtualizadaEm,
-      },
-    };
+    return emitirSessao(app, usuario);
   });
 
   app.get("/auth/me", { preHandler: app.autorizar() }, async (req) => {

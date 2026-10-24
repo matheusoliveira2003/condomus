@@ -15,6 +15,8 @@ export type StatusEncomenda = "AGUARDANDO_RETIRADA" | "RETIRADA";
 
 export type StatusReserva = "PENDENTE" | "CONFIRMADA" | "RECUSADA" | "CANCELADA";
 
+export type PlanoStatus = "TRIAL" | "ATIVO" | "EXPIRADO" | "SUSPENSO";
+
 // ---------------------------------------------------------------------------
 // Entidades base
 // ---------------------------------------------------------------------------
@@ -116,6 +118,24 @@ export interface Reserva {
   motivoRecusa: string | null;
   area: AreaComum;
   unidade: Unidade;
+}
+
+// ---------------------------------------------------------------------------
+// Condomínio (tenant) e convites
+// ---------------------------------------------------------------------------
+
+/** Condomínio do usuário logado (GET /condominios/meu). */
+export interface Condominio {
+  id: string;
+  nome: string;
+  planoStatus: PlanoStatus;
+  planoExpiraEm: string | null;
+}
+
+/** Dados públicos de um convite (GET /convite/:codigo), mostrados antes do cadastro do morador. */
+export interface ConviteInfo {
+  unidade: { bloco: string; numero: string };
+  condominio: { nome: string };
 }
 
 // ---------------------------------------------------------------------------

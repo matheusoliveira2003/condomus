@@ -15,3 +15,6 @@ export const conteudoQr = (codigo: string) => `CONDOMUS:${codigo}`;
 
 /** Código numérico de 6 dígitos (recuperação de senha) — mais familiar que o alfanumérico acima. */
 export const gerarCodigoNumerico = () => Array.from({ length: 6 }, () => randomInt(10)).join("");
+
+/** Código de convite de morador: 8 caracteres maiúsculos, sem caracteres ambíguos (0/O, 1/I/L). */
+export const gerarCodigoConvite = () => Array.from({ length: 8 }, () => ALFABETO[randomInt(ALFABETO.length)]).join("");

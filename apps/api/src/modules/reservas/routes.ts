@@ -35,8 +35,8 @@ const dataHora = (d: Date) =>
   d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 export async function reservasRoutes(app: FastifyInstance) {
-  app.get("/areas", { preHandler: app.autorizar() }, async () =>
-    prisma.areaComum.findMany({ where: { ativa: true }, orderBy: { nome: "asc" } }),
+  app.get("/areas", { preHandler: app.autorizar() }, async (req) =>
+    prisma.areaComum.findMany({ where: { ativa: true, condominioId: req.user.condominioId }, orderBy: { nome: "asc" } }),
   );
 
   // Todos veem as reservas que ocupam horário, para saber a disponibilidade das áreas.
@@ -44,6 +44,7 @@ export async function reservasRoutes(app: FastifyInstance) {
     const { areaId, de, ate, status } = filtroSchema.parse(req.query);
     return prisma.reserva.findMany({
       where: {
+        area: { condominioId: req.user.condominioId },
         status: status ?? { in: OCUPAM_HORARIO },
         areaId,
         ...(de && { fim: { gt: de } }),
@@ -57,7 +58,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   // Reservas futuras da unidade do morador, em qualquer situação exceto canceladas.
   app.get("/reservas/minhas", { preHandler: app.autorizar("MORADOR") }, async (req) =>
     prisma.reserva.findMany({
-      where: { unidadeId: req.user.unidadeId!, fim: { gt: new Date() }, status: { not: "CANCELADA" } },
+      where: { unidadeId: req.user.unidadeId!, area: { condominioId: req.user.condominioId }, fim: { gt: new Date() }, status: { not: "CANCELADA" } },
       include: incluir,
       orderBy: { inicio: "asc" },
     }),
@@ -67,7 +68,7 @@ export async function reservasRoutes(app: FastifyInstance) {
     const { areaId, inicio, fim } = reservaSchema.parse(req.body);
     if (inicio < new Date()) throw new HttpError(400, "Não é possível reservar no passado");
 
-    const area = await prisma.areaComum.findUnique({ where: { id: areaId } });
+    const area = await prisma.areaComum.findFirst({ where: { id: areaId, condominioId: req.user.condominioId } });
     if (!area || !area.ativa) throw naoEncontrado("Área comum");
 
     const reserva = await prisma.$transaction(async (tx) => {
@@ -91,7 +92,7 @@ export async function reservasRoutes(app: FastifyInstance) {
       });
     });
 
-    notificarPapel("SINDICO", {
+    notificarPapel("SINDICO", req.user.condominioId, {
       titulo: "📅 Reserva aguardando aprovação",
       corpo: `${area.nome} · ${dataHora(inicio)} · Bloco ${reserva.unidade.bloco}-${reserva.unidade.numero}`,
       dados: { aba: "Reservas" },
@@ -100,7 +101,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   });
 
   app.patch("/reservas/:id/aprovar", { preHandler: app.autorizar("SINDICO") }, async (req) => {
-    const reserva = await buscarPendente(req.params);
+    const reserva = await buscarPendente(req.params, req.user.condominioId);
     const aprovada = await prisma.reserva.update({
       where: { id: reserva.id },
       data: { status: "CONFIRMADA", decididaEm: new Date() },
@@ -115,7 +116,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   });
 
   app.patch("/reservas/:id/recusar", { preHandler: app.autorizar("SINDICO") }, async (req) => {
-    const reserva = await buscarPendente(req.params);
+    const reserva = await buscarPendente(req.params, req.user.condominioId);
     const { motivo } = recusaSchema.parse(req.body ?? {});
     const recusada = await prisma.reserva.update({
       where: { id: reserva.id },
@@ -132,7 +133,7 @@ export async function reservasRoutes(app: FastifyInstance) {
 
   app.patch("/reservas/:id/cancelar", { preHandler: app.autorizar("MORADOR", "SINDICO") }, async (req) => {
     const { id } = idParam.parse(req.params);
-    const reserva = await prisma.reserva.findUnique({ where: { id } });
+    const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId: req.user.condominioId } } });
     if (!reserva) throw naoEncontrado("Reserva");
     if (req.user.papel === "MORADOR" && reserva.unidadeId !== req.user.unidadeId) throw proibido();
     if (!OCUPAM_HORARIO.includes(reserva.status)) throw new HttpError(409, "Só é possível cancelar reservas pendentes ou confirmadas");
@@ -148,9 +149,9 @@ export async function reservasRoutes(app: FastifyInstance) {
   });
 }
 
-async function buscarPendente(params: unknown) {
+async function buscarPendente(params: unknown, condominioId: string) {
   const { id } = idParam.parse(params);
-  const reserva = await prisma.reserva.findUnique({ where: { id } });
+  const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId } } });
   if (!reserva) throw naoEncontrado("Reserva");
   if (reserva.status !== "PENDENTE") throw new HttpError(409, "Esta reserva já foi analisada");
   return reserva;
