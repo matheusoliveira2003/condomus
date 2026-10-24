@@ -105,20 +105,6 @@ function EtapaCodigo({
   return (
     <>
       <Text style={styles.titulo}>Criar conta</Text>
-      <View style={styles.subtituloLinha}>
-        <Text style={styles.subtitulo}>Digite o código de convite do seu condomínio</Text>
-        <Pressable
-          onPress={() => Alert.alert(
-            "Como obter o código?",
-            "O síndico do seu condomínio gera um código de convite de 8 caracteres para cada unidade. Peça ao síndico que acesse o app e crie um convite para a sua unidade.",
-            [{ text: "Entendi" }],
-          )}
-          hitSlop={8}
-          accessibilityLabel="Saiba como obter o código de convite"
-        >
-          <Ionicons name="help-circle-outline" size={19} color={cores.textoSecundario} />
-        </Pressable>
-      </View>
       <Campo
         icone="keypad-outline"
         placeholder="Código do convite"
@@ -127,6 +113,19 @@ function EtapaCodigo({
         maxLength={8}
         value={codigo}
         onChangeText={onCodigoMudou}
+        acaoDireita={
+          <Pressable
+            onPress={() => Alert.alert(
+              "Como obter o código?",
+              "O síndico do seu condomínio gera um código de convite de 8 caracteres para cada unidade. Peça ao síndico que acesse o app e crie um convite para a sua unidade.",
+              [{ text: "Entendi" }],
+            )}
+            hitSlop={8}
+            accessibilityLabel="Saiba como obter o código de convite"
+          >
+            <Ionicons name="help-circle-outline" size={22} color={cores.textoSecundario} />
+          </Pressable>
+        }
       />
       {info && (
         <View style={styles.confirmacao}>
@@ -214,8 +213,7 @@ const styles = StyleSheet.create({
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
-  subtituloLinha: { flexDirection: "row", alignItems: "center", gap: 6 },
-  subtitulo: { flex: 1, fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
+  subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   confirmacao: {
     flexDirection: "row",
     alignItems: "center",

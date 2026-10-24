@@ -69,10 +69,18 @@ export function Campo({
   rotulo,
   senha,
   icone,
+  acaoDireita,
   style,
   ...props
-}: TextInputProps & { rotulo?: string; senha?: boolean; icone?: keyof typeof Ionicons.glyphMap }) {
+}: TextInputProps & {
+  rotulo?: string;
+  senha?: boolean;
+  icone?: keyof typeof Ionicons.glyphMap;
+  /** Ícone/botão exibido no lado direito do campo (não compatível com `senha`). */
+  acaoDireita?: ReactNode;
+}) {
   const [visivel, setVisivel] = useState(false);
+  const temDireita = senha || !!acaoDireita;
   return (
     <View style={{ gap: 4 }}>
       {rotulo && <Text style={styles.rotulo}>{rotulo}</Text>}
@@ -81,7 +89,7 @@ export function Campo({
         <TextInput
           placeholderTextColor={cores.textoSecundario}
           {...props}
-          style={[styles.input, icone && { paddingLeft: 44 }, senha && { paddingRight: 48 }, style]}
+          style={[styles.input, icone && { paddingLeft: 44 }, temDireita && { paddingRight: 48 }, style]}
           // Depois de {...props}, para o botão de exibir senha sempre ter a palavra final.
           {...(senha && { secureTextEntry: !visivel, autoCapitalize: "none", autoCorrect: false })}
         />
@@ -95,6 +103,9 @@ export function Campo({
           >
             <Ionicons name={visivel ? "eye-off-outline" : "eye-outline"} size={22} color={cores.textoSecundario} />
           </Pressable>
+        )}
+        {!senha && acaoDireita && (
+          <View style={styles.olho}>{acaoDireita}</View>
         )}
       </View>
     </View>
