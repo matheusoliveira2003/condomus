@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, View } from "react-native";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Alert, Animated, Pressable, View, ActivityIndicator } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -35,16 +35,44 @@ interface Aba {
   tela: ComponentType;
 }
 
-const avisos: Aba = { nome: "Avisos", titulo: "Avisos", icone: "megaphone-outline", tela: AvisosScreen };
-const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasScreen };
-const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasScreen };
-const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaVisitasScreen };
+/**
+ * HOC que exibe um spinner enquanto a tela ainda não terminou de renderizar
+ * pela primeira vez. Substitui o `lazyPlaceholder` removido no React Navigation v7.
+ * Deve ser chamado fora de qualquer render para garantir identidade estável do tipo.
+ */
+function comSpinner<P extends object>(Tela: ComponentType<P>): ComponentType<P> {
+  return function TelaComSpinner(props: P) {
+    const [pronta, setPronta] = useState(false);
+    useLayoutEffect(() => { setPronta(true); }, []);
+    if (!pronta) {
+      return (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: cores.fundo }}>
+          <ActivityIndicator color={cores.primaria} />
+        </View>
+      );
+    }
+    return <Tela {...props} />;
+  };
+}
+
+/** Telas com spinner de lazy loading pré-criados (identidade estável). */
+const AvisosLazy = comSpinner(AvisosScreen);
+const EncomendasLazy = comSpinner(EncomendasScreen);
+const ReservasLazy = comSpinner(ReservasScreen);
+const PortariaLazy = comSpinner(PortariaVisitasScreen);
+const VisitasMoradorLazy = comSpinner(VisitasMoradorScreen);
+const CadastrosLazy = comSpinner(CadastrosScreen);
+
+const avisos: Aba = { nome: "Avisos", titulo: "Avisos", icone: "megaphone-outline", tela: AvisosLazy };
+const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasLazy };
+const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy };
+const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaLazy };
 
 /** Abas disponíveis para cada perfil de acesso. */
 const abasPorPapel: Record<Papel, Aba[]> = {
   MORADOR: [
     { nome: "Início", titulo: "Início", icone: "home-outline", tela: InicioScreen },
-    { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorScreen },
+    { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorLazy },
     encomendas,
     reservas,
     // Sem aba Avisos: os avisos ficam no Início (resumo + "Ver todos").
@@ -55,7 +83,7 @@ const abasPorPapel: Record<Papel, Aba[]> = {
     portaria,
     encomendas,
     reservas,
-    { nome: "Cadastros", titulo: "Cadastros", icone: "people-outline", tela: CadastrosScreen },
+    { nome: "Cadastros", titulo: "Cadastros", icone: "people-outline", tela: CadastrosLazy },
   ],
 };
 
@@ -235,9 +263,9 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
     <>
       <Tab.Navigator
         screenOptions={{
-          lazy: false,
           tabBarActiveTintColor: cores.primaria,
           tabBarInactiveTintColor: cores.textoSecundario,
+          lazy: true,
           headerRight: () => (
             <Pressable
               onPress={() => setContaAberta(true)}
