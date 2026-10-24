@@ -80,7 +80,7 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
             onChangeText={setSenha}
             onSubmitEditing={aoEntrar}
           />
-          <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
+          <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "center" }}>
             <Text style={styles.link}>Esqueceu sua senha?</Text>
           </Pressable>
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
