@@ -61,8 +61,20 @@ export function LoginScreen({
     ? progresso.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
     : new Animated.Value(1);
 
+  // Bloqueia toques quando o painel ainda não está visível (progresso = 0),
+  // para não interceptar os botões da BoasVindasScreen atrás.
+  const [ativo, setAtivo] = useState(false);
+  useEffect(() => {
+    if (!progresso) { setAtivo(true); return; }
+    const id = progresso.addListener(({ value }) => {
+      if (value > 0.05 && !ativo) setAtivo(true);
+      if (value < 0.05 && ativo) setAtivo(false);
+    });
+    return () => progresso.removeListener(id);
+  });
+
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
       {/* Fundo branco da tela — fica em position absolute para o gradiente aparecer atrás enquanto anima */}
       <View style={styles.tela}>
         {/* Topo colorido: sem gradiente próprio — o da BoasVindasScreen aparece por trás durante a animação */}
