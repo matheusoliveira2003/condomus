@@ -40,7 +40,7 @@ export function InicioScreen() {
             {saudacao()}, {primeiroNome}!
           </Text>
           <Text style={estilosTexto.secundario}>
-            {resumo ? `${unidadeTexto(resumo.unidade)} · ` : ""}
+            {resumo?.unidade ? `${unidadeTexto(resumo.unidade)} · ` : ""}
             {hoje.charAt(0).toUpperCase() + hoje.slice(1)}
           </Text>
         </View>

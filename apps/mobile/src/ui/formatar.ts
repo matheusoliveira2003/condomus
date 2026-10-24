@@ -1,6 +1,7 @@
 import type { Unidade } from "../api/client";
 
-export const unidadeTexto = (u: Unidade) => `Bloco ${u.bloco} · ${u.numero}`;
+export const unidadeTexto = (u: Unidade | null | undefined) =>
+  u ? `Bloco ${u.bloco} · ${u.numero}` : "";
 
 export const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });

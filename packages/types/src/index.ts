@@ -154,7 +154,7 @@ export interface Pagina<T> {
 // ---------------------------------------------------------------------------
 
 export interface Resumo {
-  unidade: Unidade;
+  unidade: Unidade | null;
   encomendas: {
     total: number;
     itens: { id: string; descricao: string; remetente: string | null; recebidaEm: string }[];
