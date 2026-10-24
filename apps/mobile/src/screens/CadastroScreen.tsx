@@ -114,7 +114,6 @@ function EtapaCodigo({
         value={codigo}
         onChangeText={onCodigoMudou}
       />
-      <MensagemErro texto={codigo.length === 8 ? erro : null} />
       {info && (
         <View style={styles.confirmacao}>
           <Ionicons name="checkmark-circle" size={20} color={cores.sucesso} />
@@ -124,6 +123,7 @@ function EtapaCodigo({
       <View style={{ height: 4 }} />
       <Botao titulo="Continuar" onPress={onConfirmar} carregando={carregando} desabilitado={!info} />
       <Botao titulo="Voltar ao início" variante="secundario" onPress={onVoltar} />
+      <MensagemErro texto={codigo.length === 8 ? erro : null} />
     </>
   );
 }
@@ -180,7 +180,6 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         onChangeText={setConfirmacao}
         onSubmitEditing={criar}
       />
-      <MensagemErro texto={erro} />
       <View style={{ height: 4 }} />
       <Botao
         titulo="Criar conta"
@@ -189,6 +188,7 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         desabilitado={nome.trim().length < 2 || !email.includes("@") || senha.length < 6 || !confirmacao}
       />
       <Botao titulo="Voltar" variante="secundario" onPress={onVoltar} />
+      <MensagemErro texto={erro} />
     </>
   );
 }

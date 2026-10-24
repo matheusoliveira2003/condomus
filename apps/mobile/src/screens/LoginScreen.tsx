@@ -111,8 +111,8 @@ export function LoginScreen({
               </Pressable>
             </View>
             <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
-            <MensagemErro texto={erro} />
             <Botao titulo="Voltar ao início" variante="secundario" onPress={onVoltar} />
+            <MensagemErro texto={erro} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Animated.View>

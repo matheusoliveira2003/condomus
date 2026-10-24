@@ -102,8 +102,8 @@ function EtapaPedirCodigo({
         onSubmitEditing={pedir}
       />
       <Botao titulo="Enviar código" onPress={pedir} carregando={enviando} desabilitado={!email.includes("@")} />
-      <MensagemErro texto={erro} />
       <Botao titulo="Voltar ao login" variante="secundario" onPress={onVoltar} />
+      <MensagemErro texto={erro} />
     </>
   );
 }
@@ -167,8 +167,8 @@ function EtapaRedefinir({ email, onConcluido, onVoltar }: { email: string; onCon
         carregando={salvando}
         desabilitado={codigo.length !== 6 || novaSenha.length < 6 || !confirmacao}
       />
-      <MensagemErro texto={erro} />
       <Botao titulo="Pedir um novo código" variante="secundario" onPress={onVoltar} />
+      <MensagemErro texto={erro} />
     </>
   );
 }
