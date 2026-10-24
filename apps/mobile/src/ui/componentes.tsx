@@ -215,11 +215,14 @@ export function ModalFormulario({
   titulo,
   onFechar,
   children,
+  overlay,
 }: {
   visivel: boolean;
   titulo: string;
   onFechar: () => void;
   children: ReactNode;
+  /** Conteúdo renderizado fora do ScrollView (ex.: bottom sheets, overlays). */
+  overlay?: ReactNode;
 }) {
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
@@ -237,6 +240,7 @@ export function ModalFormulario({
             {children}
           </ScrollView>
         </KeyboardAvoidingView>
+        {overlay}
       </SafeAreaView>
     </Modal>
   );

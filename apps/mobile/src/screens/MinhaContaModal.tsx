@@ -21,9 +21,11 @@ const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primar
 };
 
 export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
-  const { sair } = useAuth();
+  const { sair, usuario, definirFoto } = useAuth();
   const { data: perfil } = usePerfil(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
+  const [sheetAberto, setSheetAberto] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
 
   function confirmarSaida() {
     Alert.alert("Sair", "Deseja sair da sua conta?", [
@@ -39,12 +41,56 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
     ]);
   }
 
+  async function trocar(origem: OrigemFoto) {
+    setSheetAberto(false);
+    try {
+      const imagem = await escolherFoto(origem);
+      if (!imagem) return;
+      setEnviandoFoto(true);
+      const { fotoAtualizadaEm } = await enviar<{ fotoAtualizadaEm: string }>("PUT", "/auth/foto", { imagem });
+      definirFoto(fotoAtualizadaEm);
+    } catch (e) {
+      Alert.alert("Foto de perfil", (e as Error).message);
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
+
+  function removerFoto() {
+    setSheetAberto(false);
+    Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Remover",
+        style: "destructive",
+        onPress: () =>
+          enviar("DELETE", "/auth/foto")
+            .then(() => definirFoto(null))
+            .catch((e: Error) => Alert.alert("Erro", e.message)),
+      },
+    ]);
+  }
+
   return (
-    <ModalFormulario visivel={visivel} titulo="Minha conta" onFechar={onFechar}>
+    <ModalFormulario
+      visivel={visivel}
+      titulo="Minha conta"
+      onFechar={onFechar}
+      overlay={
+        <FotoSheet
+          visivel={sheetAberto}
+          temFoto={!!usuario?.fotoAtualizadaEm}
+          onGaleria={() => void trocar("galeria")}
+          onCamera={() => void trocar("camera")}
+          onRemover={removerFoto}
+          onFechar={() => setSheetAberto(false)}
+        />
+      }
+    >
       {/* Cabeçalho do perfil */}
       {perfil ? (
         <View style={styles.perfil}>
-          <FotoDePerfil />
+          <FotoDePerfil enviando={enviandoFoto} onAbrirSheet={() => setSheetAberto(true)} />
           <Text style={[estilosTexto.titulo, { fontSize: 18 }]}>{perfil.nome}</Text>
           <Text style={estilosTexto.secundario}>{perfil.email}</Text>
           <Text style={estilosTexto.corpo}>
@@ -105,72 +151,29 @@ function PlanoDoCondominio() {
   );
 }
 
-/** Avatar grande; tocar abre sheet customizado com Galeria, Câmera e Remover. */
-function FotoDePerfil() {
-  const { usuario: usuarioOuNull, definirFoto } = useAuth();
-  const [sheetAberto, setSheetAberto] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  if (!usuarioOuNull) return null;
-  const usuario = usuarioOuNull;
-
-  async function trocar(origem: OrigemFoto) {
-    setSheetAberto(false);
-    try {
-      const imagem = await escolherFoto(origem);
-      if (!imagem) return;
-      setEnviando(true);
-      const { fotoAtualizadaEm } = await enviar<{ fotoAtualizadaEm: string }>("PUT", "/auth/foto", { imagem });
-      definirFoto(fotoAtualizadaEm);
-    } catch (e) {
-      Alert.alert("Foto de perfil", (e as Error).message);
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  function remover() {
-    setSheetAberto(false);
-    Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover",
-        style: "destructive",
-        onPress: () =>
-          enviar("DELETE", "/auth/foto")
-            .then(() => definirFoto(null))
-            .catch((e: Error) => Alert.alert("Erro", e.message)),
-      },
-    ]);
-  }
+/** Avatar grande; tocar chama onAbrirSheet para exibir o sheet no nível correto. */
+function FotoDePerfil({ enviando, onAbrirSheet }: { enviando: boolean; onAbrirSheet: () => void }) {
+  const { usuario } = useAuth();
+  if (!usuario) return null;
 
   return (
-    <>
-      <Pressable
-        onPress={() => setSheetAberto(true)}
-        disabled={enviando}
-        accessibilityRole="button"
-        accessibilityLabel="Alterar foto de perfil"
-      >
-        <Avatar pessoa={usuario} tamanho={96} />
-        {enviando ? (
-          <View style={styles.carregandoFoto}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        ) : (
-          <View style={styles.seloCamera}>
-            <Ionicons name="camera" size={16} color="#fff" />
-          </View>
-        )}
-      </Pressable>
-      <FotoSheet
-        visivel={sheetAberto}
-        temFoto={!!usuario.fotoAtualizadaEm}
-        onGaleria={() => void trocar("galeria")}
-        onCamera={() => void trocar("camera")}
-        onRemover={remover}
-        onFechar={() => setSheetAberto(false)}
-      />
-    </>
+    <Pressable
+      onPress={onAbrirSheet}
+      disabled={enviando}
+      accessibilityRole="button"
+      accessibilityLabel="Alterar foto de perfil"
+    >
+      <Avatar pessoa={usuario} tamanho={96} />
+      {enviando ? (
+        <View style={styles.carregandoFoto}>
+          <ActivityIndicator color="#fff" />
+        </View>
+      ) : (
+        <View style={styles.seloCamera}>
+          <Ionicons name="camera" size={16} color="#fff" />
+        </View>
+      )}
+    </Pressable>
   );
 }
 
