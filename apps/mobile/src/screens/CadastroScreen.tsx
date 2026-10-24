@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
-  titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
+  titulo: { fontSize: 24, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   ajudaTexto: { fontSize: 15, color: cores.texto, lineHeight: 22 },
   confirmacao: {

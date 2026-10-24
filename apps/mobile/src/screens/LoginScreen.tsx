@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
-  ola: { fontSize: 30, fontWeight: "800", color: cores.texto },
+  ola: { fontSize: 24, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
   linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
