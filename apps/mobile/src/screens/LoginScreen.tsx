@@ -74,8 +74,7 @@ export function LoginScreen({
       <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "height" : "padding"}>
           <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-            <Text style={styles.ola}>Olá!</Text>
-            <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
+            <Text style={styles.ola}>Inicie sua sessão</Text>
             <View style={{ height: 8 }} />
             <Campo
               icone="mail-outline"
