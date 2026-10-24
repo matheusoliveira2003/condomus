@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
-import { Animated, BackHandler, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Animated, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
-import { LOGO_C, LOGO_CASA } from "../ui/logo";
 import { cores } from "../ui/tema";
 
-/** Altura do topo colorido com a logo. */
-const ALTURA_TOPO = 190;
-const TAMANHO_LOGO = 56;
 /** Distância que o painel percorre ao entrar (vindo de baixo) ou ao sair (para baixo). */
 const DISTANCIA_ENTRADA = 600;
 
@@ -75,84 +70,63 @@ export function LoginScreen({
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
-      {/* Fundo branco da tela — fica em position absolute para o gradiente aparecer atrás enquanto anima */}
-      <View style={styles.tela}>
-        {/* Topo colorido: sem gradiente próprio — o da BoasVindasScreen aparece por trás durante a animação */}
-        <View style={styles.topo}>
-          <SafeAreaView edges={["top"]}>
-            <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </Pressable>
-          </SafeAreaView>
-          <View style={styles.logoTopo}>
-            <Image source={LOGO_C} style={styles.imagemLogoTopo} />
-            <Image source={LOGO_CASA} style={styles.imagemLogoTopo} accessibilityLabel="Logo do Condomus" />
-          </View>
-        </View>
-
-        <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-            <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-              <Text style={styles.ola}>Olá!</Text>
-              <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
-
-              <View style={{ height: 8 }} />
-              <Campo
-                icone="mail-outline"
-                placeholder="E-mail"
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <Campo
-                icone="lock-closed-outline"
-                placeholder="Senha"
-                senha
-                autoComplete="current-password"
-                value={senha}
-                onChangeText={setSenha}
-                onSubmitEditing={aoEntrar}
-              />
-              <View style={styles.linhaMeio}>
-                <Pressable
-                  onPress={() => setLembrar((v) => !v)}
-                  style={styles.checkboxLinha}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: lembrar }}
-                >
-                  <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
-                    {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
-                  </View>
-                  <Text style={styles.checkboxTexto}>Lembrar-me</Text>
-                </Pressable>
-                <Pressable onPress={onEsqueciSenha} hitSlop={8}>
-                  <Text style={styles.link}>Esqueceu sua senha?</Text>
-                </Pressable>
-              </View>
-              <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
-              <MensagemErro texto={erro} />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </Animated.View>
-      </View>
+      <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+            <Text style={styles.ola}>Olá!</Text>
+            <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
+            <View style={{ height: 8 }} />
+            <Campo
+              icone="mail-outline"
+              placeholder="E-mail"
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Campo
+              icone="lock-closed-outline"
+              placeholder="Senha"
+              senha
+              autoComplete="current-password"
+              value={senha}
+              onChangeText={setSenha}
+              onSubmitEditing={aoEntrar}
+            />
+            <View style={styles.linhaMeio}>
+              <Pressable
+                onPress={() => setLembrar((v) => !v)}
+                style={styles.checkboxLinha}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: lembrar }}
+              >
+                <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
+                  {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
+                </View>
+                <Text style={styles.checkboxTexto}>Lembrar-me</Text>
+              </Pressable>
+              <Pressable onPress={onEsqueciSenha} hitSlop={8}>
+                <Text style={styles.link}>Esqueceu sua senha?</Text>
+              </Pressable>
+            </View>
+            <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
+            <MensagemErro texto={erro} />
+            <Botao titulo="Voltar ao início" variante="secundario" onPress={onVoltar} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: "transparent" },
-  topo: { height: ALTURA_TOPO, alignItems: "center" },
-  voltar: { alignSelf: "flex-start", marginLeft: 8, marginTop: 4, padding: 8 },
-  logoTopo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO, marginTop: 4 },
-  imagemLogoTopo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
   painel: {
-    flex: 1,
-    marginTop: -28,
+    ...StyleSheet.absoluteFill,
     backgroundColor: cores.superficie,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    marginTop: 80,
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
