@@ -17,9 +17,24 @@ export async function resumoRoutes(app: FastifyInstance) {
   app.get("/resumo", { preHandler: app.autorizar("MORADOR") }, async (req) => {
     const { inicioDoDia } = consultaSchema.parse(req.query);
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
-    const unidadeId = req.user.unidadeId!;
+    const { condominioId, unidadeId } = req.user;
 
-    const { condominioId } = req.user;
+    // Morador ainda sem unidade atribuída: retorna resumo vazio mas válido.
+    if (!unidadeId) {
+      const avisos = await prisma.aviso.findMany({
+        where: { condominioId },
+        select: { id: true, titulo: true, conteudo: true, fixado: true, criadoEm: true },
+        orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }],
+        take: MAX_AVISOS,
+      });
+      return {
+        unidade: null,
+        encomendas: { total: 0, itens: [] },
+        visitas: { noCondominio: [], esperadasHoje: [] },
+        proximaReserva: null,
+        avisos,
+      };
+    }
 
     const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, avisos] = await Promise.all([
       prisma.unidade.findUnique({ where: { id: unidadeId } }),
@@ -53,7 +68,7 @@ export async function resumoRoutes(app: FastifyInstance) {
       }),
       // Mesma ordem do mural: fixados primeiro, depois os mais recentes.
       prisma.aviso.findMany({
-        where: { condominioId: req.user.condominioId },
+        where: { condominioId },
         select: { id: true, titulo: true, conteudo: true, fixado: true, criadoEm: true },
         orderBy: [{ fixado: "desc" }, { criadoEm: "desc" }],
         take: MAX_AVISOS,
