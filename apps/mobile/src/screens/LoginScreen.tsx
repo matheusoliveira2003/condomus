@@ -3,6 +3,7 @@ import { Animated, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressa
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
+import { emailValido } from "../ui/formatar";
 import { cores } from "../ui/tema";
 
 /** Distância que o painel percorre ao entrar (vindo de baixo) ou ao sair (para baixo). */
@@ -58,6 +59,7 @@ export function LoginScreen({
   }, [ativo, onVoltar]);
 
   async function aoEntrar() {
+    if (!emailValido(email)) return setErro("Digite um e-mail válido");
     Keyboard.dismiss();
     setErro(null);
     setCarregando(true);

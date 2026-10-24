@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
 import { Botao, Campo, InfoSheet, MensagemErro } from "../ui/componentes";
+import { emailValido } from "../ui/formatar";
 import { cores } from "../ui/tema";
 
 /** Distância que o painel percorre ao entrar (vindo de baixo). */
@@ -217,7 +218,7 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         titulo="Criar conta"
         onPress={criar}
         carregando={cadastro.isPending}
-        desabilitado={nome.trim().length < 2 || !email.includes("@") || senha.length < 6 || !confirmacao}
+        desabilitado={nome.trim().length < 2 || !emailValido(email) || senha.length < 6 || !confirmacao}
       />
       <MensagemErro texto={erro} />
     </>

@@ -5,7 +5,7 @@ import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
-import { unidadeTexto } from "../ui/formatar";
+import { emailValido, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 
@@ -210,7 +210,7 @@ function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; mo
     }
   }
 
-  const valido = nome.trim().length >= 2 && email.includes("@") && senha.length >= 6 && (!morador || unidadeId);
+  const valido = nome.trim().length >= 2 && emailValido(email) && senha.length >= 6 && (!morador || unidadeId);
 
   return (
     <ModalFormulario visivel={visivel} titulo={morador ? "Novo morador" : "Novo funcionário"} onFechar={onFechar}>

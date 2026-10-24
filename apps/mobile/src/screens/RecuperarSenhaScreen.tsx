@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Animated, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { enviar } from "../api/client";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
+import { emailValido } from "../ui/formatar";
 import { cores } from "../ui/tema";
 
 const DISTANCIA_ENTRADA = 600;
@@ -84,6 +85,7 @@ function EtapaPedirCodigo({
   const [enviando, setEnviando] = useState(false);
 
   async function pedir() {
+    if (!emailValido(email)) return setErro("Digite um e-mail válido");
     setErro(null);
     setEnviando(true);
     try {
@@ -111,7 +113,7 @@ function EtapaPedirCodigo({
         onChangeText={onEmailMudou}
         onSubmitEditing={pedir}
       />
-      <Botao titulo="Enviar código" onPress={pedir} carregando={enviando} desabilitado={!email.includes("@")} />
+      <Botao titulo="Enviar código" onPress={pedir} carregando={enviando} desabilitado={!emailValido(email)} />
       <Botao titulo="Voltar ao login" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={erro} />
     </>
