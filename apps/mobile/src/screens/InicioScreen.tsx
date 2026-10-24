@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useAuth } from "../auth/AuthContext";
-import { adaptarQuery, useResumo } from "../hooks/queries";
+import { useResumo } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { AvisosScreen } from "./AvisosScreen";
 import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
@@ -18,7 +18,11 @@ export function InicioScreen() {
   const { usuario } = useAuth();
   const navegacao = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const query = useResumo();
-  const { dados: resumo, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
+  const resumo = query.data;
+  const carregando = query.isLoading;
+  const recarregando = query.isFetching;
+  const erro = query.error ? (query.error as Error).message : null;
+  const recarregar = query.refetch;
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
