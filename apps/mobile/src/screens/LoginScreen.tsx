@@ -106,7 +106,7 @@ export function LoginScreen({
                 </View>
                 <Text style={styles.checkboxTexto}>Lembrar-me</Text>
               </Pressable>
-              <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
+              <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ marginTop: 3 }}>
                 <Text style={styles.link}>Esqueceu sua senha?</Text>
               </Pressable>
             </View>
