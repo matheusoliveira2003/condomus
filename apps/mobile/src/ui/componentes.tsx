@@ -255,45 +255,63 @@ export function Secao({ titulo }: { titulo: string }) {
  */
 export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null; duracaoMs?: number }) {
   const opacidade = useRef(new Animated.Value(0)).current;
+  // Altura animada do wrapper: 0 quando vazio, altura real quando visível.
+  // useNativeDriver:false é obrigatório para animar height (propriedade de layout).
+  const alturaAnimada = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Último texto não-nulo: mantido durante o fade-out para o texto não sumir antes da animação acabar.
+  // Último texto não-nulo: mantido durante o fade-out para o texto não desaparecer antes da animação.
   const [textoAtivo, setTextoAtivo] = useState<string | null>(null);
-  // Altura real do banner medida no primeiro onLayout.
-  const [alturaBanner, setAlturaBanner] = useState(0);
+  // Altura real do banner medida no primeiro onLayout — ref para não causar re-render.
+  const alturaMedida = useRef(0);
+  // Refs estáveis para as animações, usadas dentro de useEffect sem causar re-execução.
+  const expandirRef = useRef(() => {});
+  const recolherRef = useRef(() => {});
+
+  expandirRef.current = () => {
+    Animated.parallel([
+      Animated.timing(alturaAnimada, { toValue: alturaMedida.current, duration: 200, useNativeDriver: false }),
+      Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  };
+
+  recolherRef.current = () => {
+    Animated.parallel([
+      Animated.timing(alturaAnimada, { toValue: 0, duration: 300, useNativeDriver: false }),
+      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  };
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!texto) {
-      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      recolherRef.current();
       return;
     }
     setTextoAtivo(texto);
-    Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    timerRef.current = setTimeout(() => {
-      Animated.timing(opacidade, { toValue: 0, duration: 400, useNativeDriver: true }).start();
-    }, duracaoMs);
+    // A altura pode ainda não ser conhecida na primeira vez; expandir() também é chamado no onLayout.
+    if (alturaMedida.current > 0) expandirRef.current();
+    timerRef.current = setTimeout(() => recolherRef.current(), duracaoMs);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [texto]);
+  }, [texto, duracaoMs]);
 
-  // O wrapper sempre ocupa a mesma altura (alturaBanner) no layout — o banner fica
-  // em position:absolute dentro dele, sem afetar o fluxo. Antes do primeiro erro,
-  // alturaBanner=0, logo não há espaço reservado. Assim que o banner é medido pela
-  // primeira vez, o wrapper trava nessa altura e nunca mais muda.
   return (
-    <View style={{ height: alturaBanner }}>
-      {textoAtivo !== null && (
-        <Animated.View
-          style={[styles.erroContainer, { opacity: opacidade, position: "absolute", left: 0, right: 0 }]}
-          onLayout={(e) => {
-            const h = e.nativeEvent.layout.height;
-            if (h > alturaBanner) setAlturaBanner(h);
-          }}
-        >
-          <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
-          <Text style={styles.erroTexto}>{textoAtivo}</Text>
-        </Animated.View>
-      )}
-    </View>
+    // overflow:hidden garante que height:0 esconde completamente o conteúdo.
+    <Animated.View style={{ height: alturaAnimada, overflow: "hidden" }}>
+      <Animated.View
+        style={[styles.erroContainer, { opacity: opacidade }]}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && alturaMedida.current === 0) {
+            alturaMedida.current = h;
+            // Se há texto aguardando, expande agora que a altura é conhecida.
+            if (textoAtivo) expandirRef.current();
+          }
+        }}
+      >
+        <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
+        <Text style={styles.erroTexto}>{textoAtivo ?? ""}</Text>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
