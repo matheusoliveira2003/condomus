@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { useRef, useState } from "react";
+import { Alert, Animated, Dimensions, Pressable, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -75,6 +75,10 @@ const temaNavegacao: Theme = {
 const Tab = createBottomTabNavigator();
 const navegacao = createNavigationContainerRef();
 
+const LARGURA = Dimensions.get("window").width;
+/** Duração do slide entre boas-vindas e login. */
+const DURACAO_SLIDE = 340;
+
 function Navegacao() {
   const { usuario, restaurando, planoInativo } = useAuth();
   const [contaAberta, setContaAberta] = useState(false);
@@ -83,22 +87,36 @@ function Navegacao() {
   const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login" | "recuperarSenha" | "cadastro">("boasVindas");
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
+  // Slide horizontal entre boas-vindas (x=0) e login (x=-LARGURA).
+  const slideX = useRef(new Animated.Value(0)).current;
+
+  function irParaLogin() {
+    setTelaPublica("login");
+    Animated.timing(slideX, {
+      toValue: -LARGURA,
+      duration: DURACAO_SLIDE,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function voltarParaBoasVindas() {
+    Animated.timing(slideX, {
+      toValue: 0,
+      duration: DURACAO_SLIDE,
+      useNativeDriver: true,
+    }).start(() => setTelaPublica("boasVindas"));
+  }
+
   // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
-  // "app" cobre três casos (já logado, ou a pessoa já saiu das boas-vindas antes da abertura
-  // acabar, para o login ou para a recuperação de senha): em todos a abertura só precisa sumir
-  // por completo (fundo + logo juntos), sem deixar o logo "flutuando" sobre a tela de trás.
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
-  const fundoEscuro = abertura || restaurando || (!usuario && telaPublica === "boasVindas");
+  const fundoEscuro = abertura || restaurando || (!usuario && (telaPublica === "boasVindas" || telaPublica === "login"));
 
   return (
     <>
       {restaurando ? (
         <View style={{ flex: 1, backgroundColor: FUNDO_MARCA }} />
       ) : !usuario ? (
-        telaPublica === "login" ? (
-          <LoginScreen onVoltar={() => setTelaPublica("boasVindas")} onEsqueciSenha={() => setTelaPublica("recuperarSenha")} />
-        ) : telaPublica === "cadastro" ? (
-          // Ao concluir o cadastro a API já devolve a sessão: o usuário passa a existir e o app abre sozinho.
+        telaPublica === "cadastro" ? (
           <CadastroScreen onVoltar={() => setTelaPublica("boasVindas")} />
         ) : telaPublica === "recuperarSenha" ? (
           <RecuperarSenhaScreen
@@ -109,15 +127,25 @@ function Navegacao() {
             }}
           />
         ) : (
-          <BoasVindasScreen
-            // O painel sobe quando a abertura sai de cena (ao voltar do login, já aparece pronto).
-            painelVisivel={!abertura}
-            onEntrar={() => setTelaPublica("login")}
-            onCriarConta={() => setTelaPublica("cadastro")}
-          />
+          // Boas-vindas e Login ficam lado a lado num container de largura dupla,
+          // e um slide horizontal revela uma ou outra.
+          <Animated.View style={{ flex: 1, flexDirection: "row", width: LARGURA * 2, transform: [{ translateX: slideX }] }}>
+            <View style={{ width: LARGURA }}>
+              <BoasVindasScreen
+                painelVisivel={!abertura}
+                onEntrar={irParaLogin}
+                onCriarConta={() => setTelaPublica("cadastro")}
+              />
+            </View>
+            <View style={{ width: LARGURA }}>
+              <LoginScreen
+                onVoltar={voltarParaBoasVindas}
+                onEsqueciSenha={() => setTelaPublica("recuperarSenha")}
+              />
+            </View>
+          </Animated.View>
         )
       ) : planoInativo && usuario.papel !== "SINDICO" ? (
-        // Síndico segue usando o app para ver o status do plano; os demais perfis ficam bloqueados.
         <PlanoInativoScreen />
       ) : (
         <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
