@@ -9,6 +9,7 @@ interface UsuarioSessao {
   condominioId: string;
   tokenVersion: number;
   fotoAtualizadaEm: Date | null;
+  senhaTemporaria: boolean;
 }
 
 /** Monta a resposta de login (token + dados públicos), igual para /auth/login e /cadastro. */
@@ -28,6 +29,7 @@ export function emitirSessao(app: FastifyInstance, usuario: UsuarioSessao) {
       papel: usuario.papel,
       unidadeId: usuario.unidadeId,
       fotoAtualizadaEm: usuario.fotoAtualizadaEm,
+      senhaTemporaria: usuario.senhaTemporaria,
     },
   };
 }

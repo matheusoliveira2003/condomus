@@ -1,11 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
 import { emailValido, unidadeTexto } from "../ui/formatar";
+import { cores } from "../ui/tema";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 
@@ -181,28 +183,28 @@ function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
 function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; morador: boolean; onFechar: () => void }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
   const [papel, setPapel] = useState<"PORTEIRO" | "SINDICO">("PORTEIRO");
   const [unidadeId, setUnidadeId] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [senhaGerada, setSenhaGerada] = useState<string | null>(null);
+  const qc = useQueryClient();
 
   async function salvar() {
     setSalvando(true);
     setErro(null);
     try {
-      await enviar("POST", "/usuarios", {
+      const res = await enviar<{ senhaGerada: string }>("POST", "/usuarios", {
         nome,
         email,
-        senha,
         papel: morador ? "MORADOR" : papel,
         unidadeId: morador ? unidadeId : undefined,
       });
+      qc.invalidateQueries({ queryKey: ["usuarios"] });
+      setSenhaGerada(res.senhaGerada);
       setNome("");
       setEmail("");
-      setSenha("");
       setUnidadeId(null);
-      onFechar();
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -210,10 +212,35 @@ function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; mo
     }
   }
 
-  const valido = nome.trim().length >= 2 && emailValido(email) && senha.length >= 6 && (!morador || unidadeId);
+  function fechar() {
+    setSenhaGerada(null);
+    onFechar();
+  }
+
+  const valido = nome.trim().length >= 2 && emailValido(email) && (!morador || !!unidadeId);
+
+  // Após cadastrar: exibe a senha gerada para o síndico anotar.
+  if (senhaGerada) {
+    return (
+      <ModalFormulario visivel={visivel} titulo="Cadastro concluído" onFechar={fechar}>
+        <View style={{ alignItems: "center", gap: 12, paddingVertical: 8 }}>
+          <Ionicons name="checkmark-circle" size={48} color={cores.sucesso} />
+          <Text style={estilosTexto.titulo}>Usuário criado!</Text>
+          <Text style={[estilosTexto.secundario, { textAlign: "center" }]}>
+            Anote a senha temporária abaixo e repasse ao usuário. Ela não poderá ser recuperada depois.
+          </Text>
+        </View>
+        <View style={senhaBox.container}>
+          <Text style={senhaBox.rotulo}>Senha temporária</Text>
+          <Text style={senhaBox.senha} selectable>{senhaGerada}</Text>
+        </View>
+        <Botao titulo="Fechar" onPress={fechar} />
+      </ModalFormulario>
+    );
+  }
 
   return (
-    <ModalFormulario visivel={visivel} titulo={morador ? "Novo morador" : "Novo funcionário"} onFechar={onFechar}>
+    <ModalFormulario visivel={visivel} titulo={morador ? "Novo morador" : "Novo funcionário"} onFechar={fechar}>
       {morador ? (
         <SeletorUnidade valor={unidadeId} onChange={setUnidadeId} />
       ) : (
@@ -231,16 +258,22 @@ function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; mo
       )}
       <Campo rotulo="Nome" value={nome} onChangeText={setNome} placeholder="Nome completo" />
       <Campo rotulo="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <Campo
-        rotulo="Senha inicial"
-        value={senha}
-        onChangeText={setSenha}
-        secureTextEntry
-        placeholder="Mínimo de 6 caracteres"
-      />
-      <Text style={estilosTexto.secundario}>Informe a senha inicial à pessoa cadastrada.</Text>
       <MensagemErro texto={erro} />
       <Botao titulo="Cadastrar" onPress={salvar} carregando={salvando} desabilitado={!valido} />
     </ModalFormulario>
   );
 }
+
+const senhaBox = StyleSheet.create({
+  container: {
+    backgroundColor: cores.fundo,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    padding: 16,
+    alignItems: "center",
+    gap: 6,
+  },
+  rotulo: { fontSize: 12, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase", letterSpacing: 0.5 },
+  senha: { fontSize: 22, fontWeight: "800", color: cores.texto, letterSpacing: 2 },
+});

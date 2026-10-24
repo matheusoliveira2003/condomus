@@ -13,6 +13,7 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import { RecuperarSenhaScreen } from "./src/screens/RecuperarSenhaScreen";
 import { CadastroScreen } from "./src/screens/CadastroScreen";
 import { PlanoInativoScreen } from "./src/screens/PlanoInativoScreen";
+import { TrocarSenhaObrigatorioModal } from "./src/screens/TrocarSenhaObrigatorioModal";
 import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
 import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
 import { FUNDO_MARCA } from "./src/ui/logo";
@@ -188,6 +189,8 @@ function Navegacao() {
         />
       ) : planoInativo && usuario.papel !== "SINDICO" ? (
         <PlanoInativoScreen />
+      ) : usuario.senhaTemporaria ? (
+        <TrocarSenhaObrigatorioModal />
       ) : (
         <Animated.View style={{ flex: 1, opacity: opacidadeApp }}>
           <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />

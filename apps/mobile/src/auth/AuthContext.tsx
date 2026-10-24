@@ -17,6 +17,8 @@ interface AuthContextValue {
   sair: () => Promise<void>;
   /** Atualiza a versão da foto após enviar ou remover, para os avatares recarregarem. */
   definirFoto: (fotoAtualizadaEm: string | null) => void;
+  /** Zera senhaTemporaria após o usuário definir sua própria senha. */
+  confirmarTrocaDeSenha: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -99,8 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario((atual) => (atual ? { ...atual, fotoAtualizadaEm } : atual));
   }, []);
 
+  const confirmarTrocaDeSenha = useCallback(() => {
+    setUsuario((atual) => (atual ? { ...atual, senhaTemporaria: false } : atual));
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ usuario, restaurando, planoInativo, entrar, iniciarSessao, sair, definirFoto }}>
+    <AuthContext.Provider value={{ usuario, restaurando, planoInativo, entrar, iniciarSessao, sair, definirFoto, confirmarTrocaDeSenha }}>
       {children}
     </AuthContext.Provider>
   );

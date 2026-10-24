@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
@@ -8,7 +9,6 @@ const usuarioSchema = z
   .object({
     nome: z.string().trim().min(2),
     email: z.string().trim().toLowerCase().pipe(z.email()),
-    senha: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
     papel: z.enum(["MORADOR", "PORTEIRO", "SINDICO"]),
     unidadeId: z.uuid().optional(),
   })
@@ -16,6 +16,11 @@ const usuarioSchema = z
     message: "Moradores precisam de uma unidade; funcionários não podem ter unidade",
     path: ["unidadeId"],
   });
+
+/** Gera senha aleatória de 12 caracteres (letras + números). */
+function gerarSenhaTemporaria() {
+  return randomBytes(9).toString("base64url").slice(0, 12);
+}
 
 const filtroSchema = z.object({ papel: z.enum(["MORADOR", "PORTEIRO", "SINDICO"]).optional() });
 const ativoSchema = z.object({ ativo: z.boolean() });
@@ -35,16 +40,18 @@ export async function usuariosRoutes(app: FastifyInstance) {
   });
 
   app.post("/usuarios", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
-    const { senha, ...dados } = usuarioSchema.parse(req.body);
+    const dados = usuarioSchema.parse(req.body);
     const { condominioId } = req.user;
     if (dados.unidadeId && !(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId } }))) {
       throw naoEncontrado("Unidade", "f");
     }
+    const senhaGerada = gerarSenhaTemporaria();
     const usuario = await prisma.usuario.create({
-      data: { ...dados, condominioId, senhaHash: await bcrypt.hash(senha, 10) },
+      data: { ...dados, condominioId, senhaHash: await bcrypt.hash(senhaGerada, 10), senhaTemporaria: true },
       select: publico,
     });
-    return reply.status(201).send(usuario);
+    // Devolve a senha gerada para o síndico passar ao novo usuário (não é armazenada em texto claro).
+    return reply.status(201).send({ ...usuario, senhaGerada });
   });
 
   // Desativar em vez de excluir preserva o histórico (visitas, encomendas, avisos).

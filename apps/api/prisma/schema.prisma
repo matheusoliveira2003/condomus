@@ -89,7 +89,9 @@ model Usuario {
   id           String   @id @default(uuid())
   nome         String
   email        String   @unique
-  senhaHash    String
+  senhaHash        String
+  /// true quando a senha foi gerada automaticamente pelo sistema; força troca no primeiro login.
+  senhaTemporaria  Boolean  @default(false)
   papel        Papel
   ativo        Boolean  @default(true)
   criadoEm     DateTime @default(now())

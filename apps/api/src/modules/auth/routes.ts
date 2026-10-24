@@ -51,7 +51,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.get("/auth/me", { preHandler: app.autorizar() }, async (req) => {
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user.sub },
-      select: { id: true, nome: true, email: true, papel: true, unidade: true, fotoAtualizadaEm: true },
+      select: { id: true, nome: true, email: true, papel: true, unidade: true, fotoAtualizadaEm: true, senhaTemporaria: true },
     });
     if (!usuario) throw naoEncontrado("Usuário");
     return usuario;
@@ -61,10 +61,16 @@ export async function authRoutes(app: FastifyInstance) {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
     if (!usuario) throw naoEncontrado("Usuário");
-    // 400 e não 401: o token é válido, só a senha informada está errada (401 deslogaria o app).
-    if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
-    // Incrementa tokenVersion: invalida todos os tokens emitidos antes desta troca de senha.
-    await prisma.usuario.update({ where: { id: usuario.id }, data: { senhaHash: await bcrypt.hash(novaSenha, 10), tokenVersion: { increment: 1 } } });
+    // Senha temporária: não exige verificação da senha atual (o usuário não a conhece).
+    // Senha normal: verifica a senha atual antes de trocar.
+    if (!usuario.senhaTemporaria) {
+      if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
+    }
+    // Incrementa tokenVersion: invalida tokens antigos. Zera senhaTemporaria no primeiro login.
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { senhaHash: await bcrypt.hash(novaSenha, 10), tokenVersion: { increment: 1 }, senhaTemporaria: false },
+    });
     return reply.status(204).send();
   });
 

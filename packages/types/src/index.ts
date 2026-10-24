@@ -41,6 +41,8 @@ export interface Pessoa {
 export interface Usuario extends Pessoa {
   papel: Papel;
   unidadeId: string | null;
+  /** true quando a senha foi gerada automaticamente; o app exige troca antes de continuar. */
+  senhaTemporaria?: boolean;
 }
 
 export interface UsuarioCadastro extends Pessoa {
