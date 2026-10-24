@@ -19,17 +19,19 @@ export async function resumoRoutes(app: FastifyInstance) {
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
     const unidadeId = req.user.unidadeId!;
 
+    const { condominioId } = req.user;
+
     const [unidade, encomendas, totalEncomendas, noCondominio, esperadas, proximaReserva, avisos] = await Promise.all([
-      prisma.unidade.findFirst({ where: { id: unidadeId, condominioId: req.user.condominioId } }),
+      prisma.unidade.findUnique({ where: { id: unidadeId } }),
       prisma.encomenda.findMany({
-        where: { unidadeId, status: "AGUARDANDO_RETIRADA" },
+        where: { unidadeId, status: "AGUARDANDO_RETIRADA", unidade: { condominioId } },
         select: { id: true, descricao: true, remetente: true, recebidaEm: true },
         orderBy: { recebidaEm: "desc" },
         take: MAX_ENCOMENDAS,
       }),
-      prisma.encomenda.count({ where: { unidadeId, status: "AGUARDANDO_RETIRADA" } }),
+      prisma.encomenda.count({ where: { unidadeId, status: "AGUARDANDO_RETIRADA", unidade: { condominioId } } }),
       prisma.visita.findMany({
-        where: { unidadeId, status: "EM_ANDAMENTO" },
+        where: { unidadeId, status: "EM_ANDAMENTO", unidade: { condominioId } },
         select: { id: true, nomeVisitante: true, entradaEm: true },
         orderBy: { entradaEm: "desc" },
       }),
@@ -37,6 +39,7 @@ export async function resumoRoutes(app: FastifyInstance) {
       prisma.visita.findMany({
         where: {
           unidadeId,
+          unidade: { condominioId },
           status: "AGENDADA",
           OR: [{ dataPrevista: null }, { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
         },
@@ -44,7 +47,7 @@ export async function resumoRoutes(app: FastifyInstance) {
         orderBy: { criadoEm: "asc" },
       }),
       prisma.reserva.findFirst({
-        where: { unidadeId, status: { in: ["PENDENTE", "CONFIRMADA"] }, fim: { gt: new Date() } },
+        where: { unidadeId, area: { condominioId }, status: { in: ["PENDENTE", "CONFIRMADA"] }, fim: { gt: new Date() } },
         select: { id: true, inicio: true, fim: true, status: true, area: { select: { nome: true } } },
         orderBy: { inicio: "asc" },
       }),

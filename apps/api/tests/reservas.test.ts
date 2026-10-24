@@ -120,4 +120,19 @@ describe("cancelamento e consulta", () => {
     const ocupadas = await chamar(app, "GET", `/reservas?areaId=${c.area.id}`, { token: c.tokens.vizinho });
     expect(ocupadas.corpo.map((r: { status: string }) => r.status)).toEqual(["PENDENTE"]);
   });
+
+  it("GET /reservas com filtro status=PENDENTE traz só as pendentes do condomínio", async () => {
+    const { corpo: r1 } = await pedir(c.tokens.morador, 24, 26);
+    const { corpo: r2 } = await pedir(c.tokens.morador, 30, 32);
+    await chamar(app, "PATCH", `/reservas/${r2.id}/aprovar`, { token: c.tokens.sindico });
+    const pendentes = await chamar(app, "GET", `/reservas?status=PENDENTE&areaId=${c.area.id}`, { token: c.tokens.sindico });
+    expect(pendentes.corpo.map((r: { id: string }) => r.id)).toEqual([r1.id]);
+  });
+
+  it("síndico cancela qualquer reserva confirmada do condomínio", async () => {
+    const { corpo: r } = await pedir(c.tokens.vizinho, 24, 26);
+    await chamar(app, "PATCH", `/reservas/${r.id}/aprovar`, { token: c.tokens.sindico });
+    const cancelada = await chamar(app, "PATCH", `/reservas/${r.id}/cancelar`, { token: c.tokens.sindico });
+    expect(cancelada.corpo.status).toBe("CANCELADA");
+  });
 });

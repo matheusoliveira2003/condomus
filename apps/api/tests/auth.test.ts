@@ -220,3 +220,25 @@ describe("permissões por perfil", () => {
     expect(r.status).toBe(403);
   });
 });
+
+describe("plano inativo", () => {
+  it("plano suspenso: morador e porteiro recebem 402 em todas as rotas autenticadas", async () => {
+    await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "SUSPENSO" } });
+    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(402);
+    expect((await chamar(app, "GET", "/encomendas", { token: c.tokens.porteiro })).status).toBe(402);
+    expect((await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: "nova123" } })).status).toBe(402);
+  });
+
+  it("plano expirado: síndico continua com acesso total", async () => {
+    await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "EXPIRADO" } });
+    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.sindico })).status).toBe(200);
+    expect((await chamar(app, "GET", "/condominios/meu", { token: c.tokens.sindico })).corpo).toMatchObject({ planoStatus: "EXPIRADO" });
+  });
+
+  it("reativar o plano restaura o acesso sem novo login", async () => {
+    await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "SUSPENSO" } });
+    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(402);
+    await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "ATIVO" } });
+    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(200);
+  });
+});

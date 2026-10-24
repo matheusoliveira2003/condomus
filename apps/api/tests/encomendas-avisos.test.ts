@@ -45,6 +45,26 @@ describe("encomendas", () => {
     const r = await chamar(app, "GET", `/unidades/${c.unidades.a101.id}/moradores`, { token: c.tokens.porteiro });
     expect(r.corpo).toEqual([{ id: c.usuarios.morador.id, nome: "Morador A", fotoAtualizadaEm: null }]);
   });
+
+  it("paginação por cursor: segunda página continua de onde a primeira parou, sem sobreposição", async () => {
+    for (let i = 1; i <= 5; i++) await registrar(c.unidades.a101.id, `Caixa ${i}`);
+    const p1 = await chamar(app, "GET", "/encomendas?limite=3", { token: c.tokens.porteiro });
+    expect(p1.corpo.itens).toHaveLength(3);
+    expect(p1.corpo.proximoCursor).toEqual(expect.any(String));
+    const p2 = await chamar(app, "GET", `/encomendas?limite=3&cursor=${p1.corpo.proximoCursor}`, { token: c.tokens.porteiro });
+    expect(p2.corpo.itens).toHaveLength(2);
+    expect(p2.corpo.proximoCursor).toBeNull();
+    const ids1 = p1.corpo.itens.map((e: { id: string }) => e.id);
+    const ids2 = p2.corpo.itens.map((e: { id: string }) => e.id);
+    expect(ids1.filter((id: string) => ids2.includes(id))).toHaveLength(0);
+  });
+
+  it("portaria não registra encomenda em unidade de outro condomínio", async () => {
+    const outro = await prisma.condominio.create({ data: { nome: "Outro", planoStatus: "ATIVO" } });
+    const unidadeAlheia = await prisma.unidade.create({ data: { bloco: "Z", numero: "1", condominioId: outro.id } });
+    const r = await registrar(unidadeAlheia.id);
+    expect(r.status).toBe(404);
+  });
 });
 
 describe("avisos", () => {
@@ -58,6 +78,21 @@ describe("avisos", () => {
 
     expect((await chamar(app, "DELETE", `/avisos/${fixado.id}`, { token: c.tokens.sindico })).status).toBe(204);
     expect((await chamar(app, "DELETE", `/avisos/${fixado.id}`, { token: c.tokens.sindico })).status).toBe(404);
+  });
+
+  it("paginação por cursor de avisos: segunda página não repete itens", async () => {
+    for (let i = 1; i <= 5; i++) {
+      await chamar(app, "POST", "/avisos", { token: c.tokens.sindico, corpo: { titulo: `Aviso ${i}`, conteudo: "." } });
+    }
+    const p1 = await chamar(app, "GET", "/avisos?limite=3", { token: c.tokens.morador });
+    expect(p1.corpo.itens).toHaveLength(3);
+    expect(p1.corpo.proximoCursor).toEqual(expect.any(String));
+    const p2 = await chamar(app, "GET", `/avisos?limite=3&cursor=${p1.corpo.proximoCursor}`, { token: c.tokens.morador });
+    expect(p2.corpo.itens).toHaveLength(2);
+    expect(p2.corpo.proximoCursor).toBeNull();
+    const ids1 = p1.corpo.itens.map((a: { id: string }) => a.id);
+    const ids2 = p2.corpo.itens.map((a: { id: string }) => a.id);
+    expect(ids1.filter((id: string) => ids2.includes(id))).toHaveLength(0);
   });
 });
 
