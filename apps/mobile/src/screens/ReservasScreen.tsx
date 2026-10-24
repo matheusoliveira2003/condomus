@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert, Text, View } from "react-native";
 import { api, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -73,7 +73,9 @@ type FiltroSindico = "PENDENTE" | "CONFIRMADA";
 function ReservasSindico() {
   const [filtro, setFiltro] = useState<FiltroSindico>("PENDENTE");
   const [recusando, setRecusando] = useState<Reserva | null>(null);
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${new Date().toISOString()}`));
+  // Referência estável para "agora": evita nova query key a cada re-render.
+  const agora = useRef(new Date().toISOString()).current;
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${agora}`));
   const aprovarMut = useAprovarReserva();
   const cancelar = useCancelarReserva();
 
