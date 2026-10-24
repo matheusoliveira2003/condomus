@@ -74,7 +74,12 @@ export function LoginScreen({
       <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "height" : "padding"}>
           <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-            <Text style={styles.ola}>Inicie sua sessão</Text>
+            <View style={styles.linhaVoltar}>
+              <Pressable onPress={onVoltar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
+                <Ionicons name="arrow-back" size={24} color={cores.texto} />
+              </Pressable>
+              <Text style={styles.ola}>Inicie sua sessão</Text>
+            </View>
             <Campo
               icone="mail-outline"
               placeholder="E-mail"
@@ -110,7 +115,6 @@ export function LoginScreen({
               </Pressable>
             </View>
             <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
-            <Botao titulo="Voltar ao início" variante="discreto" onPress={onVoltar} />
             <MensagemErro texto={erro} />
           </ScrollView>
         </KeyboardAvoidingView>
@@ -128,6 +132,7 @@ const styles = StyleSheet.create({
     marginTop: 80,
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+  linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
   ola: { fontSize: 30, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
   linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

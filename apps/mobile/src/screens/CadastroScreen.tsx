@@ -121,7 +121,12 @@ function EtapaCodigo({
 }) {
   return (
     <>
-      <Text style={styles.titulo}>Criar conta</Text>
+      <View style={styles.linhaVoltar}>
+        <Pressable onPress={onVoltar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
+          <Ionicons name="arrow-back" size={24} color={cores.texto} />
+        </Pressable>
+        <Text style={styles.titulo}>Criar conta</Text>
+      </View>
       <Campo
         icone="keypad-outline"
         placeholder="Código do convite"
@@ -147,7 +152,6 @@ function EtapaCodigo({
         </View>
       )}
       <Botao titulo="Continuar" onPress={onConfirmar} carregando={carregando} desabilitado={!info} />
-      <Botao titulo="Voltar ao início" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={codigo.length === 8 ? erro : null} />
     </>
   );
@@ -175,7 +179,12 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
 
   return (
     <>
-      <Text style={styles.titulo}>Seus dados</Text>
+      <View style={styles.linhaVoltar}>
+        <Pressable onPress={onVoltar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
+          <Ionicons name="arrow-back" size={24} color={cores.texto} />
+        </Pressable>
+        <Text style={styles.titulo}>Seus dados</Text>
+      </View>
       <Text style={styles.subtitulo}>Preencha para criar sua conta de morador.</Text>
       <Campo icone="person-outline" placeholder="Nome completo" autoComplete="name" value={nome} onChangeText={setNome} />
       <Campo
@@ -210,7 +219,6 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         carregando={cadastro.isPending}
         desabilitado={nome.trim().length < 2 || !email.includes("@") || senha.length < 6 || !confirmacao}
       />
-      <Botao titulo="Voltar" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={erro} />
     </>
   );
@@ -225,6 +233,7 @@ const styles = StyleSheet.create({
     marginTop: 80, // deixa o gradiente visível no topo, alinhado com o LoginScreen
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+  linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
   titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   ajudaTexto: { fontSize: 15, color: cores.texto, lineHeight: 22 },
