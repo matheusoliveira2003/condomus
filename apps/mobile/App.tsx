@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Alert, Animated, Dimensions, Pressable, View } from "react-native";
+import { Alert, Animated, Pressable, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -75,9 +75,8 @@ const temaNavegacao: Theme = {
 const Tab = createBottomTabNavigator();
 const navegacao = createNavigationContainerRef();
 
-const LARGURA = Dimensions.get("window").width;
-/** Duração do slide entre boas-vindas e login. */
-const DURACAO_SLIDE = 340;
+/** Duração da troca de painel entre boas-vindas e login. */
+const DURACAO_PAINEL = 360;
 
 function Navegacao() {
   const { usuario, restaurando, planoInativo } = useAuth();
@@ -87,27 +86,19 @@ function Navegacao() {
   const [telaPublica, setTelaPublica] = useState<"boasVindas" | "login" | "recuperarSenha" | "cadastro">("boasVindas");
   useAbrirAbaDaNotificacao(navegacao, !!usuario, usuario?.papel);
 
-  // Slide horizontal entre boas-vindas (x=0) e login (x=-LARGURA).
-  const slideX = useRef(new Animated.Value(0)).current;
+  // 0 = boas-vindas visível; 1 = login visível.
+  const progresso = useRef(new Animated.Value(0)).current;
 
   function irParaLogin() {
     setTelaPublica("login");
-    Animated.timing(slideX, {
-      toValue: -LARGURA,
-      duration: DURACAO_SLIDE,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(progresso, { toValue: 1, duration: DURACAO_PAINEL, useNativeDriver: true }).start();
   }
 
   function voltarParaBoasVindas() {
-    Animated.timing(slideX, {
-      toValue: 0,
-      duration: DURACAO_SLIDE,
-      useNativeDriver: true,
-    }).start(() => setTelaPublica("boasVindas"));
+    Animated.timing(progresso, { toValue: 0, duration: DURACAO_PAINEL, useNativeDriver: true })
+      .start(() => setTelaPublica("boasVindas"));
   }
 
-  // Enquanto confere o login salvo, a abertura espera no centro; depois segue para o destino.
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
   const fundoEscuro = abertura || restaurando || (!usuario && (telaPublica === "boasVindas" || telaPublica === "login"));
 
@@ -127,23 +118,16 @@ function Navegacao() {
             }}
           />
         ) : (
-          // Boas-vindas e Login ficam lado a lado num container de largura dupla,
-          // e um slide horizontal revela uma ou outra.
-          <Animated.View style={{ flex: 1, flexDirection: "row", width: LARGURA * 2, transform: [{ translateX: slideX }] }}>
-            <View style={{ width: LARGURA }}>
-              <BoasVindasScreen
-                painelVisivel={!abertura}
-                onEntrar={irParaLogin}
-                onCriarConta={() => setTelaPublica("cadastro")}
-              />
-            </View>
-            <View style={{ width: LARGURA }}>
-              <LoginScreen
-                onVoltar={voltarParaBoasVindas}
-                onEsqueciSenha={() => setTelaPublica("recuperarSenha")}
-              />
-            </View>
-          </Animated.View>
+          // Gradiente fixo + dois painéis brancos animados verticalmente.
+          // O painel de boas-vindas desce e some; o de login sobe e aparece.
+          <TelasPublicas
+            progresso={progresso}
+            abertura={abertura}
+            onEntrar={irParaLogin}
+            onCriarConta={() => setTelaPublica("cadastro")}
+            onVoltar={voltarParaBoasVindas}
+            onEsqueciSenha={() => setTelaPublica("recuperarSenha")}
+          />
         )
       ) : planoInativo && usuario.papel !== "SINDICO" ? (
         <PlanoInativoScreen />
@@ -151,9 +135,44 @@ function Navegacao() {
         <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
       )}
       {abertura && <AberturaAnimada destino={destinoAbertura} onTerminar={() => setAbertura(false)} />}
-      {/* Ícones claros sobre o azul-marinho da abertura e das boas-vindas; escuros nas telas claras. */}
       <StatusBar style={fundoEscuro ? "light" : "dark"} />
     </>
+  );
+}
+
+/**
+ * Boas-vindas e Login compartilham o mesmo fundo gradiente.
+ * Apenas os painéis brancos animam: o de boas-vindas desce, o de login sobe.
+ */
+function TelasPublicas({
+  progresso,
+  abertura,
+  onEntrar,
+  onCriarConta,
+  onVoltar,
+  onEsqueciSenha,
+}: {
+  progresso: Animated.Value;
+  abertura: boolean;
+  onEntrar: () => void;
+  onCriarConta: () => void;
+  onVoltar: () => void;
+  onEsqueciSenha: () => void;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <BoasVindasScreen
+        painelVisivel={!abertura}
+        onEntrar={onEntrar}
+        onCriarConta={onCriarConta}
+        progresso={progresso}
+      />
+      <LoginScreen
+        onVoltar={onVoltar}
+        onEsqueciSenha={onEsqueciSenha}
+        progresso={progresso}
+      />
+    </View>
   );
 }
 

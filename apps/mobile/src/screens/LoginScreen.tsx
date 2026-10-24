@@ -1,22 +1,30 @@
 import { useEffect, useState } from "react";
-import { BackHandler, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
-import { GRADIENTE_MARCA, LOGO_C, LOGO_CASA } from "../ui/logo";
+import { LOGO_C, LOGO_CASA } from "../ui/logo";
 import { cores } from "../ui/tema";
 
-/** Altura do topo colorido com a logo; o painel branco cobre o resto da tela. */
+/** Altura do topo colorido com a logo. */
 const ALTURA_TOPO = 190;
-/** Tamanho da logo no topo (menor que nas Boas-vindas, só para identificar a marca aqui). */
 const TAMANHO_LOGO = 56;
+/** Distância que o painel percorre ao entrar (vindo de baixo) ou ao sair (para baixo). */
+const DISTANCIA_ENTRADA = 600;
 
-export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void; onEsqueciSenha: () => void }) {
+export function LoginScreen({
+  onVoltar,
+  onEsqueciSenha,
+  progresso,
+}: {
+  onVoltar: () => void;
+  onEsqueciSenha: () => void;
+  /** Animated.Value 0→1: 0 = boas-vindas visível, 1 = login visível. */
+  progresso?: Animated.Value;
+}) {
   const { entrar } = useAuth();
 
-  // Botão "voltar" do Android também volta para as boas-vindas (em vez de fechar o app).
   useEffect(() => {
     const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
       onVoltar();
@@ -24,6 +32,7 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
     });
     return () => assinatura.remove();
   }, [onVoltar]);
+
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [lembrar, setLembrar] = useState(true);
@@ -41,79 +50,91 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
     }
   }
 
+  // O painel sobe de DISTANCIA_ENTRADA → 0 conforme progresso vai de 0 → 1.
+  const translateY = progresso
+    ? progresso.interpolate({ inputRange: [0, 1], outputRange: [DISTANCIA_ENTRADA, 0] })
+    : new Animated.Value(0);
+
+  // A tela inteira fica transparente quando não está visível (progresso = 0),
+  // para o gradiente da BoasVindasScreen aparecer por baixo.
+  const opacity = progresso
+    ? progresso.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
+    : new Animated.Value(1);
+
   return (
-    <View style={styles.tela}>
-      <LinearGradient colors={GRADIENTE_MARCA} style={styles.topo}>
-        <SafeAreaView edges={["top"]}>
-          <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </Pressable>
-        </SafeAreaView>
-        <View style={styles.logoTopo}>
-          <Image source={LOGO_C} style={styles.imagemLogoTopo} />
-          <Image source={LOGO_CASA} style={styles.imagemLogoTopo} accessibilityLabel="Logo do Condomus" />
-        </View>
-      </LinearGradient>
-
-      {/* "padding" também no Android: com a tela edge-to-edge, o sistema não redimensiona
-          a janela quando o teclado abre, então o próprio app empurra o conteúdo para cima. */}
-      <KeyboardAvoidingView style={styles.painel} behavior="padding">
-        <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
-          <Text style={styles.ola}>Olá!</Text>
-          <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
-
-          <View style={{ height: 8 }} />
-          <Campo
-            icone="mail-outline"
-            placeholder="E-mail"
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <Campo
-            icone="lock-closed-outline"
-            placeholder="Senha"
-            senha
-            autoComplete="current-password"
-            value={senha}
-            onChangeText={setSenha}
-            onSubmitEditing={aoEntrar}
-          />
-          <View style={styles.linhaMeio}>
-            <Pressable
-              onPress={() => setLembrar((v) => !v)}
-              style={styles.checkboxLinha}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: lembrar }}
-            >
-              <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
-                {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
-              </View>
-              <Text style={styles.checkboxTexto}>Lembrar-me</Text>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
+      {/* Fundo branco da tela — fica em position absolute para o gradiente aparecer atrás enquanto anima */}
+      <View style={styles.tela}>
+        {/* Topo colorido: sem gradiente próprio — o da BoasVindasScreen aparece por trás durante a animação */}
+        <View style={styles.topo}>
+          <SafeAreaView edges={["top"]}>
+            <Pressable onPress={onVoltar} hitSlop={12} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
+              <Ionicons name="arrow-back" size={24} color="#fff" />
             </Pressable>
-            <Pressable onPress={onEsqueciSenha} hitSlop={8}>
-              <Text style={styles.link}>Esqueceu sua senha?</Text>
-            </Pressable>
+          </SafeAreaView>
+          <View style={styles.logoTopo}>
+            <Image source={LOGO_C} style={styles.imagemLogoTopo} />
+            <Image source={LOGO_CASA} style={styles.imagemLogoTopo} accessibilityLabel="Logo do Condomus" />
           </View>
-          <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
-          <MensagemErro texto={erro} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+        </View>
+
+        <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+            <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+              <Text style={styles.ola}>Olá!</Text>
+              <Text style={styles.subtitulo}>Entre com sua conta para continuar</Text>
+
+              <View style={{ height: 8 }} />
+              <Campo
+                icone="mail-outline"
+                placeholder="E-mail"
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Campo
+                icone="lock-closed-outline"
+                placeholder="Senha"
+                senha
+                autoComplete="current-password"
+                value={senha}
+                onChangeText={setSenha}
+                onSubmitEditing={aoEntrar}
+              />
+              <View style={styles.linhaMeio}>
+                <Pressable
+                  onPress={() => setLembrar((v) => !v)}
+                  style={styles.checkboxLinha}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: lembrar }}
+                >
+                  <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
+                    {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  </View>
+                  <Text style={styles.checkboxTexto}>Lembrar-me</Text>
+                </Pressable>
+                <Pressable onPress={onEsqueciSenha} hitSlop={8}>
+                  <Text style={styles.link}>Esqueceu sua senha?</Text>
+                </Pressable>
+              </View>
+              <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
+              <MensagemErro texto={erro} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: cores.superficie },
+  tela: { flex: 1, backgroundColor: "transparent" },
   topo: { height: ALTURA_TOPO, alignItems: "center" },
   voltar: { alignSelf: "flex-start", marginLeft: 8, marginTop: 4, padding: 8 },
   logoTopo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO, marginTop: 4 },
-  // Tamanho fixo e explícito (sem depender de absoluteFill), para a logo nunca
-  // render no tamanho intrínseco do PNG (768x768) em vez do tamanho do container.
   imagemLogoTopo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
-  // O painel sobrepõe a parte de baixo do topo colorido, criando a borda arredondada "subindo".
   painel: {
     flex: 1,
     marginTop: -28,
