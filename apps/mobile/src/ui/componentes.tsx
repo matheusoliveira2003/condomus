@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -241,8 +242,37 @@ export function Secao({ titulo }: { titulo: string }) {
   return <Text style={styles.secao}>{titulo}</Text>;
 }
 
-export function MensagemErro({ texto }: { texto: string | null }) {
-  return texto ? <Text style={styles.erro}>{texto}</Text> : null;
+/**
+ * Banner de erro com ícone de exclamação e fundo vermelho claro.
+ * Desaparece automaticamente após `duracaoMs` (padrão: 4 s).
+ * Volta a aparecer sempre que `texto` muda para um valor não-nulo.
+ */
+export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null; duracaoMs?: number }) {
+  const opacidade = useRef(new Animated.Value(0)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!texto) {
+      opacidade.setValue(0);
+      return;
+    }
+    // Entra com fade-in rápido
+    Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    // Após duracaoMs, fade-out suave
+    timerRef.current = setTimeout(() => {
+      Animated.timing(opacidade, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    }, duracaoMs);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [texto]);
+
+  if (!texto) return null;
+  return (
+    <Animated.View style={[styles.erroContainer, { opacity: opacidade }]}>
+      <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
+      <Text style={styles.erroTexto}>{texto}</Text>
+    </Animated.View>
+  );
 }
 
 export const estilosTexto = StyleSheet.create({
@@ -291,6 +321,18 @@ const styles = StyleSheet.create({
   },
   chipAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   chipTexto: { fontSize: 14, color: cores.texto, fontWeight: "500" },
+  erroContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 10,
+    padding: 12,
+  },
+  erroTexto: { flex: 1, color: cores.perigo, fontSize: 14, lineHeight: 20 },
+  // Mantido para o erro inline da Lista (que não usa MensagemErro)
   erro: { color: cores.perigo, marginBottom: 8 },
   vazio: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 48 },
   vazioTexto: { color: cores.textoSecundario, fontSize: 15 },
