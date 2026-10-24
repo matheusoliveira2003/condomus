@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { env } from "../../lib/env.js";
@@ -17,7 +17,6 @@ const criarSchema = z.object({
   sindico: z.object({
     nome: z.string().trim().min(2),
     email: z.string().trim().toLowerCase().pipe(z.email()),
-    senha: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   }),
 });
 
@@ -39,19 +38,21 @@ async function exigirAdmin(req: FastifyRequest) {
 export async function condominiosRoutes(app: FastifyInstance) {
   app.post("/admin/condominios", { preHandler: exigirAdmin }, async (req, reply) => {
     const { sindico, ...dados } = criarSchema.parse(req.body);
+    const senhaGerada = randomBytes(9).toString("base64url").slice(0, 12);
     const condominio = await prisma.condominio.create({ data: dados });
     try {
       const criado = await prisma.usuario.create({
         data: {
           nome: sindico.nome,
           email: sindico.email,
-          senhaHash: await bcrypt.hash(sindico.senha, 10),
+          senhaHash: await bcrypt.hash(senhaGerada, 10),
+          senhaTemporaria: true,
           papel: "SINDICO",
           condominioId: condominio.id,
         },
         select: { id: true, nome: true, email: true, papel: true, ativo: true, condominioId: true },
       });
-      return reply.status(201).send({ condominio, sindico: criado });
+      return reply.status(201).send({ condominio, sindico: criado, senhaGerada });
     } catch (erro) {
       // E-mail do síndico já em uso: não deixa o condomínio órfão.
       await prisma.condominio.delete({ where: { id: condominio.id } });
