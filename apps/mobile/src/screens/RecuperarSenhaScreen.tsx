@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { enviar } from "../api/client";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
@@ -37,11 +37,21 @@ export function RecuperarSenhaScreen({
     return () => progresso.removeListener(id);
   });
 
+  // BackHandler só age quando a tela está visível.
+  useEffect(() => {
+    if (!ativo) return;
+    const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
+      onVoltar();
+      return true;
+    });
+    return () => assinatura.remove();
+  }, [ativo, onVoltar]);
+
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
       <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "height" : "padding"}>
+          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {codigoPedido ? (
               <EtapaRedefinir email={email} onConcluido={onConcluido} onVoltar={() => setCodigoPedido(false)} />
             ) : (
@@ -102,7 +112,7 @@ function EtapaPedirCodigo({
         onSubmitEditing={pedir}
       />
       <Botao titulo="Enviar código" onPress={pedir} carregando={enviando} desabilitado={!email.includes("@")} />
-      <Botao titulo="Voltar ao login" variante="secundario" onPress={onVoltar} />
+      <Botao titulo="Voltar ao login" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={erro} />
     </>
   );
@@ -167,7 +177,7 @@ function EtapaRedefinir({ email, onConcluido, onVoltar }: { email: string; onCon
         carregando={salvando}
         desabilitado={codigo.length !== 6 || novaSenha.length < 6 || !confirmacao}
       />
-      <Botao titulo="Pedir um novo código" variante="secundario" onPress={onVoltar} />
+      <Botao titulo="Pedir um novo código" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={erro} />
     </>
   );

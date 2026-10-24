@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cores } from "./tema";
 
-type Variante = "primario" | "secundario" | "perigo";
+type Variante = "primario" | "secundario" | "perigo" | "discreto";
 
 export function Botao({
   titulo,
@@ -50,7 +50,11 @@ export function Botao({
       {carregando ? (
         <ActivityIndicator color={variante === "secundario" ? cores.primaria : "#fff"} />
       ) : (
-        <Text style={[styles.botaoTexto, variante === "secundario" && { color: cores.primaria }]}>{titulo}</Text>
+        <Text style={[
+          styles.botaoTexto,
+          variante === "secundario" && { color: cores.primaria },
+          variante === "discreto" && styles.botaoTextoDiscreto,
+        ]}>{titulo}</Text>
       )}
     </Pressable>
   );
@@ -301,7 +305,9 @@ const styles = StyleSheet.create({
   botao_primario: { backgroundColor: cores.primaria },
   botao_secundario: { backgroundColor: cores.primariaClara },
   botao_perigo: { backgroundColor: cores.perigo },
+  botao_discreto: { backgroundColor: "transparent" },
   botaoTexto: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  botaoTextoDiscreto: { color: cores.textoSecundario, fontWeight: "500", fontSize: 13 },
   rotulo: { fontSize: 14, fontWeight: "500", color: cores.texto },
   campoLinha: { justifyContent: "center" },
   olho: { position: "absolute", right: 12, padding: 4 },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, BackHandler, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
@@ -25,15 +25,6 @@ export function CadastroScreen({
   const [confirmado, setConfirmado] = useState(false);
   const convite = useConvite(codigo);
 
-  useEffect(() => {
-    const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (confirmado) { setConfirmado(false); return true; }
-      onVoltar();
-      return true;
-    });
-    return () => assinatura.remove();
-  }, [confirmado, onVoltar]);
-
   // Painel sobe de DISTANCIA_ENTRADA → 0 conforme progresso vai de 0 → 1.
   const translateY = progresso
     ? progresso.interpolate({ inputRange: [0, 1], outputRange: [DISTANCIA_ENTRADA, 0] })
@@ -44,8 +35,8 @@ export function CadastroScreen({
     ? progresso.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] })
     : new Animated.Value(1);
 
-  // Bloqueia toques enquanto não está visível.
-  const [ativo, setAtivo] = useState(false);
+  // Bloqueia toques e BackHandler enquanto não está visível.
+  const [ativo, setAtivo] = useState(!progresso);
   useEffect(() => {
     if (!progresso) { setAtivo(true); return; }
     const id = progresso.addListener(({ value }) => {
@@ -55,11 +46,22 @@ export function CadastroScreen({
     return () => progresso.removeListener(id);
   });
 
+  // BackHandler só age quando a tela está visível.
+  useEffect(() => {
+    if (!ativo) return;
+    const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (confirmado) { setConfirmado(false); return true; }
+      onVoltar();
+      return true;
+    });
+    return () => assinatura.remove();
+  }, [ativo, confirmado, onVoltar]);
+
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents={ativo ? "auto" : "none"}>
       <Animated.View style={[styles.painel, { transform: [{ translateY }] }]}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "height" : "padding"}>
+          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {confirmado && convite.data ? (
               <EtapaDados
                 codigo={codigo}
@@ -122,7 +124,7 @@ function EtapaCodigo({
       )}
       <View style={{ height: 4 }} />
       <Botao titulo="Continuar" onPress={onConfirmar} carregando={carregando} desabilitado={!info} />
-      <Botao titulo="Voltar ao início" variante="secundario" onPress={onVoltar} />
+      <Botao titulo="Voltar ao início" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={codigo.length === 8 ? erro : null} />
     </>
   );
@@ -187,7 +189,7 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         carregando={cadastro.isPending}
         desabilitado={nome.trim().length < 2 || !email.includes("@") || senha.length < 6 || !confirmacao}
       />
-      <Botao titulo="Voltar" variante="secundario" onPress={onVoltar} />
+      <Botao titulo="Voltar" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={erro} />
     </>
   );
