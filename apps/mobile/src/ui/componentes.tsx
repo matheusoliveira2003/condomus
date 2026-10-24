@@ -255,63 +255,35 @@ export function Secao({ titulo }: { titulo: string }) {
  */
 export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null; duracaoMs?: number }) {
   const opacidade = useRef(new Animated.Value(0)).current;
-  // Altura animada do wrapper: 0 quando vazio, altura real quando visível.
-  // useNativeDriver:false é obrigatório para animar height (propriedade de layout).
-  const alturaAnimada = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Último texto não-nulo: mantido durante o fade-out para o texto não desaparecer antes da animação.
   const [textoAtivo, setTextoAtivo] = useState<string | null>(null);
-  // Altura real do banner medida no primeiro onLayout — ref para não causar re-render.
-  const alturaMedida = useRef(0);
-  // Refs estáveis para as animações, usadas dentro de useEffect sem causar re-execução.
-  const expandirRef = useRef(() => {});
-  const recolherRef = useRef(() => {});
-
-  expandirRef.current = () => {
-    Animated.parallel([
-      Animated.timing(alturaAnimada, { toValue: alturaMedida.current, duration: 200, useNativeDriver: false }),
-      Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start();
-  };
-
-  recolherRef.current = () => {
-    Animated.parallel([
-      Animated.timing(alturaAnimada, { toValue: 0, duration: 300, useNativeDriver: false }),
-      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start();
-  };
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!texto) {
-      recolherRef.current();
+      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
       return;
     }
     setTextoAtivo(texto);
-    // A altura pode ainda não ser conhecida na primeira vez; expandir() também é chamado no onLayout.
-    if (alturaMedida.current > 0) expandirRef.current();
-    timerRef.current = setTimeout(() => recolherRef.current(), duracaoMs);
+    opacidade.setValue(0);
+    Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    timerRef.current = setTimeout(() => {
+      Animated.timing(opacidade, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    }, duracaoMs);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [texto, duracaoMs]);
 
+  // Nunca retorna null — sempre ocupa espaço no DOM para o gap não flutuar.
+  // Quando não há texto: height 0, invisible, sem impacto visual.
+  // Quando há texto: maxHeight 200 garante espaço suficiente para qualquer mensagem.
   return (
-    // overflow:hidden + height animada: quando height=0 o conteúdo some completamente.
-    <Animated.View style={{ height: alturaAnimada, overflow: "hidden" }}>
+    <Animated.View style={{ opacity: opacidade, overflow: "hidden", maxHeight: textoAtivo ? 200 : 0 }}>
       {textoAtivo !== null && (
-        <Animated.View
-          style={[styles.erroContainer, { opacity: opacidade }]}
-          onLayout={(e) => {
-            const h = e.nativeEvent.layout.height;
-            // Mede sempre (texto pode mudar de tamanho); atualiza se cresceu.
-            if (h > 0 && h !== alturaMedida.current) {
-              alturaMedida.current = h;
-              expandirRef.current();
-            }
-          }}
-        >
+        <View style={styles.erroContainer}>
           <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
           <Text style={styles.erroTexto}>{textoAtivo}</Text>
-        </Animated.View>
+        </View>
       )}
     </Animated.View>
   );
