@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus } from "../api/client";
@@ -195,21 +195,28 @@ function FotoSheet({
 }) {
   const translateY = useRef(new Animated.Value(300)).current;
   const opacidade = useRef(new Animated.Value(0)).current;
+  // montado controla se o componente fica na árvore; só desmonta após animação de saída terminar.
+  const [montado, setMontado] = useState(visivel);
 
-  // Anima entrada e saída do sheet.
-  if (visivel) {
-    Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
-      Animated.timing(opacidade, { toValue: 1, duration: 180, useNativeDriver: true }),
-    ]).start();
-  } else {
-    Animated.parallel([
-      Animated.timing(translateY, { toValue: 300, duration: 200, useNativeDriver: true }),
-      Animated.timing(opacidade, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start();
-  }
+  useEffect(() => {
+    if (visivel) {
+      setMontado(true);
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }),
+        Animated.timing(opacidade, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: 300, duration: 200, useNativeDriver: true }),
+        Animated.timing(opacidade, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        // Só desmonta depois da animação de saída — evita bloquear toques do modal.
+        if (finished) setMontado(false);
+      });
+    }
+  }, [visivel]);
 
-  if (!visivel && (translateY as any)._value >= 300) return null;
+  if (!montado) return null;
 
   return (
     <Animated.View style={[stylesSheet.fundo, { opacity: opacidade }]}>
