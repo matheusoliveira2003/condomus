@@ -102,7 +102,7 @@ export function LoginScreen({
                 accessibilityState={{ checked: lembrar }}
               >
                 <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
-                  {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
+                  {lembrar && <Ionicons name="checkmark" size={11} color="#fff" />}
                 </View>
                 <Text style={styles.checkboxTexto}>Lembrar-me</Text>
               </Pressable>
@@ -134,9 +134,9 @@ const styles = StyleSheet.create({
   linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: 17,
+    height: 17,
+    borderRadius: 4,
     borderWidth: 1.5,
     borderColor: cores.borda,
     backgroundColor: cores.superficie,
