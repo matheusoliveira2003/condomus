@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useActionSheet } from "@expo/react-native-action-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -108,6 +109,7 @@ function PlanoDoCondominio() {
 /** Avatar grande; tocar abre ActionSheet com Galeria, Câmera e Remover. */
 function FotoDePerfil() {
   const { usuario: usuarioOuNull, definirFoto } = useAuth();
+  const { showActionSheetWithOptions } = useActionSheet();
   const [enviando, setEnviando] = useState(false);
   if (!usuarioOuNull) return null;
   // Capturamos numa constante não-nula para que o TypeScript estreite o tipo
@@ -147,25 +149,15 @@ function FotoDePerfil() {
     const indiceDestruir = usuario.fotoAtualizadaEm ? opcoes.indexOf("Remover foto") : -1;
     const indiceCancelar = opcoes.indexOf("Cancelar");
 
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: opcoes, destructiveButtonIndex: indiceDestruir, cancelButtonIndex: indiceCancelar },
-        (idx) => {
-          if (idx === 0) void trocar("galeria");
-          else if (idx === 1) void trocar("camera");
-          else if (indiceDestruir >= 0 && idx === indiceDestruir) remover();
-        },
-      );
-    } else {
-      // Android: Alert com botões
-      const botoesAndroid: Parameters<typeof Alert.alert>[2] = [
-        { text: "Galeria", onPress: () => void trocar("galeria") },
-        { text: "Câmera", onPress: () => void trocar("camera") },
-      ];
-      if (usuario.fotoAtualizadaEm) botoesAndroid.push({ text: "Remover foto", style: "destructive", onPress: remover });
-      botoesAndroid.push({ text: "Cancelar", style: "cancel" });
-      Alert.alert("Foto de perfil", "Escolha uma opção", botoesAndroid);
-    }
+    showActionSheetWithOptions(
+      { options: opcoes, destructiveButtonIndex: indiceDestruir, cancelButtonIndex: indiceCancelar, title: "Foto de perfil" },
+      (idx) => {
+        if (idx === undefined) return;
+        if (idx === 0) void trocar("galeria");
+        else if (idx === 1) void trocar("camera");
+        else if (indiceDestruir >= 0 && idx === indiceDestruir) remover();
+      },
+    );
   }
 
   return (

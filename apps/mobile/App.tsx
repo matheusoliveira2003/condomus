@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, View, ActivityIndicator } from "react-native";
+import { ActionSheetProvider } from "@expo/react-native-action-sheet";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -311,13 +312,15 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <NavigationContainer ref={navegacao} theme={temaNavegacao}>
-            <Navegacao />
-          </NavigationContainer>
-        </AuthProvider>
-      </QueryClientProvider>
+      <ActionSheetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <NavigationContainer ref={navegacao} theme={temaNavegacao}>
+              <Navegacao />
+            </NavigationContainer>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ActionSheetProvider>
     </SafeAreaProvider>
   );
 }
