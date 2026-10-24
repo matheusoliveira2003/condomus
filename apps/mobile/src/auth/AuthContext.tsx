@@ -11,7 +11,7 @@ interface AuthContextValue {
   restaurando: boolean;
   /** true quando a API recusou o acesso (402) porque o plano do condomínio está inativo. */
   planoInativo: boolean;
-  entrar: (email: string, senha: string) => Promise<void>;
+  entrar: (email: string, senha: string, lembrar?: boolean) => Promise<void>;
   /** Guarda uma sessão já emitida pela API (login ou auto-cadastro por convite). */
   iniciarSessao: (token: string, usuario: Usuario) => Promise<void>;
   sair: () => Promise<void>;
@@ -84,12 +84,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(novo);
   }
 
-  async function entrar(email: string, senha: string) {
+  async function entrar(email: string, senha: string, lembrar = true) {
     const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>("POST", "/auth/login", {
       email: email.trim().toLowerCase(),
       senha,
     });
-    await iniciarSessao(token, usuario);
+    definirToken(token);
+    if (lembrar) await SecureStore.setItemAsync(CHAVE_TOKEN, token);
+    setPlanoInativo(false);
+    setUsuario(usuario);
   }
 
   const definirFoto = useCallback((fotoAtualizadaEm: string | null) => {

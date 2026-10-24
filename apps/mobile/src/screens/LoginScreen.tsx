@@ -26,6 +26,7 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
   }, [onVoltar]);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [lembrar, setLembrar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -33,7 +34,7 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
     setErro(null);
     setCarregando(true);
     try {
-      await entrar(email, senha);
+      await entrar(email, senha, lembrar);
     } catch (e) {
       setErro((e as Error).message);
       setCarregando(false);
@@ -80,9 +81,22 @@ export function LoginScreen({ onVoltar, onEsqueciSenha }: { onVoltar: () => void
             onChangeText={setSenha}
             onSubmitEditing={aoEntrar}
           />
-          <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "center" }}>
-            <Text style={styles.link}>Esqueceu sua senha?</Text>
-          </Pressable>
+          <View style={styles.linhaMeio}>
+            <Pressable
+              onPress={() => setLembrar((v) => !v)}
+              style={styles.checkboxLinha}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: lembrar }}
+            >
+              <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
+                {lembrar && <Ionicons name="checkmark" size={13} color="#fff" />}
+              </View>
+              <Text style={styles.checkboxTexto}>Lembrar-me</Text>
+            </Pressable>
+            <Pressable onPress={onEsqueciSenha} hitSlop={8}>
+              <Text style={styles.link}>Esqueceu sua senha?</Text>
+            </Pressable>
+          </View>
           <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
           <MensagemErro texto={erro} />
         </ScrollView>
@@ -110,5 +124,19 @@ const styles = StyleSheet.create({
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
   ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
+  linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: cores.borda,
+    backgroundColor: cores.superficie,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  checkboxTexto: { fontSize: 13, color: cores.textoSecundario },
   link: { color: cores.primaria, fontWeight: "500", fontSize: 13, textDecorationLine: "underline" },
 });
