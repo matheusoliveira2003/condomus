@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useCriarAviso, useAvisos, useEditarAviso, useRemoverAviso } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { dataHora } from "../ui/formatar";
 import { cores } from "../ui/tema";
 
@@ -39,9 +39,9 @@ export function AvisosScreen() {
         renderItem={(aviso) => (
           <Card>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-              <View style={{ flex: 1, gap: 6 }}>
-                {aviso.fixado && <Selo texto="📌 Fixado" tom="primario" />}
-                <Text style={estilosTexto.titulo}>{aviso.titulo}</Text>
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {aviso.fixado && <Ionicons name="pin" size={16} color={cores.primaria} />}
+                <Text style={[estilosTexto.titulo, { fontSize: 18, flex: 1 }]}>{aviso.titulo}</Text>
               </View>
               {ehSindico && (
                 <View style={{ flexDirection: "row", gap: 12 }}>
