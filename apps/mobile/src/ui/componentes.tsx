@@ -263,47 +263,30 @@ export function Secao({ titulo }: { titulo: string }) {
 
 /**
  * Banner de erro com ícone de exclamação e fundo vermelho claro.
- * Desaparece automaticamente após `duracaoMs` (padrão: 4 s).
- * Volta a aparecer sempre que `texto` muda para um valor não-nulo.
- *
- * Não altera a posição dos elementos ao redor: o componente sempre ocupa
- * a mesma altura (0 quando nunca houve erro, altura do banner depois do
- * primeiro erro) através de um wrapper com altura medida dinamicamente.
- * O banner em si é `position: absolute` dentro desse wrapper, logo não
- * empurra nada quando aparece ou desaparece.
+ * Fica visível enquanto `texto` for não-nulo; some com fade quando `texto` volta a null.
  */
-export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null; duracaoMs?: number }) {
+export function MensagemErro({ texto }: { texto: string | null }) {
   const opacidade = useRef(new Animated.Value(0)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Último texto não-nulo: mantido durante o fade-out para o texto não desaparecer antes da animação.
   const [textoAtivo, setTextoAtivo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (!texto) {
-      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
-      return;
+    if (texto) {
+      setTextoAtivo(texto);
+      Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true })
+        .start(() => setTextoAtivo(null));
     }
-    setTextoAtivo(texto);
-    opacidade.setValue(0);
-    Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    timerRef.current = setTimeout(() => {
-      Animated.timing(opacidade, { toValue: 0, duration: 400, useNativeDriver: true }).start();
-    }, duracaoMs);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [texto, duracaoMs]);
+  }, [texto]);
 
-  // Nunca retorna null — sempre ocupa espaço no DOM para o gap não flutuar.
-  // Quando não há texto: height 0, invisible, sem impacto visual.
-  // Quando há texto: maxHeight 200 garante espaço suficiente para qualquer mensagem.
+  if (!textoAtivo) return null;
+
   return (
-    <Animated.View style={{ opacity: opacidade, overflow: "hidden", maxHeight: textoAtivo ? 200 : 0 }}>
-      {textoAtivo !== null && (
-        <View style={styles.erroContainer}>
-          <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
-          <Text style={styles.erroTexto}>{textoAtivo}</Text>
-        </View>
-      )}
+    <Animated.View style={{ opacity: opacidade }}>
+      <View style={styles.erroContainer}>
+        <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
+        <Text style={styles.erroTexto}>{textoAtivo}</Text>
+      </View>
     </Animated.View>
   );
 }
