@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, enviar, type Papel, type PlanoStatus, type Unidade } from "../api/client";
+import { enviar, type PlanoStatus } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { useCondominio } from "../hooks/queries";
+import { useCondominio, usePerfil } from "../hooks/queries";
 import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { cores } from "../ui/tema";
+import type { Papel } from "../api/client";
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
 
@@ -19,20 +20,10 @@ const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primar
   SUSPENSO: { texto: "Suspenso", tom: "neutro" },
 };
 
-interface Perfil {
-  nome: string;
-  email: string;
-  papel: Papel;
-  unidade: Unidade | null;
-}
-
 export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
   const { sair } = useAuth();
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-
-  useEffect(() => {
-    if (visivel) api<Perfil>("/auth/me").then(setPerfil).catch(() => setPerfil(null));
-  }, [visivel]);
+  const { data: perfil } = usePerfil(visivel);
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
 
   function confirmarSaida() {
     Alert.alert("Sair", "Deseja sair da sua conta?", [
@@ -50,7 +41,8 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
 
   return (
     <ModalFormulario visivel={visivel} titulo="Minha conta" onFechar={onFechar}>
-      {perfil && (
+      {/* Cabeçalho do perfil */}
+      {perfil ? (
         <View style={styles.perfil}>
           <FotoDePerfil />
           <Text style={[estilosTexto.titulo, { fontSize: 18 }]}>{perfil.nome}</Text>
@@ -60,10 +52,33 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
             {perfil.unidade && ` · ${unidadeTexto(perfil.unidade)}`}
           </Text>
         </View>
+      ) : (
+        <View style={styles.perfilCarregando}>
+          <ActivityIndicator color={cores.primaria} />
+        </View>
       )}
+
+      {/* Plano (síndico) */}
       {perfil?.papel === "SINDICO" && <PlanoDoCondominio />}
-      <TrocarSenha />
+
+      {/* Link para trocar senha */}
+      <Pressable
+        onPress={() => setTrocandoSenha(true)}
+        style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+      >
+        <Ionicons name="lock-closed-outline" size={20} color={cores.primaria} />
+        <Text style={styles.linkSenhaTexto}>Trocar senha</Text>
+        <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
+      </Pressable>
+
+      {/* Separador antes do botão de sair */}
+      <View style={styles.separador} />
+
       <Botao titulo="Sair da conta" variante="perigo" onPress={confirmarSaida} />
+
+      {/* Modal de troca de senha */}
+      <TrocarSenhaModal visivel={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
     </ModalFormulario>
   );
 }
@@ -90,15 +105,16 @@ function PlanoDoCondominio() {
   );
 }
 
-/** Avatar grande; tocar mostra as opções de galeria, câmera e remover. */
+/** Avatar grande; tocar abre ActionSheet com Galeria, Câmera e Remover. */
 function FotoDePerfil() {
-  const { usuario, definirFoto } = useAuth();
-  const [opcoesAbertas, setOpcoesAbertas] = useState(false);
+  const { usuario: usuarioOuNull, definirFoto } = useAuth();
   const [enviando, setEnviando] = useState(false);
-  if (!usuario) return null;
+  if (!usuarioOuNull) return null;
+  // Capturamos numa constante não-nula para que o TypeScript estreite o tipo
+  // dentro das closures (abrirOpcoes, etc.) sem precisar de asserções.
+  const usuario = usuarioOuNull;
 
   async function trocar(origem: OrigemFoto) {
-    setOpcoesAbertas(false);
     try {
       const imagem = await escolherFoto(origem);
       if (!imagem) return;
@@ -113,7 +129,6 @@ function FotoDePerfil() {
   }
 
   function remover() {
-    setOpcoesAbertas(false);
     Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -127,43 +142,70 @@ function FotoDePerfil() {
     ]);
   }
 
+  function abrirOpcoes() {
+    const opcoes = ["Galeria", "Câmera", ...(usuario.fotoAtualizadaEm ? ["Remover foto"] : []), "Cancelar"];
+    const indiceDestruir = usuario.fotoAtualizadaEm ? opcoes.indexOf("Remover foto") : -1;
+    const indiceCancelar = opcoes.indexOf("Cancelar");
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: opcoes, destructiveButtonIndex: indiceDestruir, cancelButtonIndex: indiceCancelar },
+        (idx) => {
+          if (idx === 0) void trocar("galeria");
+          else if (idx === 1) void trocar("camera");
+          else if (indiceDestruir >= 0 && idx === indiceDestruir) remover();
+        },
+      );
+    } else {
+      // Android: Alert com botões
+      const botoesAndroid: Parameters<typeof Alert.alert>[2] = [
+        { text: "Galeria", onPress: () => void trocar("galeria") },
+        { text: "Câmera", onPress: () => void trocar("camera") },
+      ];
+      if (usuario.fotoAtualizadaEm) botoesAndroid.push({ text: "Remover foto", style: "destructive", onPress: remover });
+      botoesAndroid.push({ text: "Cancelar", style: "cancel" });
+      Alert.alert("Foto de perfil", "Escolha uma opção", botoesAndroid);
+    }
+  }
+
   return (
-    <View style={styles.fotoArea}>
-      <Pressable
-        onPress={() => setOpcoesAbertas((v) => !v)}
-        disabled={enviando}
-        accessibilityRole="button"
-        accessibilityLabel="Alterar foto de perfil"
-      >
-        <Avatar pessoa={usuario} tamanho={96} />
-        {enviando ? (
-          <View style={styles.carregandoFoto}>
-            <ActivityIndicator color="#fff" />
-          </View>
-        ) : (
-          <View style={styles.selo}>
-            <Ionicons name="camera" size={16} color="#fff" />
-          </View>
-        )}
-      </Pressable>
-      {opcoesAbertas && (
-        <View style={styles.opcoesFoto}>
-          <Botao titulo="Galeria" variante="secundario" pequeno onPress={() => trocar("galeria")} />
-          <Botao titulo="Câmera" variante="secundario" pequeno onPress={() => trocar("camera")} />
-          {usuario.fotoAtualizadaEm && <Botao titulo="Remover" variante="secundario" pequeno onPress={remover} />}
+    <Pressable
+      onPress={abrirOpcoes}
+      disabled={enviando}
+      accessibilityRole="button"
+      accessibilityLabel="Alterar foto de perfil"
+    >
+      <Avatar pessoa={usuario} tamanho={96} />
+      {enviando ? (
+        <View style={styles.carregandoFoto}>
+          <ActivityIndicator color="#fff" />
+        </View>
+      ) : (
+        <View style={styles.seloCamera}>
+          <Ionicons name="camera" size={16} color="#fff" />
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
-function TrocarSenha() {
+/** Modal separado para troca de senha. */
+function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
   const [salvando, setSalvando] = useState(false);
+
+  function fechar() {
+    setAtual("");
+    setNova("");
+    setConfirmacao("");
+    setErro(null);
+    setSucesso(false);
+    onFechar();
+  }
 
   async function salvar() {
     setErro(null);
@@ -172,10 +214,10 @@ function TrocarSenha() {
     setSalvando(true);
     try {
       await enviar("PATCH", "/auth/senha", { senhaAtual: atual, novaSenha: nova });
+      setSucesso(true);
       setAtual("");
       setNova("");
       setConfirmacao("");
-      setSucesso(true);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -184,11 +226,10 @@ function TrocarSenha() {
   }
 
   return (
-    <Card>
-      <Secao titulo="Trocar senha" />
-      <Campo rotulo="Senha atual" value={atual} onChangeText={setAtual} secureTextEntry />
-      <Campo rotulo="Nova senha" value={nova} onChangeText={setNova} secureTextEntry placeholder="Mínimo de 6 caracteres" />
-      <Campo rotulo="Confirmar nova senha" value={confirmacao} onChangeText={setConfirmacao} secureTextEntry />
+    <ModalFormulario visivel={visivel} titulo="Trocar senha" onFechar={fechar}>
+      <Campo rotulo="Senha atual" value={atual} onChangeText={setAtual} senha />
+      <Campo rotulo="Nova senha" value={nova} onChangeText={setNova} senha placeholder="Mínimo de 6 caracteres" />
+      <Campo rotulo="Confirmar nova senha" value={confirmacao} onChangeText={setConfirmacao} senha />
       <MensagemErro texto={erro} />
       {sucesso && (
         <View style={styles.sucesso}>
@@ -197,14 +238,13 @@ function TrocarSenha() {
         </View>
       )}
       <Botao titulo="Salvar nova senha" onPress={salvar} carregando={salvando} desabilitado={!atual || nova.length < 6 || !confirmacao} />
-    </Card>
+    </ModalFormulario>
   );
 }
 
-
 const styles = StyleSheet.create({
   perfil: { alignItems: "center", gap: 4, paddingVertical: 8 },
-  fotoArea: { alignItems: "center", gap: 10, marginBottom: 8 },
+  perfilCarregando: { alignItems: "center", paddingVertical: 32 },
   carregandoFoto: {
     ...StyleSheet.absoluteFill,
     borderRadius: 48,
@@ -212,7 +252,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selo: {
+  seloCamera: {
     position: "absolute",
     right: 0,
     bottom: 0,
@@ -225,7 +265,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  opcoesFoto: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
-  sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
   planoLinha: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  linkSenha: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: cores.superficie,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: cores.borda,
+  },
+  linkSenhaTexto: { fontSize: 15, fontWeight: "500", color: cores.primaria },
+  separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
+  sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
 });

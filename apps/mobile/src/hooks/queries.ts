@@ -6,13 +6,14 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Encomenda, Pagina, Reserva, Resumo, Usuario, Visita } from "@condomus/types";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
 // Query keys — centralizados para invalidação consistente
 // ---------------------------------------------------------------------------
 export const keys = {
+  perfil: ["perfil"] as const,
   resumo: ["resumo"] as const,
   visitas: (filtro: string) => ["visitas", filtro] as const,
   encomendas: (status: string) => ["encomendas", status] as const,
@@ -22,6 +23,24 @@ export const keys = {
   areas: ["areas"] as const,
   condominio: ["condominio"] as const,
 };
+
+// ---------------------------------------------------------------------------
+// Perfil do usuário autenticado (/auth/me)
+// ---------------------------------------------------------------------------
+export interface Perfil {
+  nome: string;
+  email: string;
+  papel: Usuario["papel"];
+  unidade: Unidade | null;
+}
+
+export function usePerfil(habilitado = true) {
+  return useQuery({
+    queryKey: keys.perfil,
+    queryFn: () => api<Perfil>("/auth/me"),
+    enabled: habilitado,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Condomínio (plano) e cadastro por convite
