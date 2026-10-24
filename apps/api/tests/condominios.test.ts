@@ -33,7 +33,7 @@ const novoCondominio = {
   nome: "Residencial Aurora",
   cnpj: "12.345.678/0001-90",
   planoStatus: "TRIAL",
-  sindico: { nome: "Síndica Aurora", email: "aurora@teste.dev", senha: SENHA },
+  sindico: { nome: "Síndica Aurora", email: "aurora@teste.dev" },
 };
 
 describe("POST /admin/condominios", () => {
@@ -43,7 +43,8 @@ describe("POST /admin/condominios", () => {
     expect(r.corpo!.condominio).toMatchObject({ nome: "Residencial Aurora", planoStatus: "TRIAL" });
     expect(r.corpo!.sindico).toMatchObject({ email: "aurora@teste.dev", papel: "SINDICO", condominioId: r.corpo!.condominio.id });
     expect(JSON.stringify(r.corpo)).not.toContain("senhaHash");
-    await expect(entrar(app, "aurora@teste.dev")).resolves.toEqual(expect.any(String));
+    // A API gera a senha automaticamente e a retorna em senhaGerada.
+    await expect(entrar(app, "aurora@teste.dev", r.corpo!.senhaGerada)).resolves.toEqual(expect.any(String));
   });
 
   it("exige o segredo de administração", async () => {

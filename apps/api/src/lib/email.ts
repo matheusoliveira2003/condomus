@@ -44,3 +44,24 @@ export function enviarCodigoRecuperacao(para: string, nome: string, codigo: stri
     `,
   });
 }
+
+/** E-mail com o código de confirmação de troca de e-mail (válido por 15 minutos). */
+export function enviarCodigoTrocaEmail(para: string, nome: string, codigo: string) {
+  void enviarEmail({
+    para,
+    assunto: "Confirme seu novo e-mail — Condomus",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #1E3A5F;">Condomus</h2>
+        <p>Olá, ${nome}!</p>
+        <p>Use o código abaixo para confirmar seu novo endereço de e-mail. Ele vale por 15 minutos.</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1E3A5F; text-align: center; padding: 16px; background: #F5F7FA; border-radius: 8px;">
+          ${codigo}
+        </p>
+        <p style="color: #5B6472; font-size: 14px;">
+          Se você não pediu essa alteração, ignore este e-mail — seu e-mail continua o mesmo.
+        </p>
+      </div>
+    `,
+  });
+}

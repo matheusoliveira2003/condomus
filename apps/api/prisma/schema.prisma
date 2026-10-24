@@ -112,6 +112,11 @@ model Usuario {
   codigoRecuperacaoHash   String?
   codigoRecuperacaoExpira DateTime?
 
+  /// Troca de e-mail pendente de confirmação por código.
+  emailPendente     String?
+  codigoEmailHash   String?
+  codigoEmailExpira DateTime?
+
   visitasAutorizadas  Visita[]    @relation("VisitaAutorizadaPor")
   visitasRegistradas  Visita[]    @relation("VisitaRegistradaPor")
   encomendasRecebidas Encomenda[]

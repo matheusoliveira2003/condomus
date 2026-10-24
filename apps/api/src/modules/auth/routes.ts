@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
-import { enviarCodigoRecuperacao } from "../../lib/email.js";
+import { enviarCodigoRecuperacao, enviarCodigoTrocaEmail } from "../../lib/email.js";
 import { gerarCodigoNumerico } from "../../lib/codigo.js";
 import { emitirSessao } from "../../lib/sessao.js";
 
@@ -21,6 +21,15 @@ const trocarSenhaSchema = z
     novaSenha: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
   })
   .refine((s) => s.senhaAtual !== s.novaSenha, { message: "A nova senha deve ser diferente da atual", path: ["novaSenha"] });
+
+const trocarEmailSchema = z.object({
+  novoEmail: z.string().trim().toLowerCase().pipe(z.email("E-mail inválido")),
+  senhaAtual: z.string().min(1, "Informe sua senha atual"),
+});
+
+const confirmarEmailSchema = z.object({
+  codigo: z.string().trim().regex(/^\d{6}$/, "O código tem 6 números"),
+});
 
 const pedirRecuperacaoSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -108,6 +117,55 @@ export async function authRoutes(app: FastifyInstance) {
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: { senhaHash: await bcrypt.hash(novaSenha, 10), codigoRecuperacaoHash: null, codigoRecuperacaoExpira: null },
+    });
+    return { ok: true };
+  });
+
+  // Trocar e-mail — passo 1: valida senha atual, salva e-mail pendente e envia código para o novo e-mail.
+  app.post("/auth/trocar-email", { preHandler: app.autorizar() }, async (req, reply) => {
+    const { novoEmail, senhaAtual } = trocarEmailSchema.parse(req.body);
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
+    if (!usuario) throw naoEncontrado("Usuário");
+    if (novoEmail === usuario.email) throw new HttpError(400, "O novo e-mail deve ser diferente do atual");
+    if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha incorreta");
+    // Verifica se o novo e-mail já está em uso por outra conta.
+    const existente = await prisma.usuario.findUnique({ where: { email: novoEmail } });
+    if (existente) throw new HttpError(400, "Este e-mail já está em uso");
+    const codigo = gerarCodigoNumerico();
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        emailPendente: novoEmail,
+        codigoEmailHash: await bcrypt.hash(codigo, 10),
+        codigoEmailExpira: new Date(Date.now() + VALIDADE_CODIGO_MINUTOS * 60 * 1000),
+      },
+    });
+    enviarCodigoTrocaEmail(novoEmail, usuario.nome, codigo);
+    return reply.status(204).send();
+  });
+
+  // Trocar e-mail — passo 2: valida o código e efetiva a troca de e-mail.
+  app.post("/auth/confirmar-email", { preHandler: app.autorizar() }, async (req) => {
+    const { codigo } = confirmarEmailSchema.parse(req.body);
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
+    if (!usuario) throw naoEncontrado("Usuário");
+    const codigoValido =
+      usuario.emailPendente &&
+      usuario.codigoEmailHash &&
+      usuario.codigoEmailExpira &&
+      usuario.codigoEmailExpira > new Date() &&
+      (await bcrypt.compare(codigo, usuario.codigoEmailHash));
+    if (!codigoValido) throw new HttpError(400, "Código inválido ou expirado");
+    // Efetiva a troca: atualiza e-mail, limpa campos pendentes e invalida tokens antigos.
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        email: usuario.emailPendente!,
+        emailPendente: null,
+        codigoEmailHash: null,
+        codigoEmailExpira: null,
+        tokenVersion: { increment: 1 },
+      },
     });
     return { ok: true };
   });

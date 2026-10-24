@@ -33,20 +33,21 @@ describe("cadastros pelo síndico", () => {
   const novoMorador = (corpo: Record<string, unknown>) => chamar(app, "POST", "/usuarios", { token: c.tokens.sindico, corpo });
 
   it("cadastra morador com unidade, e ele consegue entrar", async () => {
-    const r = await novoMorador({ nome: "Nova Moradora", email: "Nova@Teste.dev", senha: "abcdef", papel: "MORADOR", unidadeId: c.unidades.b201.id });
+    const r = await novoMorador({ nome: "Nova Moradora", email: "Nova@Teste.dev", papel: "MORADOR", unidadeId: c.unidades.b201.id });
     expect(r.status).toBe(201);
     expect(r.corpo).toMatchObject({ email: "nova@teste.dev", papel: "MORADOR", unidade: { numero: "201" } });
     expect(r.corpo).not.toHaveProperty("senhaHash");
-    await expect(entrar(app, "nova@teste.dev", "abcdef")).resolves.toEqual(expect.any(String));
+    // A API gera a senha automaticamente e a retorna em senhaGerada.
+    await expect(entrar(app, "nova@teste.dev", r.corpo.senhaGerada)).resolves.toEqual(expect.any(String));
   });
 
   it("morador precisa de unidade e funcionário não pode ter", async () => {
-    expect((await novoMorador({ nome: "Sem Unidade", email: "a@teste.dev", senha: "abcdef", papel: "MORADOR" })).status).toBe(400);
-    expect((await novoMorador({ nome: "Porteiro Dois", email: "b@teste.dev", senha: "abcdef", papel: "PORTEIRO", unidadeId: c.unidades.a101.id })).status).toBe(400);
+    expect((await novoMorador({ nome: "Sem Unidade", email: "a@teste.dev", papel: "MORADOR" })).status).toBe(400);
+    expect((await novoMorador({ nome: "Porteiro Dois", email: "b@teste.dev", papel: "PORTEIRO", unidadeId: c.unidades.a101.id })).status).toBe(400);
   });
 
   it("e-mail e unidade duplicados são 409", async () => {
-    expect((await novoMorador({ nome: "Repetido", email: "morador@teste.dev", senha: "abcdef", papel: "PORTEIRO" })).status).toBe(409);
+    expect((await novoMorador({ nome: "Repetido", email: "morador@teste.dev", papel: "PORTEIRO" })).status).toBe(409);
     expect((await chamar(app, "POST", "/unidades", { token: c.tokens.sindico, corpo: { bloco: "a", numero: "101" } })).status).toBe(409);
   });
 

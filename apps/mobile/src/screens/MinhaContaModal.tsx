@@ -24,6 +24,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const { sair, usuario, definirFoto } = useAuth();
   const { data: perfil } = usePerfil(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
+  const [trocandoEmail, setTrocandoEmail] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
 
@@ -107,7 +108,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
       {/* Plano (síndico) */}
       {perfil?.papel === "SINDICO" && <PlanoDoCondominio />}
 
-      {/* Link para trocar senha */}
+      {/* Links de conta */}
       <Pressable
         onPress={() => setTrocandoSenha(true)}
         style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
@@ -117,14 +118,24 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Text style={styles.linkSenhaTexto}>Trocar senha</Text>
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
       </Pressable>
+      <Pressable
+        onPress={() => setTrocandoEmail(true)}
+        style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+      >
+        <Ionicons name="mail-outline" size={20} color={cores.primaria} />
+        <Text style={styles.linkSenhaTexto}>Trocar e-mail</Text>
+        <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
+      </Pressable>
 
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
 
       <Botao titulo="Sair da conta" variante="perigo" onPress={confirmarSaida} />
 
-      {/* Modal de troca de senha */}
+      {/* Modais de conta */}
       <TrocarSenhaModal visivel={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
+      <TrocarEmailModal visivel={trocandoEmail} onFechar={() => setTrocandoEmail(false)} />
     </ModalFormulario>
   );
 }
@@ -315,6 +326,98 @@ function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
         </View>
       )}
       <Botao titulo="Salvar nova senha" onPress={salvar} carregando={salvando} desabilitado={!atual || nova.length < 6 || !confirmacao} />
+    </ModalFormulario>
+  );
+}
+
+/** Modal para troca de e-mail em duas etapas: (1) novo e-mail + senha → (2) código recebido. */
+function TrocarEmailModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const [etapa, setEtapa] = useState<1 | 2>(1);
+  const [novoEmail, setNovoEmail] = useState("");
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
+  function fechar() {
+    setEtapa(1);
+    setNovoEmail("");
+    setSenhaAtual("");
+    setCodigo("");
+    setErro(null);
+    setSucesso(false);
+    onFechar();
+  }
+
+  async function enviarCodigo() {
+    setErro(null);
+    setSalvando(true);
+    try {
+      await enviar("POST", "/auth/trocar-email", { novoEmail, senhaAtual });
+      setEtapa(2);
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function confirmar() {
+    setErro(null);
+    setSalvando(true);
+    try {
+      await enviar("POST", "/auth/confirmar-email", { codigo });
+      setSucesso(true);
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <ModalFormulario visivel={visivel} titulo="Trocar e-mail" onFechar={fechar}>
+      {etapa === 1 ? (
+        <>
+          <Campo rotulo="Novo e-mail" value={novoEmail} onChangeText={setNovoEmail} keyboardType="email-address" autoCapitalize="none" placeholder="seuemail@exemplo.com" />
+          <Campo rotulo="Senha atual" value={senhaAtual} onChangeText={setSenhaAtual} senha />
+          <MensagemErro texto={erro} />
+          <Botao
+            titulo="Enviar código de confirmação"
+            onPress={enviarCodigo}
+            carregando={salvando}
+            desabilitado={!novoEmail || !senhaAtual}
+          />
+        </>
+      ) : sucesso ? (
+        <>
+          <View style={styles.sucesso}>
+            <Ionicons name="checkmark-circle" size={18} color={cores.sucesso} />
+            <Text style={{ color: cores.sucesso }}>E-mail alterado com sucesso!</Text>
+          </View>
+          <Botao titulo="Fechar" onPress={fechar} />
+        </>
+      ) : (
+        <>
+          <Text style={[estilosTexto.secundario, { marginBottom: 8 }]}>
+            Enviamos um código de 6 dígitos para{" "}
+            <Text style={{ color: cores.texto, fontWeight: "600" }}>{novoEmail}</Text>. Digite-o abaixo para confirmar.
+          </Text>
+          <Campo
+            rotulo="Código de confirmação"
+            value={codigo}
+            onChangeText={setCodigo}
+            keyboardType="number-pad"
+            placeholder="000000"
+          />
+          <MensagemErro texto={erro} />
+          <Botao titulo="Confirmar e-mail" onPress={confirmar} carregando={salvando} desabilitado={codigo.length !== 6} />
+          <Pressable onPress={() => { setEtapa(1); setErro(null); setCodigo(""); }} style={{ alignItems: "center", paddingVertical: 8 }}>
+            <Text style={[estilosTexto.secundario, { textDecorationLine: "underline" }]}>Usar outro e-mail</Text>
+          </Pressable>
+        </>
+      )}
     </ModalFormulario>
   );
 }
