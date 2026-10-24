@@ -40,7 +40,7 @@ export function AvisosScreen() {
           <Card>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
               <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                {aviso.fixado && <Ionicons name="pin" size={16} color={cores.primaria} />}
+                {aviso.fixado && <Ionicons name="pin" size={16} color={cores.perigo} />}
                 <Text style={[estilosTexto.titulo, { fontSize: 18, flex: 1 }]}>{aviso.titulo}</Text>
               </View>
               {ehSindico && (
