@@ -17,7 +17,14 @@ export async function resumoRoutes(app: FastifyInstance) {
   app.get("/resumo", { preHandler: app.autorizar("MORADOR") }, async (req) => {
     const { inicioDoDia } = consultaSchema.parse(req.query);
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
-    const { condominioId, unidadeId } = req.user;
+    const { condominioId } = req.user;
+
+    // Busca o unidadeId direto do banco: o JWT pode estar desatualizado se a unidade
+    // foi atribuída depois que o token foi emitido.
+    const { unidadeId } = (await prisma.usuario.findUnique({
+      where: { id: req.user.sub },
+      select: { unidadeId: true },
+    })) ?? { unidadeId: null };
 
     // Morador ainda sem unidade atribuída: retorna resumo vazio mas válido.
     if (!unidadeId) {
