@@ -180,6 +180,15 @@ export function useCriarAviso() {
   });
 }
 
+export function useEditarAviso() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dados }: { id: string; titulo?: string; conteudo?: string; fixado?: boolean }) =>
+      enviar<Aviso>("PATCH", `/avisos/${id}`, dados),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.avisos }),
+  });
+}
+
 export function useRemoverAviso() {
   const qc = useQueryClient();
   return useMutation({

@@ -12,6 +12,12 @@ const avisoSchema = z.object({
   fixado: z.boolean().optional(),
 });
 
+const editarAvisoSchema = z.object({
+  titulo: z.string().min(3).optional(),
+  conteudo: z.string().min(1).optional(),
+  fixado: z.boolean().optional(),
+});
+
 const filtroSchema = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(PAGE_SIZE),
   /** ID do último aviso recebido; omitir para a primeira página. */
@@ -71,6 +77,14 @@ export async function avisosRoutes(app: FastifyInstance) {
       dados: { aba: "Avisos" },
     });
     return reply.status(201).send(aviso);
+  });
+
+  app.patch("/avisos/:id", { preHandler: app.autorizar("SINDICO") }, async (req) => {
+    const { id } = idParam.parse(req.params);
+    const dados = editarAvisoSchema.parse(req.body);
+    const { count } = await prisma.aviso.updateMany({ where: { id, condominioId: req.user.condominioId }, data: dados });
+    if (count === 0) throw naoEncontrado("Aviso");
+    return prisma.aviso.findUnique({ where: { id }, include: { autor: { select: { nome: true } } } });
   });
 
   app.delete("/avisos/:id", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
