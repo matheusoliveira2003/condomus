@@ -106,7 +106,6 @@ function EtapaCodigo({
     <>
       <Text style={styles.titulo}>Criar conta</Text>
       <Text style={styles.subtitulo}>Digite o código de convite de 8 caracteres que o síndico do seu condomínio gerou para a sua unidade.</Text>
-      <View style={{ height: 8 }} />
       <Campo
         icone="keypad-outline"
         placeholder="Código do convite"
@@ -122,7 +121,6 @@ function EtapaCodigo({
           <Text style={styles.confirmacaoTexto}>{info}</Text>
         </View>
       )}
-      <View style={{ height: 4 }} />
       <Botao titulo="Continuar" onPress={onConfirmar} carregando={carregando} desabilitado={!info} />
       <Botao titulo="Voltar ao início" variante="discreto" onPress={onVoltar} />
       <MensagemErro texto={codigo.length === 8 ? erro : null} />
@@ -154,7 +152,6 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
     <>
       <Text style={styles.titulo}>Seus dados</Text>
       <Text style={styles.subtitulo}>Preencha para criar sua conta de morador.</Text>
-      <View style={{ height: 8 }} />
       <Campo icone="person-outline" placeholder="Nome completo" autoComplete="name" value={nome} onChangeText={setNome} />
       <Campo
         icone="mail-outline"
@@ -182,7 +179,6 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
         onChangeText={setConfirmacao}
         onSubmitEditing={criar}
       />
-      <View style={{ height: 4 }} />
       <Botao
         titulo="Criar conta"
         onPress={criar}
@@ -204,7 +200,7 @@ const styles = StyleSheet.create({
     marginTop: 80, // deixa o gradiente visível no topo, alinhado com o LoginScreen
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
-  titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
+  titulo: { fontSize: 30, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
   confirmacao: {
     flexDirection: "row",
