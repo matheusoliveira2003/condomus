@@ -22,7 +22,7 @@ export function PortariaVisitasScreen() {
   const [lendo, setLendo] = useState(false);
   /** Visita da lista cujo convite está sendo conferido. */
   const [conferindo, setConferindo] = useState<Visita | null>(null);
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas(`status=${status}`));
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas(`status=${status}`));
   const registrarAcao = useRegistrarEntradaSaida();
 
   // Busca por nome do visitante, documento, placa ou unidade (ex.: "A-101").
@@ -49,6 +49,7 @@ export function PortariaVisitasScreen() {
       <Lista
         dados={filtradas}
         carregando={carregando}
+        recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
         vazio={busca ? "Nenhum resultado para a busca" : "Nenhum visitante nesta lista"}

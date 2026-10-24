@@ -246,7 +246,10 @@ export function useRecusarReserva() {
 export function adaptarQuery<T>(query: ReturnType<typeof useQuery<T>>) {
   return {
     dados: query.data ?? ([] as unknown as T),
-    carregando: query.isFetching,
+    // isLoading: só true na primeira busca (sem dados). Evita spinner infinito em refetches.
+    // recarregando: true em qualquer fetch ativo, para o pull-to-refresh girar.
+    carregando: query.isLoading,
+    recarregando: query.isFetching,
     erro: query.error ? (query.error as Error).message : null,
     recarregar: query.refetch as () => Promise<unknown>,
   };

@@ -29,7 +29,7 @@ export function ReservasScreen() {
 function ReservasMorador() {
   const [reservando, setReservando] = useState(false);
   useAbrirPorParametro("novo", useCallback(() => setReservando(true), []));
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
   const cancelar = useCancelarReserva();
 
   return (
@@ -37,6 +37,7 @@ function ReservasMorador() {
       <Lista
         dados={dados}
         carregando={carregando}
+        recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
         vazio="Você não tem reservas futuras"
@@ -72,7 +73,7 @@ type FiltroSindico = "PENDENTE" | "CONFIRMADA";
 function ReservasSindico() {
   const [filtro, setFiltro] = useState<FiltroSindico>("PENDENTE");
   const [recusando, setRecusando] = useState<Reserva | null>(null);
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${new Date().toISOString()}`));
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${new Date().toISOString()}`));
   const aprovarMut = useAprovarReserva();
   const cancelar = useCancelarReserva();
 
@@ -89,6 +90,7 @@ function ReservasSindico() {
       <Lista
         dados={dados}
         carregando={carregando}
+        recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
         vazio={filtro === "PENDENTE" ? "Nenhuma reserva aguardando aprovação" : "Nenhuma reserva confirmada"}

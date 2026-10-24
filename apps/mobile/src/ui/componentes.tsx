@@ -150,6 +150,7 @@ export function Chips<T extends string>({
 export function Lista<T extends { id: string }>({
   dados,
   carregando,
+  recarregando,
   erro,
   recarregar,
   renderItem,
@@ -158,7 +159,10 @@ export function Lista<T extends { id: string }>({
   espacoFinal = 96,
 }: {
   dados: T[];
+  /** Primeira carga (sem dados ainda): mostra spinner no lugar da lista vazia. */
   carregando: boolean;
+  /** Qualquer fetch ativo: anima o pull-to-refresh sem bloquear a lista. */
+  recarregando?: boolean;
   erro: string | null;
   recarregar: () => void;
   renderItem: (item: T) => ReactNode;
@@ -175,7 +179,7 @@ export function Lista<T extends { id: string }>({
       data={dados}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <>{renderItem(item)}</>}
-      refreshControl={<RefreshControl refreshing={carregando} onRefresh={recarregar} />}
+      refreshControl={<RefreshControl refreshing={recarregando ?? carregando} onRefresh={recarregar} />}
       ListHeaderComponent={
         <>
           {cabecalho}

@@ -18,7 +18,7 @@ export function InicioScreen() {
   const { usuario } = useAuth();
   const navegacao = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const query = useResumo();
-  const { dados: resumo, carregando, erro, recarregar } = adaptarQuery(query);
+  const { dados: resumo, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.

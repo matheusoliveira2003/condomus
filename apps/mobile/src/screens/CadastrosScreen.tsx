@@ -59,7 +59,7 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
   });
   const todos = query.data ?? [];
   const dados = todos.filter((u) => (aba === "moradores" ? u.papel === "MORADOR" : u.papel !== "MORADOR"));
-  const { carregando, erro, recarregar } = adaptarQuery(query);
+  const { carregando, recarregando, erro, recarregar } = adaptarQuery(query);
 
   function alternarAtivo(u: UsuarioCadastro) {
     const acao = u.ativo ? "Desativar" : "Reativar";
@@ -80,6 +80,7 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
     <Lista
       dados={dados}
       carregando={carregando}
+        recarregando={recarregando}
       erro={erro}
       recarregar={recarregar}
       cabecalho={cabecalho}
@@ -121,11 +122,12 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
     queryKey: ["cadastros", "unidades"],
     queryFn: () => api<UnidadeComMoradores[]>("/unidades"),
   });
-  const { dados, carregando, erro, recarregar } = adaptarQuery(query);
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
   return (
     <Lista
       dados={dados}
       carregando={carregando}
+      recarregando={recarregando}
       erro={erro}
       recarregar={recarregar}
       cabecalho={cabecalho}

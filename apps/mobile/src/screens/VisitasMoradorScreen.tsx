@@ -22,7 +22,7 @@ import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas("situacao=ativas"));
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas("situacao=ativas"));
   const cancelar = useCancelarVisita();
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
@@ -45,6 +45,7 @@ export function VisitasMoradorScreen() {
       <Lista
         dados={dados}
         carregando={carregando}
+        recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
         vazio="Nenhum visitante autorizado"
@@ -101,11 +102,12 @@ const LIMITE_HISTORICO = 50;
 
 /** Últimas visitas finalizadas ou canceladas da unidade. */
 function HistoricoVisitas() {
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useVisitas(`situacao=historico&limite=${LIMITE_HISTORICO}`));
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas(`situacao=historico&limite=${LIMITE_HISTORICO}`));
   return (
     <Lista
       dados={dados}
       carregando={carregando}
+        recarregando={recarregando}
       erro={erro}
       recarregar={recarregar}
       vazio="Nenhuma visita no histórico"

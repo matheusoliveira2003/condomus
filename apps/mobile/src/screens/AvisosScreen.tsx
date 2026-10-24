@@ -11,7 +11,7 @@ import { cores } from "../ui/tema";
 export function AvisosScreen() {
   const { usuario } = useAuth();
   const ehSindico = usuario?.papel === "SINDICO";
-  const { dados, carregando, erro, recarregar } = adaptarQuery(useAvisos());
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useAvisos());
   const remover = useRemoverAviso();
   const [criando, setCriando] = useState(false);
 
@@ -31,6 +31,7 @@ export function AvisosScreen() {
       <Lista
         dados={dados}
         carregando={carregando}
+        recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
         vazio="Nenhum aviso no momento"
