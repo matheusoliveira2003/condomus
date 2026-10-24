@@ -106,7 +106,7 @@ export function LoginScreen({
                 </View>
                 <Text style={styles.checkboxTexto}>Lembrar-me</Text>
               </Pressable>
-              <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ justifyContent: "center" }}>
+              <Pressable onPress={onEsqueciSenha} hitSlop={8} style={{ alignSelf: "flex-end" }}>
                 <Text style={styles.link}>Esqueceu sua senha?</Text>
               </Pressable>
             </View>
@@ -145,5 +145,5 @@ const styles = StyleSheet.create({
   },
   checkboxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   checkboxTexto: { fontSize: 13, color: cores.textoSecundario },
-  link: { color: cores.textoSecundario, fontSize: 13 },
+  link: { color: cores.textoSecundario, fontSize: 13, textDecorationLine: "underline" },
 });
