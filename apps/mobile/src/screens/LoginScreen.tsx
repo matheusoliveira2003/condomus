@@ -75,7 +75,6 @@ export function LoginScreen({
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "height" : "padding"}>
           <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <Text style={styles.ola}>Inicie sua sessão</Text>
-            <View style={{ height: 8 }} />
             <Campo
               icone="mail-outline"
               placeholder="E-mail"
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
     marginTop: 80,
   },
   conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
-  ola: { fontSize: 26, fontWeight: "800", color: cores.texto },
+  ola: { fontSize: 30, fontWeight: "800", color: cores.texto },
   subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
   linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
