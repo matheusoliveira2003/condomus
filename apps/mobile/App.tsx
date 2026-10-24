@@ -237,7 +237,6 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
         screenOptions={{
           tabBarActiveTintColor: cores.primaria,
           tabBarInactiveTintColor: cores.textoSecundario,
-          animation: "shift",
           headerRight: () => (
             <Pressable
               onPress={() => setContaAberta(true)}
