@@ -295,22 +295,24 @@ export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null
   }, [texto, duracaoMs]);
 
   return (
-    // overflow:hidden garante que height:0 esconde completamente o conteúdo.
+    // overflow:hidden + height animada: quando height=0 o conteúdo some completamente.
     <Animated.View style={{ height: alturaAnimada, overflow: "hidden" }}>
-      <Animated.View
-        style={[styles.erroContainer, { opacity: opacidade }]}
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h > 0 && alturaMedida.current === 0) {
-            alturaMedida.current = h;
-            // Se há texto aguardando, expande agora que a altura é conhecida.
-            if (textoAtivo) expandirRef.current();
-          }
-        }}
-      >
-        <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
-        <Text style={styles.erroTexto}>{textoAtivo ?? ""}</Text>
-      </Animated.View>
+      {textoAtivo !== null && (
+        <Animated.View
+          style={[styles.erroContainer, { opacity: opacidade }]}
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            // Mede sempre (texto pode mudar de tamanho); atualiza se cresceu.
+            if (h > 0 && h !== alturaMedida.current) {
+              alturaMedida.current = h;
+              expandirRef.current();
+            }
+          }}
+        >
+          <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
+          <Text style={styles.erroTexto}>{textoAtivo}</Text>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
