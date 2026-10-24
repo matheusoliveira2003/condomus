@@ -256,52 +256,33 @@ export function Secao({ titulo }: { titulo: string }) {
 export function MensagemErro({ texto, duracaoMs = 4000 }: { texto: string | null; duracaoMs?: number }) {
   const opacidade = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Último texto não-nulo: mantido durante o fade-out para não apagar antes de sumir.
+  // Último texto não-nulo: mantido durante o fade-out para o texto não sumir antes da animação acabar.
   const [textoAtivo, setTextoAtivo] = useState<string | null>(null);
-  // Altura real do banner medida no primeiro layout; 0 = ainda não houve erro.
-  const [alturaBanner, setAlturaBanner] = useState(0);
-  // Altura animada do wrapper: vai de 0 → alturaBanner ao aparecer, e fica em
-  // alturaBanner mesmo durante o fade-out, evitando deslocamento dos vizinhos.
-  const alturaAnimada = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!texto) {
-      // Fade-out sem encolher o wrapper — o espaço fica reservado.
       Animated.timing(opacidade, { toValue: 0, duration: 300, useNativeDriver: true }).start();
       return;
     }
     setTextoAtivo(texto);
-    // Fade-in; a altura será expandida assim que onLayout reportar o tamanho real.
     Animated.timing(opacidade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    // Auto-dismiss após duracaoMs.
     timerRef.current = setTimeout(() => {
       Animated.timing(opacidade, { toValue: 0, duration: 400, useNativeDriver: true }).start();
     }, duracaoMs);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [texto]);
 
-  // Expande o wrapper para a altura real assim que ela for conhecida.
-  useEffect(() => {
-    if (alturaBanner > 0) {
-      Animated.timing(alturaAnimada, { toValue: alturaBanner, duration: 0, useNativeDriver: false }).start();
-    }
-  }, [alturaBanner]);
-
-  // O componente NUNCA retorna null: sempre ocupa espaço no DOM para não
-  // perturbar o gap/margin dos vizinhos. Antes do primeiro erro, altura = 0.
+  // Sempre renderiza — nunca retorna null — para não perturbar o gap/margin dos vizinhos.
+  // Quando não há texto ativo, renderiza com opacity 0 e sem conteúdo (height natural = 0).
+  // Quando há texto, o banner ocupa sua altura natural e o espaço fica estável.
+  if (!textoAtivo) {
+    return <Animated.View style={{ opacity: opacidade }} />;
+  }
   return (
-    <Animated.View style={{ height: alturaAnimada, overflow: "hidden" }}>
-      <Animated.View
-        style={[styles.erroContainer, { opacity: opacidade }]}
-        onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          if (h > 0 && h !== alturaBanner) setAlturaBanner(h);
-        }}
-      >
-        <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
-        <Text style={styles.erroTexto}>{textoAtivo ?? ""}</Text>
-      </Animated.View>
+    <Animated.View style={[styles.erroContainer, { opacity: opacidade }]}>
+      <Ionicons name="alert-circle" size={20} color={cores.perigo} style={{ flexShrink: 0 }} />
+      <Text style={styles.erroTexto}>{textoAtivo}</Text>
     </Animated.View>
   );
 }
