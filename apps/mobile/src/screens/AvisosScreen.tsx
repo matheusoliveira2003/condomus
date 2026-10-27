@@ -38,15 +38,20 @@ export function AvisosScreen() {
         vazio="Nenhum aviso no momento"
         renderItem={(aviso) => (
           <Card>
+            {/* Cabeçalho: título + botões de ação */}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
               <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
                 {aviso.fixado && <Ionicons name="pin" size={16} color={cores.perigo} />}
                 <Text style={[estilosTexto.titulo, { fontSize: 18, flex: 1 }]}>{aviso.titulo}</Text>
               </View>
               {ehSindico && (
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <Pressable onPress={() => setEditando(aviso)} hitSlop={10}>
-                    <Ionicons name="pencil-outline" size={20} color={cores.primaria} />
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Pressable
+                    onPress={() => setEditando(aviso)}
+                    hitSlop={6}
+                    style={{ backgroundColor: cores.primariaClara, borderRadius: 8, padding: 6 }}
+                  >
+                    <Ionicons name="create-outline" size={18} color={cores.primaria} />
                   </Pressable>
                   <Pressable onPress={() => confirmarRemocao(aviso)} hitSlop={10}>
                     <Ionicons name="trash-outline" size={20} color={cores.perigo} />
@@ -54,8 +59,10 @@ export function AvisosScreen() {
                 </View>
               )}
             </View>
+            {/* Conteúdo */}
             <Text style={estilosTexto.corpo}>{aviso.conteudo}</Text>
-            <Text style={estilosTexto.secundario}>{dataHora(aviso.criadoEm)}</Text>
+            {/* Rodapé: data/hora alinhada à direita */}
+            <Text style={[estilosTexto.secundario, { textAlign: "right" }]}>{dataHora(aviso.criadoEm)}</Text>
           </Card>
         )}
       />
