@@ -74,13 +74,33 @@ No celular físico, defina `EXPO_PUBLIC_API_URL=http://<IP-da-sua-máquina>:3333
 | `DATABASE_URL` | ✅ | URL do PostgreSQL |
 | `JWT_SECRET` | ✅ | Segredo para assinar os tokens JWT |
 | `ADMIN_SECRET` | ✅ | Segredo das rotas `/admin/*` (mín. 16 chars) |
-| `RESEND_API_KEY` | — | Chave do [Resend](https://resend.com) para envio de e-mail de recuperação de senha |
+| `RESEND_API_KEY` | — | Chave do [Resend](https://resend.com) para envio de e-mails (recuperação de senha, troca de e-mail, boas-vindas) |
+| `EMAIL_REMETENTE` | — | Remetente dos e-mails. Padrão `Condomus <onboarding@resend.dev>`, que só entrega ao e-mail da conta Resend; em produção use um domínio verificado, ex.: `Condomus <nao-responda@condomus.app.br>` |
 | `STORAGE_BUCKET` | — | Bucket S3/R2/MinIO para fotos de perfil |
 | `STORAGE_ENDPOINT` | — | Endpoint do storage (para Cloudflare R2, MinIO etc.) |
 | `STORAGE_ACCESS_KEY_ID` | — | Access key do storage |
 | `STORAGE_SECRET_ACCESS_KEY` | — | Secret key do storage |
 
 Sem `RESEND_API_KEY`, o código de recuperação aparece só no log. Sem `STORAGE_BUCKET`, as rotas de foto retornam 503.
+
+---
+
+## Publicar a API (Railway)
+
+A API é um servidor Node comum e a raiz do repositório é um monorepo npm (workspaces). Em um serviço do Railway ligado a este repositório:
+
+| Configuração | Valor |
+|--------------|-------|
+| Build command | `npm ci && npm run build -w @condomus/api` |
+| Start command | `npm run start -w @condomus/api` |
+| Health check path | `/health` |
+
+- O build gera o cliente do Prisma e compila o TypeScript; o start roda `prisma migrate deploy` (aplica as migrations pendentes) e sobe o servidor. Não há `.env` em produção: todas as variáveis da tabela acima ficam no painel do serviço.
+- Adicione um banco PostgreSQL ao projeto e use a referência dele como `DATABASE_URL`.
+- `PORT` é definida pelo próprio Railway.
+- `JWT_SECRET` e `ADMIN_SECRET` de produção devem ser valores novos e longos, nunca os do ambiente local.
+- Domínio: em *Settings → Networking*, adicione `api.condomus.app.br` e crie no DNS do Registro.br o registro CNAME que o Railway mostrar.
+- Depois do primeiro deploy, crie o condomínio e o síndico com `POST /admin/condominios` (`Authorization: Bearer <ADMIN_SECRET>`).
 
 ---
 
