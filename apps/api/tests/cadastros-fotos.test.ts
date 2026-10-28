@@ -13,6 +13,13 @@ vi.mock("../src/lib/storage.js", () => ({
   StorageNaoConfiguradoError: class StorageNaoConfiguradoError extends Error {},
 }));
 
+// Mock só do e-mail de boas-vindas: permite conferir a senha que seria enviada ao usuário.
+const { enviarBoasVindas } = vi.hoisted(() => ({ enviarBoasVindas: vi.fn() }));
+vi.mock("../src/lib/email.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/email.js")>()),
+  enviarBoasVindas,
+}));
+
 let app: FastifyInstance;
 let c: Cenario;
 
@@ -25,6 +32,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   fotoStorage.clear();
+  enviarBoasVindas.mockClear();
   await limparBanco();
   c = await criarCenario(app);
 });
@@ -37,8 +45,42 @@ describe("cadastros pelo síndico", () => {
     expect(r.status).toBe(201);
     expect(r.corpo).toMatchObject({ email: "nova@teste.dev", papel: "MORADOR", unidade: { numero: "201" } });
     expect(r.corpo).not.toHaveProperty("senhaHash");
-    // A API gera a senha automaticamente e a retorna em senhaGerada.
+    // A API gera a senha automaticamente, a retorna em senhaGerada e a envia por e-mail.
+    expect(enviarBoasVindas).toHaveBeenCalledWith("nova@teste.dev", "Nova Moradora", r.corpo.senhaGerada);
     await expect(entrar(app, "nova@teste.dev", r.corpo.senhaGerada)).resolves.toEqual(expect.any(String));
+  });
+
+  it("reenviar senha gera uma nova, envia por e-mail e invalida a anterior", async () => {
+    const r = await novoMorador({ nome: "Nova Moradora", email: "nova@teste.dev", papel: "MORADOR", unidadeId: c.unidades.b201.id });
+    const senhaAntiga = r.corpo.senhaGerada;
+    const tokenAntigo = await entrar(app, "nova@teste.dev", senhaAntiga);
+    expect(r.corpo.senhaTemporaria).toBe(true);
+
+    const reenvio = await chamar(app, "POST", `/usuarios/${r.corpo.id}/reenviar-senha`, { token: c.tokens.sindico });
+    expect(reenvio.status).toBe(204);
+    expect(enviarBoasVindas).toHaveBeenCalledTimes(2);
+    const [, , senhaNova] = enviarBoasVindas.mock.calls[1];
+    expect(senhaNova).not.toBe(senhaAntiga);
+
+    await expect(entrar(app, "nova@teste.dev", senhaAntiga)).rejects.toThrow();
+    await expect(entrar(app, "nova@teste.dev", senhaNova)).resolves.toEqual(expect.any(String));
+    expect((await chamar(app, "GET", "/avisos", { token: tokenAntigo })).status).toBe(401);
+  });
+
+  it("reenviar senha só vale para conta ativa que ainda não fez o primeiro acesso", async () => {
+    // O morador do cenário já tem senha própria: o síndico não pode trocá-la.
+    const jaAcessou = await chamar(app, "POST", `/usuarios/${c.usuarios.morador.id}/reenviar-senha`, { token: c.tokens.sindico });
+    expect(jaAcessou.status).toBe(409);
+    await expect(entrar(app, "morador@teste.dev")).resolves.toEqual(expect.any(String));
+
+    const r = await novoMorador({ nome: "Nova Moradora", email: "nova@teste.dev", papel: "MORADOR", unidadeId: c.unidades.b201.id });
+    await chamar(app, "PATCH", `/usuarios/${r.corpo.id}/ativo`, { token: c.tokens.sindico, corpo: { ativo: false } });
+    const desativado = await chamar(app, "POST", `/usuarios/${r.corpo.id}/reenviar-senha`, { token: c.tokens.sindico });
+    expect(desativado.status).toBe(409);
+
+    const porMorador = await chamar(app, "POST", `/usuarios/${r.corpo.id}/reenviar-senha`, { token: c.tokens.morador });
+    expect(porMorador.status).toBe(403);
+    expect(enviarBoasVindas).toHaveBeenCalledTimes(1); // só o do cadastro
   });
 
   it("morador precisa de unidade e funcionário não pode ter", async () => {

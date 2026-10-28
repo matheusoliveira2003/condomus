@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
+import { enviarBoasVindas } from "../../lib/email.js";
 
 const usuarioSchema = z
   .object({
@@ -27,7 +28,7 @@ const ativoSchema = z.object({ ativo: z.boolean() });
 const idParam = z.object({ id: z.uuid() });
 
 /** Campos devolvidos ao app — nunca expõe o hash da senha. */
-const publico = { id: true, nome: true, email: true, papel: true, ativo: true, unidade: true, fotoAtualizadaEm: true } as const;
+const publico = { id: true, nome: true, email: true, papel: true, ativo: true, unidade: true, fotoAtualizadaEm: true, senhaTemporaria: true } as const;
 
 export async function usuariosRoutes(app: FastifyInstance) {
   app.get("/usuarios", { preHandler: app.autorizar("SINDICO") }, async (req) => {
@@ -50,8 +51,29 @@ export async function usuariosRoutes(app: FastifyInstance) {
       data: { ...dados, condominioId, senhaHash: await bcrypt.hash(senhaGerada, 10), senhaTemporaria: true },
       select: publico,
     });
-    // Devolve a senha gerada para o síndico passar ao novo usuário (não é armazenada em texto claro).
+    // Envia e-mail de boas-vindas com a senha temporária (fire-and-forget).
+    enviarBoasVindas(dados.email, dados.nome, senhaGerada);
+    // Devolve a senha gerada para o síndico ver na tela (não é armazenada em texto claro).
     return reply.status(201).send({ ...usuario, senhaGerada });
+  });
+
+  // Reenviar senha temporária: gera uma nova senha e reenvia o e-mail de boas-vindas.
+  // Só vale para quem ainda não fez o primeiro acesso — senão o síndico poderia trocar a
+  // senha de alguém que já tem a própria (e /auth/senha não pede a atual quando é temporária).
+  app.post("/usuarios/:id/reenviar-senha", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
+    const { id } = idParam.parse(req.params);
+    const usuario = await prisma.usuario.findFirst({ where: { id, condominioId: req.user.condominioId } });
+    if (!usuario) throw naoEncontrado("Usuário");
+    if (!usuario.ativo) throw new HttpError(409, "Reative a conta antes de reenviar a senha");
+    if (!usuario.senhaTemporaria) throw new HttpError(409, "Este usuário já fez o primeiro acesso e definiu a própria senha");
+    const senhaGerada = gerarSenhaTemporaria();
+    // Incrementa tokenVersion: uma sessão aberta com a senha anterior deixa de valer.
+    await prisma.usuario.update({
+      where: { id },
+      data: { senhaHash: await bcrypt.hash(senhaGerada, 10), tokenVersion: { increment: 1 } },
+    });
+    enviarBoasVindas(usuario.email, usuario.nome, senhaGerada);
+    return reply.status(204).send();
   });
 
   // Desativar em vez de excluir preserva o histórico (visitas, encomendas, avisos).

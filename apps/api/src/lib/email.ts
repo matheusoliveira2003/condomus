@@ -45,6 +45,30 @@ export function enviarCodigoRecuperacao(para: string, nome: string, codigo: stri
   });
 }
 
+/** E-mail de boas-vindas enviado quando o síndico cadastra um novo usuário. */
+export function enviarBoasVindas(para: string, nome: string, senhaTemporaria: string) {
+  void enviarEmail({
+    para,
+    assunto: "Bem-vindo ao Condomus — sua conta foi criada",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #1E3A5F;">Condomus</h2>
+        <p>Olá, ${nome}!</p>
+        <p>Sua conta foi criada pelo síndico do seu condomínio. Use as credenciais abaixo para fazer seu primeiro acesso pelo app.</p>
+        <p style="font-size: 13px; color: #5B6472;">Seu e-mail de acesso:</p>
+        <p style="font-size: 16px; font-weight: bold; color: #1E3A5F;">${para}</p>
+        <p style="font-size: 13px; color: #5B6472; margin-top: 16px;">Senha temporária:</p>
+        <p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #1E3A5F; text-align: center; padding: 16px; background: #F5F7FA; border-radius: 8px;">
+          ${senhaTemporaria}
+        </p>
+        <p style="color: #5B6472; font-size: 14px;">
+          Você será solicitado a trocar essa senha no primeiro acesso.
+        </p>
+      </div>
+    `,
+  });
+}
+
 /** E-mail com o código de confirmação de troca de e-mail (válido por 15 minutos). */
 export function enviarCodigoTrocaEmail(para: string, nome: string, codigo: string) {
   void enviarEmail({

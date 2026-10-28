@@ -181,6 +181,9 @@ describe("isolamento entre condomínios", () => {
     });
     expect(desativar.statusCode).toBe(404);
 
+    // Reenviar senha de usuário alheio.
+    expect((await chamar("POST", `/usuarios/${o.morador.id}/reenviar-senha`, { auth: c.tokens.sindico })).status).toBe(404);
+
     // Cadastrar morador numa unidade alheia.
     const criarMorador = await chamar("POST", "/usuarios", {
       auth: c.tokens.sindico,

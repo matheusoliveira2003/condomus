@@ -78,6 +78,23 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
     ]);
   }
 
+  function reenviarSenha(u: UsuarioCadastro) {
+    Alert.alert(
+      "Reenviar senha",
+      `Uma nova senha temporária será gerada e enviada para ${u.email}. A senha anterior deixará de funcionar.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Reenviar",
+          onPress: () =>
+            enviar("POST", `/usuarios/${u.id}/reenviar-senha`)
+              .then(() => Alert.alert("Enviado", `Nova senha enviada para ${u.email}.`))
+              .catch((e: Error) => Alert.alert("Erro", e.message)),
+        },
+      ],
+    );
+  }
+
   return (
     <Lista
       dados={dados}
@@ -94,12 +111,23 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
               <Avatar pessoa={u} tamanho={40} />
             </View>
             <Text style={[estilosTexto.titulo, { flex: 1 }, !u.ativo && { opacity: 0.5 }]}>{u.nome}</Text>
-            {u.ativo ? <Selo texto={rotuloPapel[u.papel]} tom="primario" /> : <Selo texto="Desativado" />}
+            {!u.ativo ? (
+              <Selo texto="Desativado" />
+            ) : u.senhaTemporaria ? (
+              <Selo texto="Aguardando acesso" tom="alerta" />
+            ) : (
+              <Selo texto={rotuloPapel[u.papel]} tom="primario" />
+            )}
           </View>
           <Text style={estilosTexto.secundario}>{u.email}</Text>
           {u.unidade && <Text style={estilosTexto.corpo}>{unidadeTexto(u.unidade)}</Text>}
           {u.id !== eu?.id && (
-            <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
+            <View style={{ gap: 8 }}>
+              {u.ativo && u.senhaTemporaria && (
+                <Botao titulo="Reenviar senha por e-mail" variante="secundario" pequeno onPress={() => reenviarSenha(u)} />
+              )}
+              <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
+            </View>
           )}
         </Card>
       )}
@@ -227,7 +255,7 @@ function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; mo
           <Ionicons name="checkmark-circle" size={48} color={cores.sucesso} />
           <Text style={estilosTexto.titulo}>Usuário criado!</Text>
           <Text style={[estilosTexto.secundario, { textAlign: "center" }]}>
-            Anote a senha temporária abaixo e repasse ao usuário. Ela não poderá ser recuperada depois.
+            Um e-mail com a senha temporária foi enviado para o usuário. Ela também está disponível abaixo caso precise repassar manualmente.
           </Text>
         </View>
         <View style={senhaBox.container}>

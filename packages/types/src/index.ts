@@ -50,6 +50,7 @@ export interface UsuarioCadastro extends Pessoa {
   papel: Papel;
   ativo: boolean;
   unidade: Unidade | null;
+  senhaTemporaria: boolean;
 }
 
 // ---------------------------------------------------------------------------
