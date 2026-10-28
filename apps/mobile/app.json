@@ -54,6 +54,12 @@
     ],
     "scheme": "condomus",
     "owner": "matheuspo",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/875cc823-8b07-440a-928c-1fde2ca915f4"
+    },
     "extra": {
       "eas": {
         "projectId": "875cc823-8b07-440a-928c-1fde2ca915f4"
