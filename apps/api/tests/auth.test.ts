@@ -104,6 +104,28 @@ describe("troca de senha", () => {
     expect(r.status).toBe(400);
   });
 
+  it("senha temporária: troca sem informar a senha atual e libera o acesso normal", async () => {
+    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    // É o que a tela de troca obrigatória envia: senhaAtual vazia.
+    const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: "nova-senha" } });
+    expect(r.status).toBe(204);
+    const sessao = await chamar(app, "POST", "/auth/login", { corpo: { email: "morador@teste.dev", senha: "nova-senha" } });
+    expect(sessao.status).toBe(200);
+    expect(sessao.corpo.usuario.senhaTemporaria).toBe(false);
+  });
+
+  it("senha temporária: a nova senha não pode ser a própria temporária", async () => {
+    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: SENHA } });
+    expect(r.status).toBe(400);
+  });
+
+  it("conta com senha própria continua exigindo a senha atual (vazia é recusada)", async () => {
+    const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: "nova-senha" } });
+    expect(r.status).toBe(400);
+    await expect(entrar(app, "morador@teste.dev")).resolves.toEqual(expect.any(String));
+  });
+
   it("recusa nova senha curta ou igual à atual", async () => {
     const curta = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: "123" } });
     const igual = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: SENHA } });

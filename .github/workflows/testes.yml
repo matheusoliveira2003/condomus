@@ -1,0 +1,52 @@
+name: Testes
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+# Um push novo na mesma branch cancela a execução anterior ainda em andamento.
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Mesmas credenciais do vitest.config.ts: o banco condomus_teste é criado pelos próprios testes.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: condomus
+          POSTGRES_PASSWORD: condomus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U condomus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # O npm ci não gera o cliente do Prisma; sem ele o typecheck e os testes não compilam.
+      - run: npx prisma generate --no-hints
+        working-directory: apps/api
+
+      - name: Typecheck (API, app e tipos)
+        run: npm run typecheck
+
+      - name: Testes da API
+        run: npm test

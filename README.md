@@ -104,6 +104,22 @@ A API é um servidor Node comum e a raiz do repositório é um monorepo npm (wor
 
 ---
 
+## Branches e fluxo de trabalho
+
+| Branch | Função | Quem recebe |
+|--------|--------|-------------|
+| `develop` | Trabalho do dia a dia. Commits e branches curtas (`feature/...`, `fix/...`) saem daqui. | Desenvolvimento local |
+| `main` | Produção. A API no Railway publica a partir dela. | Só pull request vindo da `develop` |
+
+1. Trabalhe na `develop` ou em uma branch curta criada a partir dela.
+2. Quando a entrega estiver pronta, abra um pull request para a `main`. O workflow **Testes** (`.github/workflows/testes.yml`) roda o typecheck e os testes da API nele.
+3. Só faça merge com os testes passando.
+4. Para mudanças no app, publique a atualização com `eas update` no canal correspondente (`production` na `main`, `preview` nos testes).
+
+Uma branch `staging` pode ser criada antes da apresentação do TCC ou quando houver moradores reais, com um segundo serviço no Railway.
+
+---
+
 ## Testes automatizados
 
 ```bash
