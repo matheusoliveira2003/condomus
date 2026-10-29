@@ -17,7 +17,8 @@ const loginSchema = z.object({
 
 const trocarSenhaSchema = z
   .object({
-    senhaAtual: z.string().min(1),
+    // Pode vir vazia: quem entrou com senha temporária não a conhece. Para as demais contas a rota confere.
+    senhaAtual: z.string(),
     novaSenha: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
   })
   .refine((s) => s.senhaAtual !== s.novaSenha, { message: "A nova senha deve ser diferente da atual", path: ["novaSenha"] });
@@ -70,10 +71,12 @@ export async function authRoutes(app: FastifyInstance) {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
     if (!usuario) throw naoEncontrado("Usuário");
-    // Senha temporária: não exige verificação da senha atual (o usuário não a conhece).
-    // Senha normal: verifica a senha atual antes de trocar.
-    if (!usuario.senhaTemporaria) {
-      if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
+    // Senha temporária: não exige a senha atual (o app não a pede), mas a nova não pode ser a própria
+    // temporária, que circulou por e-mail. Senha normal: verifica a senha atual antes de trocar.
+    if (usuario.senhaTemporaria) {
+      if (await bcrypt.compare(novaSenha, usuario.senhaHash)) throw new HttpError(400, "A nova senha deve ser diferente da atual");
+    } else if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) {
+      throw new HttpError(400, "Senha atual incorreta");
     }
     // Incrementa tokenVersion: invalida tokens antigos. Zera senhaTemporaria no primeiro login.
     await prisma.usuario.update({
