@@ -17,8 +17,8 @@ interface AuthContextValue {
   sair: () => Promise<void>;
   /** Atualiza a versão da foto após enviar ou remover, para os avatares recarregarem. */
   definirFoto: (fotoAtualizadaEm: string | null) => void;
-  /** Zera senhaTemporaria após o usuário definir sua própria senha. */
-  confirmarTrocaDeSenha: () => void;
+  /** Adota a sessão devolvida pela troca de senha (o token anterior deixa de valer). */
+  confirmarTrocaDeSenha: (token: string, usuario: Usuario) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           papel: eu.papel,
           unidadeId: eu.unidade?.id ?? null,
           fotoAtualizadaEm: eu.fotoAtualizadaEm,
+          senhaTemporaria: eu.senhaTemporaria,
         });
       } catch {
         await sair();
@@ -101,8 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario((atual) => (atual ? { ...atual, fotoAtualizadaEm } : atual));
   }, []);
 
-  const confirmarTrocaDeSenha = useCallback(() => {
-    setUsuario((atual) => (atual ? { ...atual, senhaTemporaria: false } : atual));
+  const confirmarTrocaDeSenha = useCallback(async (token: string, novo: Usuario) => {
+    // A troca de senha invalida o token antigo: guarda o novo antes da próxima requisição.
+    definirToken(token);
+    // Só regrava se havia sessão salva (login sem "lembrar" não deve passar a lembrar).
+    if (await SecureStore.getItemAsync(CHAVE_TOKEN)) await SecureStore.setItemAsync(CHAVE_TOKEN, token);
+    setUsuario(novo);
   }, []);
 
   return (

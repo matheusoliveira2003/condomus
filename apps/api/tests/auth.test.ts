@@ -82,7 +82,7 @@ describe("token do condomínio", () => {
 describe("troca de senha", () => {
   it("troca a senha: a antiga para de funcionar e a nova passa a valer", async () => {
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: "nova-senha" } });
-    expect(r.status).toBe(204);
+    expect(r.status).toBe(200);
     await expect(entrar(app, "morador@teste.dev")).rejects.toThrow();
     await expect(entrar(app, "morador@teste.dev", "nova-senha")).resolves.toEqual(expect.any(String));
   });
@@ -108,7 +108,8 @@ describe("troca de senha", () => {
     await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
     // É o que a tela de troca obrigatória envia: senhaAtual vazia.
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: "nova-senha" } });
-    expect(r.status).toBe(204);
+    expect(r.status).toBe(200);
+    expect(r.corpo.usuario.senhaTemporaria).toBe(false);
     const sessao = await chamar(app, "POST", "/auth/login", { corpo: { email: "morador@teste.dev", senha: "nova-senha" } });
     expect(sessao.status).toBe(200);
     expect(sessao.corpo.usuario.senhaTemporaria).toBe(false);
@@ -124,6 +125,21 @@ describe("troca de senha", () => {
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: "nova-senha" } });
     expect(r.status).toBe(400);
     await expect(entrar(app, "morador@teste.dev")).resolves.toEqual(expect.any(String));
+  });
+
+  it("a troca devolve uma sessão nova: o token novo vale e o anterior não", async () => {
+    const tokenAntigo = c.tokens.morador;
+    const r = await chamar(app, "PATCH", "/auth/senha", { token: tokenAntigo, corpo: { senhaAtual: SENHA, novaSenha: "nova-senha" } });
+    expect(r.corpo.token).toEqual(expect.any(String));
+    expect(r.corpo.usuario).toMatchObject({ nome: "Morador A", papel: "MORADOR", senhaTemporaria: false });
+    expect((await chamar(app, "GET", "/auth/me", { token: r.corpo.token })).status).toBe(200);
+    expect((await chamar(app, "GET", "/auth/me", { token: tokenAntigo })).status).toBe(401);
+  });
+
+  it("/auth/me informa senhaTemporaria, para o app restaurar a tela de troca obrigatória", async () => {
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).corpo.senhaTemporaria).toBe(false);
+    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).corpo.senhaTemporaria).toBe(true);
   });
 
   it("recusa nova senha curta ou igual à atual", async () => {

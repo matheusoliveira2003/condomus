@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { enviar, type PlanoStatus } from "../api/client";
+import { enviar, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
 import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
@@ -279,6 +279,7 @@ function OpcaoSheet({
 
 /** Modal separado para troca de senha. */
 function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const { confirmarTrocaDeSenha } = useAuth();
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
@@ -301,7 +302,8 @@ function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
     if (nova !== confirmacao) return setErro("A confirmação não confere com a nova senha");
     setSalvando(true);
     try {
-      await enviar("PATCH", "/auth/senha", { senhaAtual: atual, novaSenha: nova });
+      const { token, usuario: sessao } = await enviar<{ token: string; usuario: Usuario }>("PATCH", "/auth/senha", { senhaAtual: atual, novaSenha: nova });
+      await confirmarTrocaDeSenha(token, sessao);
       setSucesso(true);
       setAtual("");
       setNova("");

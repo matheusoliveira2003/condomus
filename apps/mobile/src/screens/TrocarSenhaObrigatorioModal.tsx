@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { enviar } from "../api/client";
+import { enviar, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { cores } from "../ui/tema";
@@ -25,8 +25,8 @@ export function TrocarSenhaObrigatorioModal() {
     setSalvando(true);
     try {
       // senhaAtual ignorada pelo servidor quando senhaTemporaria=true.
-      await enviar("PATCH", "/auth/senha", { senhaAtual: "", novaSenha: nova });
-      confirmarTrocaDeSenha();
+      const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>("PATCH", "/auth/senha", { senhaAtual: "", novaSenha: nova });
+      await confirmarTrocaDeSenha(token, usuario);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
