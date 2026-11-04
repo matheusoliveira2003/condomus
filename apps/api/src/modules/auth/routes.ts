@@ -67,7 +67,7 @@ export async function authRoutes(app: FastifyInstance) {
     return usuario;
   });
 
-  app.patch("/auth/senha", { preHandler: app.autorizar() }, async (req, reply) => {
+  app.patch("/auth/senha", { preHandler: app.autorizar() }, async (req) => {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
     if (!usuario) throw naoEncontrado("Usuário");
@@ -79,11 +79,12 @@ export async function authRoutes(app: FastifyInstance) {
       throw new HttpError(400, "Senha atual incorreta");
     }
     // Incrementa tokenVersion: invalida tokens antigos. Zera senhaTemporaria no primeiro login.
-    await prisma.usuario.update({
+    const atualizado = await prisma.usuario.update({
       where: { id: usuario.id },
       data: { senhaHash: await bcrypt.hash(novaSenha, 10), tokenVersion: { increment: 1 }, senhaTemporaria: false },
     });
-    return reply.status(204).send();
+    // Devolve a sessão nova: o token usado nesta requisição acabou de ser invalidado e o app precisa trocá-lo.
+    return emitirSessao(app, atualizado);
   });
 
   // Esqueci a senha — passo 1: pede o código por e-mail. A resposta é sempre a mesma, exista ou
