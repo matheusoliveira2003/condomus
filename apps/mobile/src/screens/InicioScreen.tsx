@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useResumo } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { AvisosScreen } from "./AvisosScreen";
+import { MinhaContaModal } from "./MinhaContaModal";
 import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { cores } from "../ui/tema";
@@ -25,6 +26,7 @@ export function InicioScreen() {
   const recarregar = query.refetch;
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
+  const [contaAberta, setContaAberta] = useState(false);
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
   useAbrirPorParametro("verAvisos", useCallback(() => setVendoAvisos(true), []));
 
@@ -38,10 +40,14 @@ export function InicioScreen() {
       refreshControl={<RefreshControl refreshing={carregando} onRefresh={recarregar} />}
     >
       <View style={styles.cabecalho}>
-        {usuario && <Avatar pessoa={usuario} tamanho={52} />}
+        {usuario && (
+          <Pressable onPress={() => setContaAberta(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Minha conta">
+            <Avatar pessoa={usuario} tamanho={52} />
+          </Pressable>
+        )}
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.saudacao}>
-            {saudacao()}, {primeiroNome}!
+            {saudacao()}, {primeiroNome}
           </Text>
           <Text style={estilosTexto.secundario}>
             {resumo?.unidade ? `${unidadeTexto(resumo.unidade)} · ` : ""}
@@ -154,6 +160,7 @@ export function InicioScreen() {
       <ModalTela visivel={vendoAvisos} titulo="Avisos" onFechar={() => setVendoAvisos(false)}>
         <AvisosScreen />
       </ModalTela>
+      <MinhaContaModal visivel={contaAberta} onFechar={() => setContaAberta(false)} />
     </ScrollView>
   );
 }
