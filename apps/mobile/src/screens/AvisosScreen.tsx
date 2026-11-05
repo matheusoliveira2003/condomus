@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -43,31 +43,42 @@ export function AvisosScreen() {
         vazio="Nenhum aviso no momento"
         renderItem={(aviso) => (
           <Card>
-            {/* Cabeçalho: título + botões de ação */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                {aviso.fixado && <Ionicons name="pin" size={16} color={cores.perigo} />}
-                <Text style={[estilosTexto.titulo, { fontSize: 18, flex: 1 }]}>{aviso.titulo}</Text>
+            {aviso.fixado && (
+              <View style={estilos.fixado}>
+                <Ionicons name="pin" size={13} color={cores.primaria} />
+                <Text style={estilos.fixadoTexto}>Fixado</Text>
               </View>
+            )}
+            <View style={estilos.cabecalho}>
+              <Text style={estilos.titulo} numberOfLines={2}>{aviso.titulo}</Text>
               {ehSindico && (
-                <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={estilos.acoes}>
                   <Pressable
                     onPress={() => setEditando(aviso)}
-                    hitSlop={6}
-                    style={{ backgroundColor: cores.primariaClara, borderRadius: 8, padding: 6 }}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar aviso"
+                    style={({ pressed }) => [estilos.acao, { backgroundColor: cores.primariaClara }, pressed && { opacity: 0.7 }]}
                   >
-                    <Ionicons name="create-outline" size={18} color={cores.primaria} />
+                    <Ionicons name="create-outline" size={19} color={cores.primaria} />
                   </Pressable>
-                  <Pressable onPress={() => confirmarRemocao(aviso)} hitSlop={10}>
-                    <Ionicons name="trash-outline" size={20} color={cores.perigo} />
+                  <Pressable
+                    onPress={() => confirmarRemocao(aviso)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remover aviso"
+                    style={({ pressed }) => [estilos.acao, { backgroundColor: "#FDECEC" }, pressed && { opacity: 0.7 }]}
+                  >
+                    <Ionicons name="trash-outline" size={19} color={cores.perigo} />
                   </Pressable>
                 </View>
               )}
             </View>
-            {/* Conteúdo */}
-            <Text style={estilosTexto.corpo}>{aviso.conteudo}</Text>
-            {/* Rodapé: data/hora alinhada à direita */}
-            <Text style={[estilosTexto.secundario, { textAlign: "right" }]}>{dataHora(aviso.criadoEm)}</Text>
+            <Text style={estilos.conteudo}>{aviso.conteudo}</Text>
+            <View style={estilos.rodape}>
+              <Ionicons name="time-outline" size={14} color={cores.textoSecundario} />
+              <Text style={estilos.data}>Publicado em {dataHora(aviso.criadoEm)}</Text>
+            </View>
           </Card>
         )}
       />
@@ -157,3 +168,33 @@ function AvisoModal({
     </ModalFormulario>
   );
 }
+
+const estilos = StyleSheet.create({
+  fixado: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    backgroundColor: cores.primariaClara,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  fixadoTexto: { fontSize: 12, fontWeight: "700", color: cores.primaria },
+  cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
+  titulo: { flex: 1, fontSize: 18, fontWeight: "700", color: cores.texto, lineHeight: 24 },
+  acoes: { flexDirection: "row", gap: 8 },
+  acao: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  conteudo: { marginTop: 10, fontSize: 15, lineHeight: 22, color: cores.texto },
+  rodape: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: cores.borda,
+  },
+  data: { fontSize: 13, color: cores.textoSecundario },
+});
