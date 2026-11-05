@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { type StatusVisita, type Visita } from "../api/client";
 import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useVisitas } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
@@ -17,6 +17,7 @@ const abas: { valor: StatusVisita; rotulo: string }[] = [
 ];
 
 export function PortariaVisitasScreen() {
+  const estilosTexto = useEstilosTexto();
   const [status, setStatus] = useState<StatusVisita>("AGENDADA");
   const [busca, setBusca] = useState("");
   const [registrando, setRegistrando] = useState(false);

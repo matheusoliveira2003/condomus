@@ -4,13 +4,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
-import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
+import { Botao, Campo, Card, Chips, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { useMensagens } from "../ui/mensagens";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, useTema, type Paleta, type Preferencia } from "../ui/tema";
 import type { Papel } from "../api/client";
+
+const opcoesAparencia: { valor: Preferencia; rotulo: string }[] = [
+  { valor: "claro", rotulo: "Claro" },
+  { valor: "escuro", rotulo: "Escuro" },
+  { valor: "sistema", rotulo: "Seguir o sistema" },
+];
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
 
@@ -22,6 +28,10 @@ const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primar
 };
 
 export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
+  const { preferencia, definirPreferencia } = useTema();
   const { sair, usuario, definirFoto } = useAuth();
   const { data: perfil } = usePerfil(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
@@ -132,6 +142,15 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
       </Pressable>
 
+      {/* Aparência: claro, escuro ou o do sistema */}
+      <View style={{ gap: 8 }}>
+        <Secao titulo="Aparência" />
+        <Chips grade opcoes={opcoesAparencia} valor={preferencia} onChange={definirPreferencia} />
+        {preferencia === "sistema" && (
+          <Text style={estilosTexto.secundario}>O app acompanha o modo claro ou escuro do seu celular.</Text>
+        )}
+      </View>
+
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
 
@@ -146,6 +165,8 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
 
 /** Situação do plano do condomínio (visível só ao síndico). */
 function PlanoDoCondominio() {
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const { data: condominio } = useCondominio();
   if (!condominio) return null;
   const { texto, tom } = rotuloPlano[condominio.planoStatus];
@@ -168,6 +189,8 @@ function PlanoDoCondominio() {
 
 /** Avatar grande; tocar chama onAbrirSheet para exibir o sheet no nível correto. */
 function FotoDePerfil({ enviando, onAbrirSheet }: { enviando: boolean; onAbrirSheet: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { usuario } = useAuth();
   if (!usuario) return null;
 
@@ -185,7 +208,7 @@ function FotoDePerfil({ enviando, onAbrirSheet }: { enviando: boolean; onAbrirSh
         </View>
       ) : (
         <View style={styles.seloCamera}>
-          <Ionicons name="camera" size={16} color="#fff" />
+          <Ionicons name="camera" size={16} color={cores.textoSobreCor} />
         </View>
       )}
     </Pressable>
@@ -208,6 +231,7 @@ function FotoSheet({
   onRemover: () => void;
   onFechar: () => void;
 }) {
+  const stylesSheet = useEstilos(criarStylesSheet);
   const translateY = useRef(new Animated.Value(300)).current;
   const opacidade = useRef(new Animated.Value(0)).current;
   // montado controla se o componente fica na árvore; só desmonta após animação de saída terminar.
@@ -266,13 +290,15 @@ function OpcaoSheet({
   onPress: () => void;
   perigo?: boolean;
 }) {
+  const cores = useCores();
+  const stylesSheet = useEstilos(criarStylesSheet);
   const cor = perigo ? cores.perigo : cores.texto;
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [stylesSheet.opcao, pressed && { backgroundColor: cores.fundo }]}
     >
-      <View style={[stylesSheet.opcaoIcone, perigo && { backgroundColor: "#fff0f0" }]}>
+      <View style={[stylesSheet.opcaoIcone, perigo && { backgroundColor: cores.perigoClaro }]}>
         <Ionicons name={icone} size={20} color={cor} />
       </View>
       <Text style={[stylesSheet.opcaoTexto, { color: cor }]}>{texto}</Text>
@@ -283,6 +309,8 @@ function OpcaoSheet({
 
 /** Modal separado para troca de senha. */
 function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { confirmarTrocaDeSenha } = useAuth();
   const [atual, setAtual] = useState("");
   const [nova, setNova] = useState("");
@@ -338,6 +366,9 @@ function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
 
 /** Modal para troca de e-mail em duas etapas: (1) novo e-mail + senha → (2) código recebido. */
 function TrocarEmailModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const [etapa, setEtapa] = useState<1 | 2>(1);
   const [novoEmail, setNovoEmail] = useState("");
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -428,101 +459,103 @@ function TrocarEmailModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
   );
 }
 
-const styles = StyleSheet.create({
-  perfil: { alignItems: "center", gap: 4, paddingVertical: 8 },
-  perfilCarregando: { alignItems: "center", paddingVertical: 32 },
-  carregandoFoto: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 48,
-    backgroundColor: "rgba(15, 27, 45, 0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  seloCamera: {
-    position: "absolute",
-    right: 0,
-    bottom: 0,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: cores.primaria,
-    borderWidth: 2,
-    borderColor: cores.superficie,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  planoLinha: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  linkSenha: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: cores.superficie,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: cores.borda,
-  },
-  linkSenhaTexto: { fontSize: 15, fontWeight: "500", color: cores.primaria },
-  separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
-  sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    perfil: { alignItems: "center", gap: 4, paddingVertical: 8 },
+    perfilCarregando: { alignItems: "center", paddingVertical: 32 },
+    carregandoFoto: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: 48,
+      backgroundColor: "rgba(15, 27, 45, 0.45)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    seloCamera: {
+      position: "absolute",
+      right: 0,
+      bottom: 0,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: cores.primaria,
+      borderWidth: 2,
+      borderColor: cores.superficie,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    planoLinha: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+    linkSenha: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: cores.superficie,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: cores.borda,
+    },
+    linkSenhaTexto: { fontSize: 15, fontWeight: "500", color: cores.primaria },
+    separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
+    sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
+  });
 
-const stylesSheet = StyleSheet.create({
-  fundo: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
-    zIndex: 100,
-  },
-  sheet: {
-    backgroundColor: cores.superficie,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    paddingTop: 12,
-  },
-  alca: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: cores.borda,
-    alignSelf: "center",
-    marginBottom: 16,
-  },
-  titulo: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: cores.textoSecundario,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  opcao: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderRadius: 10,
-  },
-  opcaoIcone: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: cores.primariaClara,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  opcaoTexto: { fontSize: 16, fontWeight: "500" },
-  separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
-  cancelar: {
-    marginTop: 8,
-    paddingVertical: 14,
-    alignItems: "center",
-    borderRadius: 12,
-    backgroundColor: cores.fundo,
-  },
-  cancelarTexto: { fontSize: 16, fontWeight: "600", color: cores.textoSecundario },
-});
+const criarStylesSheet = (cores: Paleta) =>
+  StyleSheet.create({
+    fundo: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      justifyContent: "flex-end",
+      zIndex: 100,
+    },
+    sheet: {
+      backgroundColor: cores.superficie,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 16,
+      paddingBottom: 32,
+      paddingTop: 12,
+    },
+    alca: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: cores.borda,
+      alignSelf: "center",
+      marginBottom: 16,
+    },
+    titulo: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: cores.textoSecundario,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      marginBottom: 8,
+      paddingHorizontal: 4,
+    },
+    opcao: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 4,
+      borderRadius: 10,
+    },
+    opcaoIcone: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      backgroundColor: cores.primariaClara,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    opcaoTexto: { fontSize: 16, fontWeight: "500" },
+    separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
+    cancelar: {
+      marginTop: 8,
+      paddingVertical: 14,
+      alignItems: "center",
+      borderRadius: 12,
+      backgroundColor: cores.fundo,
+    },
+    cancelarTexto: { fontSize: 16, fontWeight: "600", color: cores.textoSecundario },
+  });

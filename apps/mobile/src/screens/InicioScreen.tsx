@@ -8,14 +8,17 @@ import { useResumo } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { AvisosScreen } from "./AvisosScreen";
 import { MinhaContaModal } from "./MinhaContaModal";
-import { MensagemErro, ModalTela, Selo, estilosTexto } from "../ui/componentes";
+import { MensagemErro, ModalTela, Selo, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 import { Avatar } from "../ui/Avatar";
 
 type Icone = keyof typeof Ionicons.glyphMap;
 
 export function InicioScreen() {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const { usuario } = useAuth();
   const navegacao = useNavigation<BottomTabNavigationProp<ParamListBase>>();
   const query = useResumo();
@@ -171,15 +174,19 @@ function saudacao() {
 }
 
 function Atalho({ icone, texto, onPress }: { icone: Icone; texto: string; onPress: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.atalho, pressed && { opacity: 0.7 }]}>
-      <Ionicons name={icone} size={22} color="#fff" />
+      <Ionicons name={icone} size={22} color={cores.textoSobreCor} />
       <Text style={styles.atalhoTexto}>{texto}</Text>
     </Pressable>
   );
 }
 
 function Cartao({ icone, titulo, onPress, children }: { icone: Icone; titulo: string; onPress: () => void; children: ReactNode }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.cartao, pressed && { opacity: 0.7 }]}>
       <View style={styles.cartaoCabecalho}>
@@ -194,34 +201,35 @@ function Cartao({ icone, titulo, onPress, children }: { icone: Icone; titulo: st
   );
 }
 
-const styles = StyleSheet.create({
-  conteudo: { padding: 16, gap: 14 },
-  carregando: { paddingVertical: 32, alignItems: "center" },
-  cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
-  saudacao: { fontSize: 24, fontWeight: "700", color: cores.texto },
-  atalhos: { flexDirection: "row", gap: 10 },
-  atalho: {
-    flex: 1,
-    backgroundColor: cores.primaria,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    gap: 6,
-  },
-  atalhoTexto: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  cartao: { backgroundColor: cores.superficie, borderRadius: 12, padding: 16, gap: 10, borderWidth: 1, borderColor: cores.borda },
-  cartaoCabecalho: { flexDirection: "row", alignItems: "center", gap: 8 },
-  cartaoIcone: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: cores.primariaClara,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cartaoTitulo: { flex: 1, fontSize: 13, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase" },
-  destaque: { fontSize: 16, fontWeight: "600", color: cores.texto },
-  linha: { flexDirection: "row", alignItems: "center", gap: 8 },
-  separador: { borderTopWidth: 1, borderTopColor: cores.borda, paddingTop: 8 },
-  verTodos: { color: cores.primaria, fontWeight: "600", fontSize: 14, marginTop: 2 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    conteudo: { padding: 16, gap: 14 },
+    carregando: { paddingVertical: 32, alignItems: "center" },
+    cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
+    saudacao: { fontSize: 24, fontWeight: "700", color: cores.texto },
+    atalhos: { flexDirection: "row", gap: 10 },
+    atalho: {
+      flex: 1,
+      backgroundColor: cores.primaria,
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      gap: 6,
+    },
+    atalhoTexto: { color: cores.textoSobreCor, fontWeight: "600", fontSize: 14 },
+    cartao: { backgroundColor: cores.superficie, borderRadius: 12, padding: 16, gap: 10, borderWidth: 1, borderColor: cores.borda },
+    cartaoCabecalho: { flexDirection: "row", alignItems: "center", gap: 8 },
+    cartaoIcone: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: cores.primariaClara,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cartaoTitulo: { flex: 1, fontSize: 13, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase" },
+    destaque: { fontSize: 16, fontWeight: "600", color: cores.texto },
+    linha: { flexDirection: "row", alignItems: "center", gap: 8 },
+    separador: { borderTopWidth: 1, borderTopColor: cores.borda, paddingTop: 8 },
+    verTodos: { color: cores.primaria, fontWeight: "600", fontSize: 14, marginTop: 2 },
+  });

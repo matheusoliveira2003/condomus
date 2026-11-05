@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
 import { api, enviar, type Visita } from "../api/client";
 import { AVISO_ATUALIZAR, moduloCamera } from "../convite";
-import { Botao, Campo, Card, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
+import { Botao, Campo, Card, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { Avatar } from "../ui/Avatar";
 import { data, dataHora, unidadeTexto } from "../ui/formatar";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /**
  * Portaria lê o QR code do convite (ou digita o código), confere os dados e registra a entrada.
@@ -23,6 +23,8 @@ export function LeitorConviteModal({
   onFechar: () => void;
   onEntrada: () => void;
 }) {
+  const cores = useCores();
+  const estilosTexto = useEstilosTexto();
   const [visita, setVisita] = useState<Visita | null>(null);
   /** Código usado para encontrar a visita: a API exige ele de novo para registrar a entrada. */
   const [codigoLido, setCodigoLido] = useState<string | null>(null);
@@ -106,6 +108,9 @@ export function LeitorConviteModal({
 
 /** Visor da câmera; lê um QR code por vez (para enquanto a busca do anterior acontece). */
 function Leitor({ camera, pausado, onLido }: { camera: NonNullable<typeof moduloCamera>; pausado: boolean; onLido: (codigo: string) => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const [permissao, pedirPermissao] = camera.useCameraPermissions();
   // O evento de leitura dispara várias vezes por segundo; a trava evita buscas repetidas.
   const travado = useRef(false);
@@ -160,6 +165,8 @@ function ResultadoConvite({
   onRegistrar: () => void;
   onLerOutro: () => void;
 }) {
+  const cores = useCores();
+  const estilosTexto = useEstilosTexto();
   const valido = visita.status === "AGENDADA";
   const hoje = new Date().toDateString();
   const outroDia = visita.dataPrevista && new Date(visita.dataPrevista).toDateString() !== hoje;
@@ -197,15 +204,16 @@ function ResultadoConvite({
   );
 }
 
-const styles = StyleSheet.create({
-  visor: {
-    height: 300,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#000",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mira: { width: 200, height: 200, borderWidth: 3, borderColor: "#fff", borderRadius: 20 },
-  dica: { position: "absolute", bottom: 12, color: "#fff", fontWeight: "600", textShadowColor: "#000", textShadowRadius: 4 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    visor: {
+      height: 300,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: "#000",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    mira: { width: 200, height: 200, borderWidth: 3, borderColor: "#fff", borderRadius: 20 },
+    dica: { position: "absolute", bottom: 12, color: "#fff", fontWeight: "600", textShadowColor: "#000", textShadowRadius: 4 },
+  });

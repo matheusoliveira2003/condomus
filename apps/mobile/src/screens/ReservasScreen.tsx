@@ -4,7 +4,7 @@ import { api, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useAprovarReserva, useAreas, useCancelarReserva, useCriarReserva, useReservas, useReservasMinhas, useRecusarReserva } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
 import { useMensagens, type PedidoConfirmacao } from "../ui/mensagens";
@@ -142,6 +142,7 @@ function ReservasSindico() {
 }
 
 function CardReserva({ reserva: r, mostrarUnidade, children }: { reserva: Reserva; mostrarUnidade?: boolean; children?: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
   return (
     <Card>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -179,6 +180,7 @@ function confirmarCancelamento(
 }
 
 function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | null; onFechar: () => void; onRecusada: () => void }) {
+  const estilosTexto = useEstilosTexto();
   const [motivo, setMotivo] = useState("");
   const recusar = useRecusarReserva();
   const mensagens = useMensagens();
@@ -218,6 +220,7 @@ function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | nul
 }
 
 function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: () => void }) {
+  const estilosTexto = useEstilosTexto();
   const areasQuery = useAreas();
   const areas = areasQuery.data ?? [];
   const [areaId, setAreaId] = useState<string | null>(null);

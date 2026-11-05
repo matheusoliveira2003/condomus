@@ -3,7 +3,7 @@ import { Animated, BackHandler, KeyboardAvoidingView, Platform, ScrollView, Styl
 import { enviar } from "../api/client";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { emailValido } from "../ui/formatar";
-import { cores } from "../ui/tema";
+import { useEstilos, type Paleta } from "../ui/tema";
 
 const DISTANCIA_ENTRADA = 600;
 
@@ -17,6 +17,7 @@ export function RecuperarSenhaScreen({
   /** Animated.Value 0→1: 0 = fora de cena, 1 = visível. */
   progresso?: Animated.Value;
 }) {
+  const styles = useEstilos(criarStyles);
   const [email, setEmail] = useState("");
   const [codigoPedido, setCodigoPedido] = useState(false);
 
@@ -81,6 +82,7 @@ function EtapaPedirCodigo({
   onPedido: () => void;
   onVoltar: () => void;
 }) {
+  const styles = useEstilos(criarStyles);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -121,6 +123,7 @@ function EtapaPedirCodigo({
 }
 
 function EtapaRedefinir({ email, onConcluido, onVoltar }: { email: string; onConcluido: () => void; onVoltar: () => void }) {
+  const styles = useEstilos(criarStyles);
   const [codigo, setCodigo] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
@@ -185,15 +188,16 @@ function EtapaRedefinir({ email, onConcluido, onVoltar }: { email: string; onCon
   );
 }
 
-const styles = StyleSheet.create({
-  painel: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: cores.superficie,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 80,
-  },
-  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
-  titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    painel: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: cores.superficie,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      marginTop: 80,
+    },
+    conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+    titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
+    subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
+  });

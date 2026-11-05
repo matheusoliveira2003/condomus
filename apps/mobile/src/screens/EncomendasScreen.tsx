@@ -16,13 +16,13 @@ import {
   ModalFormulario,
   ModalTela,
   Selo,
-  estilosTexto,
+  useEstilosTexto,
 } from "../ui/componentes";
 import { dataHora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 import { useMensagens } from "../ui/mensagens";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 type Filtro = Encomenda["status"];
 
@@ -86,6 +86,7 @@ export function EncomendasScreen() {
 }
 
 function CardEncomenda({ encomenda: e, ehPortaria, onRetirar }: { encomenda: Encomenda; ehPortaria?: boolean; onRetirar?: () => void }) {
+  const estilosTexto = useEstilosTexto();
   return (
     <Card>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -154,6 +155,9 @@ function NovaEncomendaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
 }
 
 function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomenda | null; onFechar: () => void; onRetirada: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const [nome, setNome] = useState("");
   const [moradores, setMoradores] = useState<Pessoa[]>([]);
   const retirar = useRegistrarRetirada();
@@ -209,16 +213,17 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
   );
 }
 
-const styles = StyleSheet.create({
-  morador: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    backgroundColor: cores.superficie,
-  },
-  moradorSelecionado: { borderColor: cores.primaria, backgroundColor: cores.primariaClara },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    morador: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+    },
+    moradorSelecionado: { borderColor: cores.primaria, backgroundColor: cores.primariaClara },
+  });

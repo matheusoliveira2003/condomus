@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { enviar, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /**
  * Tela de troca obrigatória de senha — aparece quando o usuário faz login
@@ -12,6 +12,8 @@ import { cores } from "../ui/tema";
  * Substitui toda a área logada até a senha ser trocada.
  */
 export function TrocarSenhaObrigatorioModal() {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { sair, confirmarTrocaDeSenha } = useAuth();
   const [nova, setNova] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
@@ -71,19 +73,20 @@ export function TrocarSenhaObrigatorioModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: cores.fundo },
-  conteudo: { flex: 1, padding: 24, gap: 16, justifyContent: "center" },
-  icone: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: cores.primariaClara,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 8,
-  },
-  titulo: { fontSize: 24, fontWeight: "800", color: cores.texto, textAlign: "center" },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 22, textAlign: "center" },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: cores.fundo },
+    conteudo: { flex: 1, padding: 24, gap: 16, justifyContent: "center" },
+    icone: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: cores.primariaClara,
+      alignItems: "center",
+      justifyContent: "center",
+      alignSelf: "center",
+      marginBottom: 8,
+    },
+    titulo: { fontSize: 24, fontWeight: "800", color: cores.texto, textAlign: "center" },
+    subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 22, textAlign: "center" },
+  });
