@@ -52,6 +52,25 @@ describe("saudação nos e-mails", () => {
     expect(html).toContain("Abc123");
   });
 
+  it("todos os e-mails levam o logo inline (cid) e o anexo correspondente", async () => {
+    enviarCodigoRecuperacao("a@b.com", "Matheus", "123456");
+    await vi.waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1));
+    enviarBoasVindas("a@b.com", "Matheus", "Abc123");
+    await vi.waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(2));
+    enviarCodigoTrocaEmail("a@b.com", "Matheus", "654321");
+    await vi.waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(3));
+
+    for (const [, init] of fetchFalso.mock.calls as unknown as [string, { body: string }][]) {
+      const corpo = JSON.parse(init.body) as { html: string; attachments?: { content_id?: string; content?: string; content_type?: string }[] };
+      const anexo = corpo.attachments?.[0];
+      expect(anexo?.content_id).toBeTruthy();
+      expect(anexo?.content_type).toBe("image/png");
+      expect(corpo.html).toContain(`src="cid:${anexo?.content_id}"`);
+      // PNG de verdade: assinatura \x89PNG em base64 começa com "iVBORw0KGgo"
+      expect(anexo?.content?.startsWith("iVBORw0KGgo")).toBe(true);
+    }
+  });
+
   it("e-mail de troca de e-mail: primeiro nome", async () => {
     enviarCodigoTrocaEmail("novo@b.com", "Maria Souza", "654321");
     await vi.waitFor(() => expect(fetchFalso).toHaveBeenCalled());
