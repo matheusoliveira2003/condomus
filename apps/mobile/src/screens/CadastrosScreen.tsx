@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
 import { emailValido, unidadeTexto } from "../ui/formatar";
+import { useMensagens } from "../ui/mensagens";
 import { cores } from "../ui/tema";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
@@ -62,37 +63,35 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
   const todos = query.data ?? [];
   const dados = todos.filter((u) => (aba === "moradores" ? u.papel === "MORADOR" : u.papel !== "MORADOR"));
   const { carregando, recarregando, erro, recarregar } = adaptarQuery(query);
+  const mensagens = useMensagens();
 
   function alternarAtivo(u: UsuarioCadastro) {
     const acao = u.ativo ? "Desativar" : "Reativar";
-    Alert.alert(`${acao} conta`, u.ativo ? `${u.nome} perderá o acesso ao app imediatamente.` : `${u.nome} voltará a ter acesso ao app.`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: acao,
-        style: u.ativo ? "destructive" : "default",
-        onPress: () =>
-          enviar("PATCH", `/usuarios/${u.id}/ativo`, { ativo: !u.ativo })
-            .then(() => qc.invalidateQueries({ queryKey: ["cadastros"] }))
-            .catch((e: Error) => Alert.alert("Erro", e.message)),
-      },
-    ]);
+    mensagens.confirmar({
+      titulo: `${acao} conta`,
+      texto: u.ativo ? `${u.nome} perderá o acesso ao app imediatamente.` : `${u.nome} voltará a ter acesso ao app.`,
+      confirmar: acao,
+      perigo: u.ativo,
+      aoConfirmar: () =>
+        enviar("PATCH", `/usuarios/${u.id}/ativo`, { ativo: !u.ativo })
+          .then(() => {
+            qc.invalidateQueries({ queryKey: ["cadastros"] });
+            mensagens.sucesso(u.ativo ? "Conta desativada." : "Conta reativada.");
+          })
+          .catch((e: Error) => mensagens.erro(e.message)),
+    });
   }
 
   function reenviarSenha(u: UsuarioCadastro) {
-    Alert.alert(
-      "Reenviar senha",
-      `Uma nova senha temporária será gerada e enviada para ${u.email}. A senha anterior deixará de funcionar.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Reenviar",
-          onPress: () =>
-            enviar("POST", `/usuarios/${u.id}/reenviar-senha`)
-              .then(() => Alert.alert("Enviado", `Nova senha enviada para ${u.email}.`))
-              .catch((e: Error) => Alert.alert("Erro", e.message)),
-        },
-      ],
-    );
+    mensagens.confirmar({
+      titulo: "Reenviar senha",
+      texto: `Uma nova senha temporária será gerada e enviada para ${u.email}. A senha anterior deixará de funcionar.`,
+      confirmar: "Reenviar",
+      aoConfirmar: () =>
+        enviar("POST", `/usuarios/${u.id}/reenviar-senha`)
+          .then(() => mensagens.sucesso(`Nova senha enviada para ${u.email}.`))
+          .catch((e: Error) => mensagens.erro(e.message)),
+    });
   }
 
   return (
@@ -136,15 +135,15 @@ function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabe
 }
 
 /** Gera o código de convite da unidade (vale 7 dias) para o síndico repassar ao morador. */
-function gerarConvite(u: UnidadeComMoradores) {
+function gerarConvite(mensagens: ReturnType<typeof useMensagens>, u: UnidadeComMoradores) {
   enviar<{ codigo: string; expiraEm: string }>("POST", `/unidades/${u.id}/convite`)
     .then(({ codigo, expiraEm }) =>
-      Alert.alert(
+      mensagens.informar(
         `Convite · ${unidadeTexto(u)}`,
         `Código: ${codigo}\n\nVálido até ${new Date(expiraEm).toLocaleDateString("pt-BR")}. Envie ao morador: ele usa em "Criar conta". Gerar outro código invalida este.`,
       ),
     )
-    .catch((e: Error) => Alert.alert("Erro", e.message));
+    .catch((e: Error) => mensagens.erro(e.message));
 }
 
 function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
@@ -153,6 +152,7 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
     queryFn: () => api<UnidadeComMoradores[]>("/unidades"),
   });
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
+  const mensagens = useMensagens();
   return (
     <Lista
       dados={dados}
@@ -170,7 +170,7 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
               {u._count.moradores} {u._count.moradores === 1 ? "morador" : "moradores"}
             </Text>
           </View>
-          <Botao titulo="Gerar convite" variante="secundario" pequeno onPress={() => gerarConvite(u)} />
+          <Botao titulo="Gerar convite" variante="secundario" pequeno onPress={() => gerarConvite(mensagens, u)} />
         </Card>
       )}
     />

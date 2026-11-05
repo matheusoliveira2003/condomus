@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Alert, Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { api, obterToken, type Visita } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
+import { useMensagens } from "../ui/mensagens";
 import { cores } from "../ui/tema";
 import { adaptarQuery, useCancelarVisita, useCriarVisita, useVisitas } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
@@ -24,20 +25,25 @@ export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas("situacao=ativas"));
   const cancelar = useCancelarVisita();
+  const mensagens = useMensagens();
   const [agendando, setAgendando] = useState(false);
   const [vendoHistorico, setVendoHistorico] = useState(false);
   const [convite, setConvite] = useState<Visita | null>(null);
   useAbrirPorParametro("novo", useCallback(() => setAgendando(true), []));
 
   function confirmarCancelamento(visita: Visita) {
-    Alert.alert("Cancelar visita", `Cancelar a autorização de ${visita.nomeVisitante}?`, [
-      { text: "Voltar", style: "cancel" },
-      {
-        text: "Cancelar visita",
-        style: "destructive",
-        onPress: () => cancelar.mutate(visita.id, { onError: (e) => Alert.alert("Erro", (e as Error).message) }),
-      },
-    ]);
+    mensagens.confirmar({
+      titulo: "Cancelar visita",
+      texto: `Cancelar a autorização de ${visita.nomeVisitante}?`,
+      cancelar: "Voltar",
+      confirmar: "Cancelar visita",
+      perigo: true,
+      aoConfirmar: () =>
+        cancelar.mutate(visita.id, {
+          onSuccess: () => mensagens.sucesso("Visita cancelada."),
+          onError: (e) => mensagens.erro((e as Error).message),
+        }),
+    });
   }
 
   return (
@@ -121,6 +127,7 @@ function ConviteModal({ visita, onFechar }: { visita: Visita | null; onFechar: (
   const [codigo, setCodigo] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [compartilhando, setCompartilhando] = useState(false);
+  const mensagens = useMensagens();
 
   useEffect(() => {
     setCodigo(null);
@@ -137,7 +144,7 @@ function ConviteModal({ visita, onFechar }: { visita: Visita | null; onFechar: (
     try {
       await compartilharConvite(visita.id, visita.nomeVisitante);
     } catch (e) {
-      Alert.alert("Compartilhar convite", (e as Error).message);
+      mensagens.erro((e as Error).message);
     } finally {
       setCompartilhando(false);
     }

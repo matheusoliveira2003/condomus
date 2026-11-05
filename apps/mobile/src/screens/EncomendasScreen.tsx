@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api, type Encomenda, type Pessoa } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -21,6 +21,7 @@ import {
 import { dataHora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
+import { useMensagens } from "../ui/mensagens";
 import { cores } from "../ui/tema";
 
 type Filtro = Encomenda["status"];
@@ -156,6 +157,7 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
   const [nome, setNome] = useState("");
   const [moradores, setMoradores] = useState<Pessoa[]>([]);
   const retirar = useRegistrarRetirada();
+  const mensagens = useMensagens();
 
   // Moradores da unidade, com foto, para o porteiro reconhecer quem veio buscar.
   useEffect(() => {
@@ -169,8 +171,9 @@ function RetiradaModal({ encomenda, onFechar, onRetirada }: { encomenda: Encomen
       await retirar.mutateAsync({ id: encomenda.id, retiradaPor: nome.trim() });
       setNome("");
       onRetirada();
+      mensagens.sucesso("Retirada registrada.");
     } catch (e) {
-      Alert.alert("Erro", (e as Error).message);
+      mensagens.erro((e as Error).message);
     }
   }
 

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Alert, Pressable, Switch, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useCriarAviso, useAvisos, useEditarAviso, useRemoverAviso } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { dataHora } from "../ui/formatar";
+import { useMensagens } from "../ui/mensagens";
 import { cores } from "../ui/tema";
 
 export function AvisosScreen() {
@@ -13,18 +14,22 @@ export function AvisosScreen() {
   const ehSindico = usuario?.papel === "SINDICO";
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useAvisos());
   const remover = useRemoverAviso();
+  const mensagens = useMensagens();
   const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState<Aviso | null>(null);
 
   function confirmarRemocao(aviso: Aviso) {
-    Alert.alert("Remover aviso", `Remover "${aviso.titulo}"?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover",
-        style: "destructive",
-        onPress: () => remover.mutate(aviso.id, { onError: (e) => Alert.alert("Erro", (e as Error).message) }),
-      },
-    ]);
+    mensagens.confirmar({
+      titulo: "Remover aviso",
+      texto: `Remover "${aviso.titulo}"?`,
+      confirmar: "Remover",
+      perigo: true,
+      aoConfirmar: () =>
+        remover.mutate(aviso.id, {
+          onSuccess: () => mensagens.sucesso("Aviso removido."),
+          onError: (e) => mensagens.erro((e as Error).message),
+        }),
+    });
   }
 
   return (

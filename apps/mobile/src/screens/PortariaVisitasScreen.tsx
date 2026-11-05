@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { type StatusVisita, type Visita } from "../api/client";
 import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useVisitas } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
+import { useMensagens } from "../ui/mensagens";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
 import { LeitorConviteModal } from "./LeitorConviteModal";
 
@@ -24,6 +25,7 @@ export function PortariaVisitasScreen() {
   const [conferindo, setConferindo] = useState<Visita | null>(null);
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas(`status=${status}`));
   const registrarAcao = useRegistrarEntradaSaida();
+  const mensagens = useMensagens();
 
   // Busca por nome do visitante, documento, placa ou unidade (ex.: "A-101").
   const filtradas = useMemo(() => {
@@ -40,7 +42,7 @@ export function PortariaVisitasScreen() {
     try {
       await registrarAcao.mutateAsync({ id: visita.id, acao });
     } catch (e) {
-      Alert.alert("Erro", (e as Error).message);
+      mensagens.erro((e as Error).message);
     }
   }
 

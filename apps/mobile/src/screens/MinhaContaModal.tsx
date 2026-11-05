@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -8,6 +8,7 @@ import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selo, estilos
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
+import { useMensagens } from "../ui/mensagens";
 import { cores } from "../ui/tema";
 import type { Papel } from "../api/client";
 
@@ -27,19 +28,19 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const [trocandoEmail, setTrocandoEmail] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const mensagens = useMensagens();
 
   function confirmarSaida() {
-    Alert.alert("Sair", "Deseja sair da sua conta?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sair",
-        style: "destructive",
-        onPress: () => {
-          onFechar();
-          void sair();
-        },
+    mensagens.confirmar({
+      titulo: "Sair",
+      texto: "Deseja sair da sua conta?",
+      confirmar: "Sair",
+      perigo: true,
+      aoConfirmar: () => {
+        onFechar();
+        void sair();
       },
-    ]);
+    });
   }
 
   async function trocar(origem: OrigemFoto) {
@@ -50,8 +51,9 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
       setEnviandoFoto(true);
       const { fotoAtualizadaEm } = await enviar<{ fotoAtualizadaEm: string }>("PUT", "/auth/foto", { imagem });
       definirFoto(fotoAtualizadaEm);
+      mensagens.sucesso("Foto atualizada.");
     } catch (e) {
-      Alert.alert("Foto de perfil", (e as Error).message);
+      mensagens.erro((e as Error).message);
     } finally {
       setEnviandoFoto(false);
     }
@@ -59,17 +61,19 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
 
   function removerFoto() {
     setSheetAberto(false);
-    Alert.alert("Remover foto", "Deseja remover sua foto de perfil?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover",
-        style: "destructive",
-        onPress: () =>
-          enviar("DELETE", "/auth/foto")
-            .then(() => definirFoto(null))
-            .catch((e: Error) => Alert.alert("Erro", e.message)),
-      },
-    ]);
+    mensagens.confirmar({
+      titulo: "Remover foto",
+      texto: "Deseja remover sua foto de perfil?",
+      confirmar: "Remover",
+      perigo: true,
+      aoConfirmar: () =>
+        enviar("DELETE", "/auth/foto")
+          .then(() => {
+            definirFoto(null);
+            mensagens.sucesso("Foto removida.");
+          })
+          .catch((e: Error) => mensagens.erro(e.message)),
+    });
   }
 
   return (

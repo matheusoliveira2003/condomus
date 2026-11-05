@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { api, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useAprovarReserva, useAreas, useCancelarReserva, useCriarReserva, useReservas, useReservasMinhas, useRecusarReserva } from "../hooks/queries";
@@ -7,6 +7,7 @@ import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, estilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
+import { useMensagens, type PedidoConfirmacao } from "../ui/mensagens";
 
 type OpcaoDia = "hoje" | "amanha" | "data";
 
@@ -31,6 +32,7 @@ function ReservasMorador() {
   useAbrirPorParametro("novo", useCallback(() => setReservando(true), []));
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
   const cancelar = useCancelarReserva();
+  const mensagens = useMensagens();
 
   return (
     <View style={{ flex: 1 }}>
@@ -49,7 +51,7 @@ function ReservasMorador() {
                 titulo={r.status === "PENDENTE" ? "Cancelar solicitação" : "Cancelar reserva"}
                 variante="secundario"
                 pequeno
-                onPress={() => confirmarCancelamento(r, () => cancelar.mutate(r.id))}
+                onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))}
               />
             )}
           </CardReserva>
@@ -61,7 +63,7 @@ function ReservasMorador() {
         onFechar={() => setReservando(false)}
         onCriada={() => {
           setReservando(false);
-          Alert.alert("Solicitação enviada", "O síndico vai analisar sua reserva. Você será avisado quando ela for aprovada.");
+          mensagens.sucesso("Solicitação enviada. O síndico vai analisar e você será avisado quando for aprovada.");
         }}
       />
     </View>
@@ -78,12 +80,14 @@ function ReservasSindico() {
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${agora}`));
   const aprovarMut = useAprovarReserva();
   const cancelar = useCancelarReserva();
+  const mensagens = useMensagens();
 
   async function aprovar(r: Reserva) {
     try {
       await aprovarMut.mutateAsync(r.id);
+      mensagens.sucesso("Reserva aprovada.");
     } catch (e) {
-      Alert.alert("Erro", (e as Error).message);
+      mensagens.erro((e as Error).message);
     }
   }
 
@@ -120,7 +124,7 @@ function ReservasSindico() {
                 </View>
               </View>
             ) : (
-              <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(r, () => cancelar.mutate(r.id))} />
+              <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))} />
             )}
           </CardReserva>
         )}
@@ -154,22 +158,30 @@ function CardReserva({ reserva: r, mostrarUnidade, children }: { reserva: Reserv
   );
 }
 
-function confirmarCancelamento(reserva: Reserva, aoCancelar: () => void) {
-  Alert.alert("Cancelar reserva", `${reserva.area.nome} em ${data(reserva.inicio)}?`, [
-    { text: "Voltar", style: "cancel" },
-    {
-      text: "Cancelar reserva",
-      style: "destructive",
-      onPress: () => {
-        try { aoCancelar(); } catch (e) { Alert.alert("Erro", (e as Error).message); }
-      },
+function confirmarCancelamento(
+  mensagens: { confirmar: (p: PedidoConfirmacao) => void; sucesso: (t: string) => void; erro: (t: string) => void },
+  reserva: Reserva,
+  cancelar: () => Promise<unknown>,
+) {
+  mensagens.confirmar({
+    titulo: "Cancelar reserva",
+    texto: `${reserva.area.nome} em ${data(reserva.inicio)}?`,
+    cancelar: "Voltar",
+    confirmar: "Cancelar reserva",
+    perigo: true,
+    aoConfirmar: () => {
+      cancelar().then(
+        () => mensagens.sucesso("Reserva cancelada."),
+        (e: Error) => mensagens.erro(e.message),
+      );
     },
-  ]);
+  });
 }
 
 function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | null; onFechar: () => void; onRecusada: () => void }) {
   const [motivo, setMotivo] = useState("");
   const recusar = useRecusarReserva();
+  const mensagens = useMensagens();
 
   async function confirmarRecusa() {
     if (!reserva) return;
@@ -177,8 +189,9 @@ function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | nul
       await recusar.mutateAsync({ id: reserva.id, motivo: motivo.trim() || undefined });
       setMotivo("");
       onRecusada();
+      mensagens.sucesso("Reserva recusada.");
     } catch (e) {
-      Alert.alert("Erro", (e as Error).message);
+      mensagens.erro((e as Error).message);
     }
   }
 

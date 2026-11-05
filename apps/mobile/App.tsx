@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, View, ActivityIndicator } from "react-native";
+import { Animated, Pressable, View, ActivityIndicator } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -27,6 +27,7 @@ import { InicioScreen } from "./src/screens/InicioScreen";
 import { MinhaContaModal } from "./src/screens/MinhaContaModal";
 import { cores } from "./src/ui/tema";
 import { Avatar } from "./src/ui/Avatar";
+import { MensagensProvider, useMensagens } from "./src/ui/mensagens";
 import { useAbrirAbaDaNotificacao } from "./src/notificacoes";
 
 interface Aba {
@@ -109,6 +110,7 @@ const DURACAO_PAINEL = 360;
 
 function Navegacao() {
   const { usuario, restaurando, planoInativo } = useAuth();
+  const mensagens = useMensagens();
   const [contaAberta, setContaAberta] = useState(false);
   /** A abertura animada roda uma vez por abertura do app (não ao voltar de outro app). */
   const [abertura, setAbertura] = useState(true);
@@ -183,7 +185,7 @@ function Navegacao() {
           onEsqueciSenha={irParaRecuperar}
           onVoltarDeRecuperar={voltarDeRecuperar}
           onRecuperado={() => {
-            Alert.alert("Senha redefinida", "Sua senha foi alterada. Entre com a nova senha.");
+            mensagens.sucesso("Senha redefinida. Entre com a nova senha.");
             voltarDeRecuperar();
           }}
         />
@@ -315,11 +317,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <NavigationContainer ref={navegacao} theme={temaNavegacao}>
-            <Navegacao />
-          </NavigationContainer>
-        </AuthProvider>
+        <MensagensProvider>
+          <AuthProvider>
+            <NavigationContainer ref={navegacao} theme={temaNavegacao}>
+              <Navegacao />
+            </NavigationContainer>
+          </AuthProvider>
+        </MensagensProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
