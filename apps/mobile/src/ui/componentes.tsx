@@ -321,10 +321,10 @@ export function ModalFormulario({
         {/* "padding" também no Android: com edge-to-edge o sistema não redimensiona a janela pelo teclado. */}
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <View style={styles.modalCabecalho}>
-            <Text style={styles.modalTitulo}>{titulo}</Text>
-            <Pressable onPress={onFechar} hitSlop={12}>
-              <Ionicons name="close" size={26} color={cores.texto} />
+            <Pressable onPress={onFechar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
+              <Ionicons name="arrow-back" size={24} color={cores.texto} />
             </Pressable>
+            <Text style={styles.modalTitulo}>{titulo}</Text>
           </View>
           <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
             {children}
@@ -447,13 +447,11 @@ const criarEstilos = (cores: Paleta) =>
     modal: { flex: 1, backgroundColor: cores.superficie },
     modalCabecalho: {
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
+      gap: 14,
       padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: cores.borda,
     },
-    modalTitulo: { fontSize: 18, fontWeight: "600", color: cores.texto },
+    modalTitulo: { flex: 1, fontSize: 18, fontWeight: "600", color: cores.texto },
     secao: { fontSize: 13, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase", marginTop: 4 },
     // Campo de seleção (Selecao)
     selecaoCampo: {
@@ -583,10 +581,10 @@ export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: bo
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
       <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
         <View style={styles.modalCabecalho}>
-          <Text style={styles.modalTitulo}>{titulo}</Text>
-          <Pressable onPress={onFechar} hitSlop={12}>
-            <Ionicons name="close" size={26} color={cores.texto} />
+          <Pressable onPress={onFechar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Ionicons name="arrow-back" size={24} color={cores.texto} />
           </Pressable>
+          <Text style={styles.modalTitulo}>{titulo}</Text>
         </View>
         {/* Só monta o conteúdo com o modal aberto: assim ele carrega dados novos a cada abertura. */}
         {visivel && <View style={{ flex: 1 }}>{children}</View>}
