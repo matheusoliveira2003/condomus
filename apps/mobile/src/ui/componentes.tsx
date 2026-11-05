@@ -17,6 +17,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cores } from "./tema";
+import { AvisoNoModal, useRegistrarModal } from "./mensagens";
 
 type Variante = "primario" | "secundario" | "perigo" | "discreto";
 
@@ -235,6 +236,7 @@ export function ModalFormulario({
   /** Conteúdo renderizado fora do ScrollView (ex.: bottom sheets, overlays). */
   overlay?: ReactNode;
 }) {
+  useRegistrarModal(visivel);
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
       {/* No Android o modal ocupa a tela toda, por trás da barra de status; a área segura reserva esse espaço. */}
@@ -252,6 +254,7 @@ export function ModalFormulario({
           </ScrollView>
         </KeyboardAvoidingView>
         {overlay}
+        <AvisoNoModal />
       </SafeAreaView>
     </Modal>
   );
@@ -425,6 +428,7 @@ export function LinkHistorico({ texto, onPress }: { texto: string; onPress: () =
 
 /** Tela cheia em modal, com título e botão de fechar, para conteúdo que já rola (ex.: Lista). */
 export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: boolean; titulo: string; onFechar: () => void; children: ReactNode }) {
+  useRegistrarModal(visivel);
   return (
     <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
       <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
@@ -436,6 +440,7 @@ export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: bo
         </View>
         {/* Só monta o conteúdo com o modal aberto: assim ele carrega dados novos a cada abertura. */}
         {visivel && <View style={{ flex: 1 }}>{children}</View>}
+        <AvisoNoModal />
       </SafeAreaView>
     </Modal>
   );
