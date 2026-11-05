@@ -10,3 +10,6 @@ dist/
 service-account*.json
 # Config do Firebase com chave de API — no EAS vem da variável GOOGLE_SERVICES_JSON
 apps/mobile/google-services.json
+
+# Backups do banco (dados pessoais) — nunca versionar
+backups/

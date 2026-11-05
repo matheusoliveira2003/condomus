@@ -1,6 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
-import { api, definirAoExpirarSessao, definirAoPlanoInativo, definirToken, enviar, type Usuario } from "../api/client";
+import {
+  ErroDeConexao,
+  TEMPO_LIMITE_ACORDAR_MS,
+  api,
+  aquecerServidor,
+  definirAoExpirarSessao,
+  definirAoPlanoInativo,
+  definirToken,
+  enviar,
+  type Usuario,
+} from "../api/client";
 import { obterTokenPush } from "../notificacoes";
 
 const CHAVE_TOKEN = "condomus.token";
@@ -55,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!salvo) return;
       definirToken(salvo);
       try {
-        const eu = await api<Usuario & { unidade: { id: string } | null }>("/auth/me");
+        const eu = await api<Usuario & { unidade: { id: string } | null }>("/auth/me", {}, TEMPO_LIMITE_ACORDAR_MS);
         setUsuario({
           id: eu.id,
           nome: eu.nome,
@@ -64,11 +74,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fotoAtualizadaEm: eu.fotoAtualizadaEm,
           senhaTemporaria: eu.senhaTemporaria,
         });
-      } catch {
+      } catch (e) {
+        if (e instanceof ErroDeConexao) {
+          // Servidor fora do ar ou sem rede: não é motivo para perder a sessão. Mantém o token salvo
+          // para a próxima abertura e deixa a pessoa na tela de entrada.
+          definirToken(null);
+          return;
+        }
         await sair();
       }
     }
   }, [sair]);
+
+  // Acorda o servidor já na abertura: o plano gratuito dorme quando ninguém usa.
+  useEffect(() => {
+    aquecerServidor();
+  }, []);
 
   // Com alguém logado, registra este celular para receber as notificações dessa pessoa.
   useEffect(() => {
@@ -88,10 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function entrar(email: string, senha: string, lembrar = true) {
-    const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>("POST", "/auth/login", {
-      email: email.trim().toLowerCase(),
-      senha,
-    });
+    const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>(
+      "POST",
+      "/auth/login",
+      { email: email.trim().toLowerCase(), senha },
+      TEMPO_LIMITE_ACORDAR_MS,
+    );
     definirToken(token);
     if (lembrar) await SecureStore.setItemAsync(CHAVE_TOKEN, token);
     setPlanoInativo(false);

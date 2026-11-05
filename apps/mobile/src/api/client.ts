@@ -27,6 +27,28 @@ export type {
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
 const TEMPO_LIMITE_MS = 15000;
 
+/**
+ * Limite para a primeira requisição depois de um tempo parado (login, restaurar sessão). O servidor
+ * gratuito dorme quando ninguém usa e leva cerca de 45 s para acordar.
+ */
+export const TEMPO_LIMITE_ACORDAR_MS = 60000;
+
+/** Falha de rede ou tempo esgotado: a API não respondeu (diferente de a API recusar o pedido). */
+export class ErroDeConexao extends Error {
+  constructor() {
+    super("Não foi possível conectar ao servidor");
+  }
+}
+
+/** Acorda o servidor em segundo plano, para ele já estar de pé quando a pessoa tocar em Entrar. */
+export function aquecerServidor() {
+  const controle = new AbortController();
+  const limite = setTimeout(() => controle.abort(), TEMPO_LIMITE_ACORDAR_MS);
+  fetch(`${API_URL}/health`, { signal: controle.signal })
+    .catch(() => {})
+    .finally(() => clearTimeout(limite));
+}
+
 let token: string | null = null;
 let aoExpirarSessao: (() => void) | null = null;
 let aoPlanoInativo: (() => void) | null = null;
@@ -48,10 +70,10 @@ export function definirAoPlanoInativo(callback: (() => void) | null) {
   aoPlanoInativo = callback;
 }
 
-export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
+export async function api<T>(caminho: string, opcoes: RequestInit = {}, limiteMs = TEMPO_LIMITE_MS): Promise<T> {
   let resposta: Response;
   const controle = new AbortController();
-  const limite = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
+  const limite = setTimeout(() => controle.abort(), limiteMs);
   try {
     resposta = await fetch(`${API_URL}${caminho}`, {
       signal: controle.signal,
@@ -63,7 +85,7 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
       },
     });
   } catch {
-    throw new Error("Não foi possível conectar ao servidor");
+    throw new ErroDeConexao();
   } finally {
     clearTimeout(limite);
   }
@@ -79,5 +101,5 @@ export async function api<T>(caminho: string, opcoes: RequestInit = {}): Promise
   return corpo as T;
 }
 
-export const enviar = <T>(metodo: "POST" | "PUT" | "PATCH" | "DELETE", caminho: string, corpo?: unknown) =>
-  api<T>(caminho, { method: metodo, body: corpo === undefined ? undefined : JSON.stringify(corpo) });
+export const enviar = <T>(metodo: "POST" | "PUT" | "PATCH" | "DELETE", caminho: string, corpo?: unknown, limiteMs?: number) =>
+  api<T>(caminho, { method: metodo, body: corpo === undefined ? undefined : JSON.stringify(corpo) }, limiteMs);

@@ -85,9 +85,11 @@ Sem `RESEND_API_KEY`, o código de recuperação aparece só no log. Sem `STORAG
 
 ---
 
-## Publicar a API (Railway)
+## Publicar a API (Render + Neon)
 
-A API é um servidor Node comum e a raiz do repositório é um monorepo npm (workspaces). Em um serviço do Railway ligado a este repositório:
+A API é um servidor Node comum e a raiz do repositório é um monorepo npm (workspaces). Ela roda como *Web Service* no [Render](https://render.com) e o banco PostgreSQL fica no [Neon](https://neon.tech), ambos no plano gratuito.
+
+**Web Service no Render** (ligado a este repositório, branch `main`):
 
 | Configuração | Valor |
 |--------------|-------|
@@ -95,12 +97,38 @@ A API é um servidor Node comum e a raiz do repositório é um monorepo npm (wor
 | Start command | `npm run start -w @condomus/api` |
 | Health check path | `/health` |
 
-- O build gera o cliente do Prisma e compila o TypeScript; o start roda `prisma migrate deploy` (aplica as migrations pendentes) e sobe o servidor. Não há `.env` em produção: todas as variáveis da tabela acima ficam no painel do serviço.
-- Adicione um banco PostgreSQL ao projeto e use a referência dele como `DATABASE_URL`.
-- `PORT` é definida pelo próprio Railway.
-- `JWT_SECRET` e `ADMIN_SECRET` de produção devem ser valores novos e longos, nunca os do ambiente local.
-- Domínio: em *Settings → Networking*, adicione `api.condomus.app.br` e crie no DNS do Registro.br o registro CNAME que o Railway mostrar.
-- Depois do primeiro deploy, crie o condomínio e o síndico com `POST /admin/condominios` (`Authorization: Bearer <ADMIN_SECRET>`).
+- O build gera o cliente do Prisma e compila o TypeScript; o start roda `prisma migrate deploy` (aplica as migrations pendentes) e sobe o servidor. Não há `.env` em produção: todas as variáveis da tabela acima ficam em *Environment* no painel do serviço.
+- `PORT` é definida pelo próprio Render.
+- `JWT_SECRET` e `ADMIN_SECRET` de produção devem ser valores novos e longos (por exemplo `openssl rand -hex 32`), nunca os do ambiente local.
+- Variáveis opcionais que não forem usadas devem ser **removidas**, não deixadas vazias: `STORAGE_ENDPOINT=""` não é uma URL válida e a API não sobe.
+
+**Banco no Neon:**
+
+- Use a *connection string* **direta** (host sem `-pooler`) com `sslmode=require` em `DATABASE_URL`. O `prisma migrate deploy` usa advisory locks, que não funcionam pelo pooler.
+- O banco é suspenso após alguns minutos sem uso e volta na próxima consulta.
+- O plano gratuito **não tem backup agendado**: faça um dump manual antes de guardar dados reais.
+
+**Backup do banco:** o script `scripts/backup-banco.sh` gera um dump (`pg_dump`, formato custom) em `backups/`, que fica fora do git porque tem dados pessoais. A URL do banco vem do ambiente, nunca de arquivo:
+
+```bash
+read -rs "DATABASE_URL?Cole a URL direta do Neon: "; export DATABASE_URL   # zsh
+./scripts/backup-banco.sh
+```
+
+Para restaurar num banco vazio: `pg_restore --no-owner --dbname="$DATABASE_URL" backups/<arquivo>.dump`. Faça um backup antes de migrations arriscadas e periodicamente enquanto o plano for gratuito.
+
+**Primeiro acesso:** depois do primeiro deploy, crie o condomínio e o síndico com `POST /admin/condominios` (`Authorization: Bearer <ADMIN_SECRET>`). A resposta traz a `senhaGerada` do síndico, que é temporária: o app pede a troca no primeiro login. Essa rota não envia e-mail.
+
+**Servidor dormindo:** o plano gratuito do Render suspende a API após cerca de 15 minutos sem requisições e leva cerca de 45 s para acordar. O app chama `/health` ao abrir e espera até 60 s no login e ao restaurar a sessão; fora isso o limite é de 15 s.
+
+**App:** `EXPO_PUBLIC_API_URL` aponta para a URL pública da API e fica nas variáveis de ambiente do EAS (`preview` e `production`). Ela é gravada no momento do build ou do `eas update`; para o update ler as variáveis do EAS, use `--environment`:
+
+```bash
+cd apps/mobile
+npx eas-cli@latest update --channel preview --environment preview --platform android --message "O que mudou"
+```
+
+Mudanças só de JavaScript chegam ao celular por `eas update`. Mudanças nativas (novo módulo, `app.json`, permissões) exigem um APK novo: `npx eas-cli@latest build --profile preview --platform android`.
 
 ---
 
@@ -109,14 +137,14 @@ A API é um servidor Node comum e a raiz do repositório é um monorepo npm (wor
 | Branch | Função | Quem recebe |
 |--------|--------|-------------|
 | `develop` | Trabalho do dia a dia. Commits e branches curtas (`feature/...`, `fix/...`) saem daqui. | Desenvolvimento local |
-| `main` | Produção. A API no Railway publica a partir dela. | Só pull request vindo da `develop` |
+| `main` | Produção. O Render publica a API a partir dela. | Só pull request vindo da `develop` |
 
 1. Trabalhe na `develop` ou em uma branch curta criada a partir dela.
 2. Quando a entrega estiver pronta, abra um pull request para a `main`. O workflow **Testes** (`.github/workflows/testes.yml`) roda o typecheck e os testes da API nele.
 3. Só faça merge com os testes passando.
 4. Para mudanças no app, publique a atualização com `eas update` no canal correspondente (`production` na `main`, `preview` nos testes).
 
-Uma branch `staging` pode ser criada antes da apresentação do TCC ou quando houver moradores reais, com um segundo serviço no Railway.
+Uma branch `staging` pode ser criada antes da apresentação do TCC ou quando houver moradores reais, com um segundo serviço no Render e um segundo banco (ou *branch*) no Neon.
 
 ---
 
