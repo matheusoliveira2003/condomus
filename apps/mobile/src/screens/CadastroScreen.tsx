@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useCadastro, useConvite } from "../hooks/queries";
 import { Botao, Campo, InfoSheet, MensagemErro } from "../ui/componentes";
 import { emailValido } from "../ui/formatar";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /** Distância que o painel percorre ao entrar (vindo de baixo). */
 const DISTANCIA_ENTRADA = 600;
@@ -22,6 +22,7 @@ export function CadastroScreen({
   /** Animated.Value 0→1: 0 = fora de cena, 1 = visível. */
   progresso?: Animated.Value;
 }) {
+  const styles = useEstilos(criarStyles);
   const [codigo, setCodigo] = useState("");
   const [confirmado, setConfirmado] = useState(false);
   const [ajudaVisivel, setAjudaVisivel] = useState(false);
@@ -120,6 +121,8 @@ function EtapaCodigo({
   onVoltar: () => void;
   onAjuda: () => void;
 }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   return (
     <>
       <View style={styles.linhaVoltar}>
@@ -159,6 +162,8 @@ function EtapaCodigo({
 }
 
 function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { iniciarSessao } = useAuth();
   const cadastro = useCadastro();
   const [nome, setNome] = useState("");
@@ -225,26 +230,27 @@ function EtapaDados({ codigo, onVoltar }: { codigo: string; onVoltar: () => void
   );
 }
 
-const styles = StyleSheet.create({
-  painel: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: cores.superficie,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 80, // deixa o gradiente visível no topo, alinhado com o LoginScreen
-  },
-  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
-  linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
-  titulo: { fontSize: 24, fontWeight: "800", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
-  ajudaTexto: { fontSize: 15, color: cores.texto, lineHeight: 22 },
-  confirmacao: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: cores.sucessoClaro,
-  },
-  confirmacaoTexto: { flex: 1, color: cores.texto, fontWeight: "600" },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    painel: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: cores.superficie,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      marginTop: 80, // deixa o gradiente visível no topo, alinhado com o LoginScreen
+    },
+    conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+    linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
+    titulo: { fontSize: 24, fontWeight: "800", color: cores.texto },
+    subtitulo: { fontSize: 15, color: cores.textoSecundario, lineHeight: 21 },
+    ajudaTexto: { fontSize: 15, color: cores.texto, lineHeight: 22 },
+    confirmacao: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: cores.sucessoClaro,
+    },
+    confirmacaoTexto: { flex: 1, color: cores.texto, fontWeight: "600" },
+  });

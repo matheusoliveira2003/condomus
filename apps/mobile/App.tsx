@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, View, ActivityIndicator } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer, createNavigationContainerRef, type Theme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +25,7 @@ import { ReservasScreen } from "./src/screens/ReservasScreen";
 import { CadastrosScreen } from "./src/screens/CadastrosScreen";
 import { InicioScreen } from "./src/screens/InicioScreen";
 import { MinhaContaModal } from "./src/screens/MinhaContaModal";
-import { cores } from "./src/ui/tema";
+import { TemaProvider, useTema } from "./src/ui/tema";
 import { Avatar } from "./src/ui/Avatar";
 import { MensagensProvider, useMensagens } from "./src/ui/mensagens";
 import { useAbrirAbaDaNotificacao } from "./src/notificacoes";
@@ -44,6 +44,7 @@ interface Aba {
  */
 function comSpinner<P extends object>(Tela: ComponentType<P>): ComponentType<P> {
   return function TelaComSpinner(props: P) {
+    const { cores } = useTema();
     const [pronta, setPronta] = useState(false);
     useLayoutEffect(() => { setPronta(true); }, []);
     if (!pronta) {
@@ -89,18 +90,24 @@ const abasPorPapel: Record<Papel, Aba[]> = {
   ],
 };
 
-/** Cabeçalho, barra de abas e fundo das telas seguem a paleta do app. */
-const temaNavegacao: Theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: cores.primaria,
-    background: cores.fundo,
-    card: cores.superficie,
-    text: cores.texto,
-    border: cores.borda,
-  },
-};
+/** Cabeçalho, barra de abas e fundo das telas seguem a paleta do tema ativo. */
+function useTemaNavegacao(): Theme {
+  const { cores, esquema } = useTema();
+  return useMemo<Theme>(() => {
+    const base = esquema === "escuro" ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: cores.primaria,
+        background: cores.fundo,
+        card: cores.superficie,
+        text: cores.texto,
+        border: cores.borda,
+      },
+    };
+  }, [cores, esquema]);
+}
 
 const Tab = createBottomTabNavigator();
 const navegacao = createNavigationContainerRef();
@@ -164,8 +171,10 @@ function Navegacao() {
     }
   }, [!!usuario]);
 
+  const { esquema } = useTema();
   const destinoAbertura: DestinoAbertura = restaurando ? null : usuario || telaPublica !== "boasVindas" ? "app" : "boasVindas";
-  const fundoEscuro = abertura || restaurando || (!usuario);
+  // Telas públicas e abertura têm fundo escuro da marca; a área logada segue o tema.
+  const fundoEscuro = abertura || restaurando || !usuario || esquema === "escuro";
 
   return (
     <>
@@ -262,6 +271,7 @@ function TelasPublicas({
 /** Abas do perfil logado, com o acesso à Minha conta no cabeçalho. */
 function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; setContaAberta: (v: boolean) => void }) {
   const { usuario } = useAuth();
+  const { cores } = useTema();
   if (!usuario) return null;
 
   return (
@@ -313,18 +323,28 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Container de navegação com o tema ativo (precisa estar dentro do TemaProvider). */
+function NavegacaoComTema() {
+  const temaNavegacao = useTemaNavegacao();
+  return (
+    <NavigationContainer ref={navegacao} theme={temaNavegacao}>
+      <Navegacao />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <MensagensProvider>
-          <AuthProvider>
-            <NavigationContainer ref={navegacao} theme={temaNavegacao}>
-              <Navegacao />
-            </NavigationContainer>
-          </AuthProvider>
-        </MensagensProvider>
-      </QueryClientProvider>
+      <TemaProvider>
+        <QueryClientProvider client={queryClient}>
+          <MensagensProvider>
+            <AuthProvider>
+              <NavegacaoComTema />
+            </AuthProvider>
+          </MensagensProvider>
+        </QueryClientProvider>
+      </TemaProvider>
     </SafeAreaProvider>
   );
 }

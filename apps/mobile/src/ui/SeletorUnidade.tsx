@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { api, type Unidade } from "../api/client";
-import { Chips, MensagemErro, estilosTexto } from "./componentes";
+import { Chips, MensagemErro, useEstilosTexto } from "./componentes";
 
 /** Seleção em dois passos: primeiro o bloco, depois o apartamento daquele bloco. */
 export function SeletorUnidade({ valor, onChange }: { valor: string | null; onChange: (id: string | null) => void }) {
+  const estilosTexto = useEstilosTexto();
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [bloco, setBloco] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);

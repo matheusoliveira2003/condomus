@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cores } from "./tema";
+import { useCores, useEstilos, type Paleta } from "./tema";
 
 /**
  * Mensagens dentro do app, no lugar dos alertas do sistema:
@@ -134,6 +134,8 @@ function AvisoNaTela() {
 }
 
 function Aviso({ topo }: { topo: number }) {
+  const cores = useCores();
+  const estilos = useEstilos(criarEstilos);
   const { aviso, dispensarAviso } = useMensagens();
   const [exibido, setExibido] = useState<Aviso | null>(null);
   const opacidade = useRef(new Animated.Value(0)).current;
@@ -200,6 +202,8 @@ function Dialogo({
   botoes: BotaoDialogo[];
   aoFechar: () => void;
 }) {
+  const cores = useCores();
+  const estilos = useEstilos(criarEstilos);
   // Guarda o último conteúdo para o texto não sumir durante o fade de saída.
   const ultimo = useRef({ titulo, texto, botoes });
   if (visivel) ultimo.current = { titulo, texto, botoes };
@@ -233,34 +237,35 @@ function Dialogo({
   );
 }
 
-const estilos = StyleSheet.create({
-  avisoArea: { position: "absolute", left: 16, right: 16, zIndex: 1000, alignItems: "center" },
-  aviso: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    maxWidth: 480,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  avisoSucesso: { backgroundColor: cores.sucessoClaro, borderColor: cores.sucesso },
-  avisoErro: { backgroundColor: "#FDECEC", borderColor: cores.perigo },
-  avisoTexto: { flex: 1, fontSize: 14, fontWeight: "600", lineHeight: 20 },
-  dialogoFundo: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
-  dialogo: { width: "100%", maxWidth: 400, backgroundColor: cores.superficie, borderRadius: 20, padding: 20, gap: 10 },
-  dialogoTitulo: { fontSize: 18, fontWeight: "700", color: cores.texto },
-  dialogoTexto: { fontSize: 15, lineHeight: 22, color: cores.textoSecundario },
-  dialogoBotoes: { flexDirection: "row", gap: 10, marginTop: 8 },
-  dialogoBotao: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  dialogoBotaoTexto: { fontSize: 15, fontWeight: "600", color: "#fff" },
-  botao_neutro: { backgroundColor: cores.primariaClara },
-  botao_primario: { backgroundColor: cores.primaria },
-  botao_perigo: { backgroundColor: cores.perigo },
-});
+const criarEstilos = (cores: Paleta) =>
+  StyleSheet.create({
+    avisoArea: { position: "absolute", left: 16, right: 16, zIndex: 1000, alignItems: "center" },
+    aviso: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      width: "100%",
+      maxWidth: 480,
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      elevation: 6,
+      shadowColor: "#000",
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    avisoSucesso: { backgroundColor: cores.sucessoClaro, borderColor: cores.sucesso },
+    avisoErro: { backgroundColor: cores.perigoClaro, borderColor: cores.perigo },
+    avisoTexto: { flex: 1, fontSize: 14, fontWeight: "600", lineHeight: 20 },
+    dialogoFundo: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
+    dialogo: { width: "100%", maxWidth: 400, backgroundColor: cores.superficie, borderRadius: 20, padding: 20, gap: 10 },
+    dialogoTitulo: { fontSize: 18, fontWeight: "700", color: cores.texto },
+    dialogoTexto: { fontSize: 15, lineHeight: 22, color: cores.textoSecundario },
+    dialogoBotoes: { flexDirection: "row", gap: 10, marginTop: 8 },
+    dialogoBotao: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    dialogoBotaoTexto: { fontSize: 15, fontWeight: "600", color: cores.textoSobreCor },
+    botao_neutro: { backgroundColor: cores.primariaClara },
+    botao_primario: { backgroundColor: cores.primaria },
+    botao_perigo: { backgroundColor: cores.perigo },
+  });

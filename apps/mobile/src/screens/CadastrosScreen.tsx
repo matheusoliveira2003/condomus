@@ -5,10 +5,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, estilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { emailValido, unidadeTexto } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 
@@ -54,6 +54,7 @@ export function CadastrosScreen() {
 }
 
 function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabecalho: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
   const { usuario: eu } = useAuth();
   const qc = useQueryClient();
   const query = useQuery({
@@ -147,6 +148,7 @@ function gerarConvite(mensagens: ReturnType<typeof useMensagens>, u: UnidadeComM
 }
 
 function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
   const query = useQuery({
     queryKey: ["cadastros", "unidades"],
     queryFn: () => api<UnidadeComMoradores[]>("/unidades"),
@@ -209,6 +211,9 @@ function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
 }
 
 function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; morador: boolean; onFechar: () => void }) {
+  const cores = useCores();
+  const senhaBox = useEstilos(criarSenhaBox);
+  const estilosTexto = useEstilosTexto();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<"PORTEIRO" | "SINDICO">("PORTEIRO");
@@ -292,16 +297,17 @@ function NovoUsuarioModal({ visivel, morador, onFechar }: { visivel: boolean; mo
   );
 }
 
-const senhaBox = StyleSheet.create({
-  container: {
-    backgroundColor: cores.fundo,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    padding: 16,
-    alignItems: "center",
-    gap: 6,
-  },
-  rotulo: { fontSize: 12, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase", letterSpacing: 0.5 },
-  senha: { fontSize: 22, fontWeight: "800", color: cores.texto, letterSpacing: 2 },
-});
+const criarSenhaBox = (cores: Paleta) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: cores.fundo,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      padding: 16,
+      alignItems: "center",
+      gap: 6,
+    },
+    rotulo: { fontSize: 12, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase", letterSpacing: 0.5 },
+    senha: { fontSize: 22, fontWeight: "800", color: cores.texto, letterSpacing: 2 },
+  });

@@ -3,10 +3,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { Botao } from "../ui/componentes";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /** Mostrada no lugar do app quando o plano do condomínio está expirado ou suspenso (a API responde 402). */
 export function PlanoInativoScreen() {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { sair } = useAuth();
   return (
     <SafeAreaView style={styles.tela} edges={["top", "bottom"]}>
@@ -25,10 +27,11 @@ export function PlanoInativoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: cores.superficie },
-  conteudo: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 },
-  titulo: { fontSize: 24, fontWeight: "800", color: cores.texto },
-  texto: { fontSize: 15, color: cores.textoSecundario, textAlign: "center", lineHeight: 22 },
-  rodape: { padding: 24 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    tela: { flex: 1, backgroundColor: cores.superficie },
+    conteudo: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 },
+    titulo: { fontSize: 24, fontWeight: "800", color: cores.texto },
+    texto: { fontSize: 15, color: cores.textoSecundario, textAlign: "center", lineHeight: 22 },
+    rodape: { padding: 24 },
+  });

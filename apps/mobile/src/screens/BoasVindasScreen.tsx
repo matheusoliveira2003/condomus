@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Botao } from "../ui/componentes";
 import { FUNDO_MARCA, GRADIENTE_MARCA, LOGO_C, LOGO_CASA } from "../ui/logo";
-import { cores } from "../ui/tema";
+import { useEstilos, type Paleta } from "../ui/tema";
 
 /** Tamanho da logo nas Boas-vindas (igual ao usado na abertura, ver AberturaAnimada). */
 const TAMANHO_LOGO = 88;
@@ -27,6 +27,7 @@ export function BoasVindasScreen({
   onCriarConta: () => void;
   progresso?: Animated.Value;
 }) {
+  const styles = useEstilos(criarStyles);
   const insets = useSafeAreaInsets();
   // Animação de entrada do painel (sobe de baixo ao aparecer pela primeira vez).
   const entrada = useRef(new Animated.Value(painelVisivel ? 1 : 0)).current;
@@ -80,22 +81,23 @@ export function BoasVindasScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: FUNDO_MARCA },
-  // Cresce para preencher o espaço acima do painelWrapper; logo fica centralizada nela.
-  areaLogo: { flex: 1, alignItems: "center", justifyContent: "center" },
-  caixaLogo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO },
-  imagemLogo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
-  // Wrapper de altura natural do painel; overflow hidden esconde o translateY durante a animação.
-  painelWrapper: { overflow: "hidden" },
-  painel: {
-    backgroundColor: cores.superficie,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    gap: 12,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-  },
-  titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 8, lineHeight: 21 },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    tela: { flex: 1, backgroundColor: FUNDO_MARCA },
+    // Cresce para preencher o espaço acima do painelWrapper; logo fica centralizada nela.
+    areaLogo: { flex: 1, alignItems: "center", justifyContent: "center" },
+    caixaLogo: { position: "relative", width: TAMANHO_LOGO, height: TAMANHO_LOGO },
+    imagemLogo: { position: "absolute", top: 0, left: 0, width: TAMANHO_LOGO, height: TAMANHO_LOGO },
+    // Wrapper de altura natural do painel; overflow hidden esconde o translateY durante a animação.
+    painelWrapper: { overflow: "hidden" },
+    painel: {
+      backgroundColor: cores.superficie,
+      paddingHorizontal: 24,
+      paddingTop: 28,
+      gap: 12,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+    },
+    titulo: { fontSize: 26, fontWeight: "800", color: cores.texto },
+    subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 8, lineHeight: 21 },
+  });

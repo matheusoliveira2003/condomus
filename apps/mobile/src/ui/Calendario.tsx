@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { cores } from "./tema";
+import { useCores, useEstilos, type Paleta } from "./tema";
 
 const SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
 
@@ -12,6 +12,8 @@ const meiaNoite = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate
  * exige novo build do app). Dias antes de `minimo` ficam desabilitados.
  */
 export function Calendario({ valor, onChange, minimo }: { valor: Date | null; onChange: (dia: Date) => void; minimo: Date }) {
+  const cores = useCores();
+  const styles = useEstilos(criarEstilos);
   const inicio = meiaNoite(minimo);
   const [mes, setMes] = useState(() => {
     const base = valor ?? inicio;
@@ -53,7 +55,7 @@ export function Calendario({ valor, onChange, minimo }: { valor: Date | null; on
           return (
             <Pressable key={dia.getTime()} disabled={passado} onPress={() => onChange(dia)} style={styles.celula}>
               <View style={[styles.dia, selecionado && styles.diaSelecionado]}>
-                <Text style={[styles.diaTexto, passado && { color: cores.borda }, selecionado && { color: "#fff" }]}>
+                <Text style={[styles.diaTexto, passado && { color: cores.borda }, selecionado && { color: cores.textoSobreCor }]}>
                   {dia.getDate()}
                 </Text>
               </View>
@@ -65,14 +67,15 @@ export function Calendario({ valor, onChange, minimo }: { valor: Date | null; on
   );
 }
 
-const styles = StyleSheet.create({
-  container: { borderWidth: 1, borderColor: cores.borda, borderRadius: 12, padding: 12, backgroundColor: cores.superficie },
-  cabecalho: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  titulo: { fontSize: 16, fontWeight: "600", color: cores.texto },
-  grade: { flexDirection: "row", flexWrap: "wrap" },
-  celula: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
-  diaSemana: { textAlign: "center", textAlignVertical: "center", color: cores.textoSecundario, fontWeight: "600", aspectRatio: undefined, paddingVertical: 4 },
-  dia: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  diaSelecionado: { backgroundColor: cores.primaria },
-  diaTexto: { fontSize: 15, color: cores.texto },
-});
+const criarEstilos = (cores: Paleta) =>
+  StyleSheet.create({
+    container: { borderWidth: 1, borderColor: cores.borda, borderRadius: 12, padding: 12, backgroundColor: cores.superficie },
+    cabecalho: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+    titulo: { fontSize: 16, fontWeight: "600", color: cores.texto },
+    grade: { flexDirection: "row", flexWrap: "wrap" },
+    celula: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+    diaSemana: { textAlign: "center", textAlignVertical: "center", color: cores.textoSecundario, fontWeight: "600", aspectRatio: undefined, paddingVertical: 4 },
+    dia: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    diaSelecionado: { backgroundColor: cores.primaria },
+    diaTexto: { fontSize: 15, color: cores.texto },
+  });

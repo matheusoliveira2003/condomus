@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { API_URL, obterToken, type Pessoa } from "../api/client";
-import { cores } from "./tema";
+import { useCores, useEstilos, type Paleta } from "./tema";
 
 export const iniciais = (nome: string) => {
   const partes = nome.trim().split(/\s+/);
@@ -13,6 +13,8 @@ export const iniciais = (nome: string) => {
  * A versão na URL faz o app baixar de novo só quando a foto muda.
  */
 export function Avatar({ pessoa, tamanho = 40 }: { pessoa: Pessoa; tamanho?: number }) {
+  const cores = useCores();
+  const styles = useEstilos(criarEstilos);
   const [falhou, setFalhou] = useState<string | null>(null);
   const forma = { width: tamanho, height: tamanho, borderRadius: tamanho / 2 };
   const versao = pessoa.fotoAtualizadaEm;
@@ -41,7 +43,8 @@ export function Avatar({ pessoa, tamanho = 40 }: { pessoa: Pessoa; tamanho?: num
   );
 }
 
-const styles = StyleSheet.create({
-  iniciais: { backgroundColor: cores.primaria, alignItems: "center", justifyContent: "center" },
-  texto: { color: "#fff", fontWeight: "700" },
-});
+const criarEstilos = (cores: Paleta) =>
+  StyleSheet.create({
+    iniciais: { backgroundColor: cores.primaria, alignItems: "center", justifyContent: "center" },
+    texto: { color: cores.textoSobreCor, fontWeight: "700" },
+  });

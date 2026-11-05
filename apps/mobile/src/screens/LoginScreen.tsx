@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { emailValido } from "../ui/formatar";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /** Distância que o painel percorre ao entrar (vindo de baixo) ou ao sair (para baixo). */
 const DISTANCIA_ENTRADA = 600;
@@ -19,6 +19,8 @@ export function LoginScreen({
   /** Animated.Value 0→1: 0 = boas-vindas visível, 1 = login visível. */
   progresso?: Animated.Value;
 }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
   const { entrar } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -108,7 +110,7 @@ export function LoginScreen({
                 accessibilityState={{ checked: lembrar }}
               >
                 <View style={[styles.checkbox, lembrar && styles.checkboxAtivo]}>
-                  {lembrar && <Ionicons name="checkmark" size={11} color="#fff" />}
+                  {lembrar && <Ionicons name="checkmark" size={11} color={cores.textoSobreCor} />}
                 </View>
                 <Text style={styles.checkboxTexto}>Lembrar-me</Text>
               </Pressable>
@@ -125,31 +127,32 @@ export function LoginScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  painel: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: cores.superficie,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 80,
-  },
-  conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
-  linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
-  ola: { fontSize: 24, fontWeight: "800", color: cores.texto },
-  subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
-  linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
-  checkbox: {
-    width: 17,
-    height: 17,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: cores.borda,
-    backgroundColor: cores.superficie,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
-  checkboxTexto: { fontSize: 13, color: cores.textoSecundario },
-  link: { color: cores.textoSecundario, fontSize: 13, textDecorationLine: "underline" },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    painel: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: cores.superficie,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      marginTop: 80,
+    },
+    conteudo: { flexGrow: 1, padding: 24, paddingTop: 32, gap: 14 },
+    linhaVoltar: { flexDirection: "row", alignItems: "center", gap: 10 },
+    ola: { fontSize: 24, fontWeight: "800", color: cores.texto },
+    subtitulo: { fontSize: 15, color: cores.textoSecundario, marginBottom: 4 },
+    linhaMeio: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    checkboxLinha: { flexDirection: "row", alignItems: "center", gap: 8 },
+    checkbox: {
+      width: 17,
+      height: 17,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkboxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+    checkboxTexto: { fontSize: 13, color: cores.textoSecundario },
+    link: { color: cores.textoSecundario, fontSize: 13, textDecorationLine: "underline" },
+  });

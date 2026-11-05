@@ -1,6 +1,6 @@
 import { Text } from "react-native";
 import type { StatusVisita, Visita } from "../api/client";
-import { Selo, estilosTexto } from "./componentes";
+import { Selo, useEstilosTexto } from "./componentes";
 import { data, dataHora } from "./formatar";
 
 const rotulos: Record<StatusVisita, { texto: string; tom: "neutro" | "sucesso" | "alerta" | "primario" }> = {
@@ -14,6 +14,7 @@ export const SeloVisita = ({ status }: { status: StatusVisita }) => <Selo {...ro
 
 /** Linhas de detalhe comuns aos cards de visita (morador e portaria). */
 export function DetalhesVisita({ visita }: { visita: Visita }) {
+  const estilosTexto = useEstilosTexto();
   const linhas = [
     visita.documento && `Documento: ${visita.documento}`,
     visita.placaVeiculo && `Placa: ${visita.placaVeiculo}`,

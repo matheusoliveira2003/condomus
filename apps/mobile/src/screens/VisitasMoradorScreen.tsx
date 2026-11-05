@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { api, obterToken, type Visita } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
 import { useMensagens } from "../ui/mensagens";
-import { cores } from "../ui/tema";
+import { useEstilos, type Paleta } from "../ui/tema";
 import { adaptarQuery, useCancelarVisita, useCriarVisita, useVisitas } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
@@ -17,7 +17,7 @@ import {
   MensagemErro,
   ModalFormulario,
   ModalTela,
-  estilosTexto,
+  useEstilosTexto,
 } from "../ui/componentes";
 import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
 
@@ -91,6 +91,7 @@ export function VisitasMoradorScreen() {
 }
 
 function CardVisita({ visita, children }: { visita: Visita; children?: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
   return (
     <Card>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -124,6 +125,8 @@ function HistoricoVisitas() {
 
 /** QR code e código do convite, com o botão para compartilhar a imagem com o visitante. */
 function ConviteModal({ visita, onFechar }: { visita: Visita | null; onFechar: () => void }) {
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
   const [codigo, setCodigo] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [compartilhando, setCompartilhando] = useState(false);
@@ -178,13 +181,15 @@ function ConviteModal({ visita, onFechar }: { visita: Visita | null; onFechar: (
   );
 }
 
-const styles = StyleSheet.create({
-  cartao: { width: "80%", alignSelf: "center", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: cores.borda },
-});
+const criarStyles = (cores: Paleta) =>
+  StyleSheet.create({
+    cartao: { width: "80%", alignSelf: "center", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: cores.borda },
+  });
 
 const SEM_DATA = "sem-data";
 
 function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: (visita: Visita) => void }) {
+  const estilosTexto = useEstilosTexto();
   const [nome, setNome] = useState("");
   const [documento, setDocumento] = useState("");
   const [placa, setPlaca] = useState("");

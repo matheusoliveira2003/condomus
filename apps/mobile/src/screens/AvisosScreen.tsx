@@ -4,12 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useCriarAviso, useAvisos, useEditarAviso, useRemoverAviso } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, estilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Lista, MensagemErro, ModalFormulario, useEstilosTexto } from "../ui/componentes";
 import { dataHora } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
-import { cores } from "../ui/tema";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 export function AvisosScreen() {
+  const cores = useCores();
+  const estilos = useEstilos(criarEstilos);
   const { usuario } = useAuth();
   const ehSindico = usuario?.papel === "SINDICO";
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useAvisos());
@@ -67,7 +69,7 @@ export function AvisosScreen() {
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel="Remover aviso"
-                    style={({ pressed }) => [estilos.acao, { backgroundColor: "#FDECEC" }, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [estilos.acao, { backgroundColor: cores.perigoClaro }, pressed && { opacity: 0.7 }]}
                   >
                     <Ionicons name="trash-outline" size={19} color={cores.perigo} />
                   </Pressable>
@@ -108,6 +110,8 @@ function AvisoModal({
   aviso?: Aviso;
   onFechar: () => void;
 }) {
+  const cores = useCores();
+  const estilosTexto = useEstilosTexto();
   const [titulo, setTitulo] = useState(aviso?.titulo ?? "");
   const [conteudo, setConteudo] = useState(aviso?.conteudo ?? "");
   const [fixado, setFixado] = useState(aviso?.fixado ?? false);
@@ -169,32 +173,33 @@ function AvisoModal({
   );
 }
 
-const estilos = StyleSheet.create({
-  fixado: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 5,
-    backgroundColor: cores.primariaClara,
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  fixadoTexto: { fontSize: 12, fontWeight: "700", color: cores.primaria },
-  cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
-  titulo: { flex: 1, fontSize: 18, fontWeight: "700", color: cores.texto, lineHeight: 24 },
-  acoes: { flexDirection: "row", gap: 8 },
-  acao: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  conteudo: { marginTop: 10, fontSize: 15, lineHeight: 22, color: cores.texto },
-  rodape: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: cores.borda,
-  },
-  data: { fontSize: 13, color: cores.textoSecundario },
-});
+const criarEstilos = (cores: Paleta) =>
+  StyleSheet.create({
+    fixado: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 5,
+      backgroundColor: cores.primariaClara,
+      borderRadius: 999,
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      marginBottom: 10,
+    },
+    fixadoTexto: { fontSize: 12, fontWeight: "700", color: cores.primaria },
+    cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
+    titulo: { flex: 1, fontSize: 18, fontWeight: "700", color: cores.texto, lineHeight: 24 },
+    acoes: { flexDirection: "row", gap: 8 },
+    acao: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    conteudo: { marginTop: 10, fontSize: 15, lineHeight: 22, color: cores.texto },
+    rodape: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: cores.borda,
+    },
+    data: { fontSize: 13, color: cores.textoSecundario },
+  });
