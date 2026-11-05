@@ -108,6 +108,15 @@ A API é um servidor Node comum e a raiz do repositório é um monorepo npm (wor
 - O banco é suspenso após alguns minutos sem uso e volta na próxima consulta.
 - O plano gratuito **não tem backup agendado**: faça um dump manual antes de guardar dados reais.
 
+**Backup do banco:** o script `scripts/backup-banco.sh` gera um dump (`pg_dump`, formato custom) em `backups/`, que fica fora do git porque tem dados pessoais. A URL do banco vem do ambiente, nunca de arquivo:
+
+```bash
+read -rs "DATABASE_URL?Cole a URL direta do Neon: "; export DATABASE_URL   # zsh
+./scripts/backup-banco.sh
+```
+
+Para restaurar num banco vazio: `pg_restore --no-owner --dbname="$DATABASE_URL" backups/<arquivo>.dump`. Faça um backup antes de migrations arriscadas e periodicamente enquanto o plano for gratuito.
+
 **Primeiro acesso:** depois do primeiro deploy, crie o condomínio e o síndico com `POST /admin/condominios` (`Authorization: Bearer <ADMIN_SECRET>`). A resposta traz a `senhaGerada` do síndico, que é temporária: o app pede a troca no primeiro login. Essa rota não envia e-mail.
 
 **Servidor dormindo:** o plano gratuito do Render suspende a API após cerca de 15 minutos sem requisições e leva cerca de 45 s para acordar. O app chama `/health` ao abrir e espera até 60 s no login e ao restaurar a sessão; fora isso o limite é de 15 s.
