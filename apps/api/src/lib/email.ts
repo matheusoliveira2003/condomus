@@ -24,6 +24,12 @@ async function enviarEmail({ para, assunto, html }: { para: string; assunto: str
   }
 }
 
+/** Só o primeiro nome, já escapado para entrar no HTML (o nome vem de um cadastro). */
+export function saudacaoNome(nomeCompleto: string) {
+  const primeiro = nomeCompleto.trim().split(/\s+/)[0] ?? "";
+  return primeiro.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 /** E-mail com o código de recuperação de senha (válido por 15 minutos). */
 export function enviarCodigoRecuperacao(para: string, nome: string, codigo: string) {
   void enviarEmail({
@@ -32,7 +38,7 @@ export function enviarCodigoRecuperacao(para: string, nome: string, codigo: stri
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #1E3A5F;">Condomus</h2>
-        <p>Olá, ${nome}!</p>
+        <p>Olá, ${saudacaoNome(nome)}</p>
         <p>Use o código abaixo para redefinir sua senha. Ele vale por 15 minutos.</p>
         <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1E3A5F; text-align: center; padding: 16px; background: #F5F7FA; border-radius: 8px;">
           ${codigo}
@@ -53,7 +59,7 @@ export function enviarBoasVindas(para: string, nome: string, senhaTemporaria: st
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #1E3A5F;">Condomus</h2>
-        <p>Olá, ${nome}!</p>
+        <p>Olá, ${saudacaoNome(nome)}</p>
         <p>Sua conta foi criada pelo síndico do seu condomínio. Use as credenciais abaixo para fazer seu primeiro acesso pelo app.</p>
         <p style="font-size: 13px; color: #5B6472;">Seu e-mail de acesso:</p>
         <p style="font-size: 16px; font-weight: bold; color: #1E3A5F;">${para}</p>
@@ -77,7 +83,7 @@ export function enviarCodigoTrocaEmail(para: string, nome: string, codigo: strin
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #1E3A5F;">Condomus</h2>
-        <p>Olá, ${nome}!</p>
+        <p>Olá, ${saudacaoNome(nome)}</p>
         <p>Use o código abaixo para confirmar seu novo endereço de e-mail. Ele vale por 15 minutos.</p>
         <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1E3A5F; text-align: center; padding: 16px; background: #F5F7FA; border-radius: 8px;">
           ${codigo}
