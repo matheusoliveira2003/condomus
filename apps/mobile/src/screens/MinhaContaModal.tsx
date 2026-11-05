@@ -1,22 +1,34 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { enviar, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
-import { Botao, Campo, Card, Chips, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
+import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selecao, Selo, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { useMensagens } from "../ui/mensagens";
-import { useCores, useEstilos, useTema, type Paleta, type Preferencia } from "../ui/tema";
+import { paletaClara, paletaEscura, useCores, useEstilos, useTema, type Paleta, type Preferencia } from "../ui/tema";
 import type { Papel } from "../api/client";
 
-const opcoesAparencia: { valor: Preferencia; rotulo: string }[] = [
-  { valor: "claro", rotulo: "Claro" },
-  { valor: "escuro", rotulo: "Escuro" },
-  { valor: "sistema", rotulo: "Seguir o sistema" },
+const opcoesAparencia: { valor: Preferencia; rotulo: string; icone: keyof typeof Ionicons.glyphMap }[] = [
+  { valor: "claro", rotulo: "Claro", icone: "sunny-outline" },
+  { valor: "escuro", rotulo: "Escuro", icone: "moon-outline" },
+  { valor: "sistema", rotulo: "Automático", icone: "phone-portrait-outline" },
 ];
+
+const descricaoAparencia: Record<Preferencia, string> = {
+  claro: "Fundo claro, com o azul-marinho da marca. Ideal para ambientes iluminados.",
+  escuro: "Fundo escuro, que cansa menos a vista à noite e economiza bateria em telas OLED.",
+  sistema: "O app acompanha o modo claro ou escuro do seu celular e muda sozinho.",
+};
+
+const rotuloAparencia: Record<Preferencia, string> = {
+  claro: "Claro",
+  escuro: "Escuro",
+  sistema: "Automático",
+};
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
 
@@ -31,11 +43,12 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const cores = useCores();
   const styles = useEstilos(criarStyles);
   const estilosTexto = useEstilosTexto();
-  const { preferencia, definirPreferencia } = useTema();
+  const { preferencia } = useTema();
   const { sair, usuario, definirFoto } = useAuth();
   const { data: perfil } = usePerfil(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
+  const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const mensagens = useMensagens();
@@ -142,14 +155,16 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
       </Pressable>
 
-      {/* Aparência: claro, escuro ou o do sistema */}
-      <View style={{ gap: 8 }}>
-        <Secao titulo="Aparência" />
-        <Chips grade opcoes={opcoesAparencia} valor={preferencia} onChange={definirPreferencia} />
-        {preferencia === "sistema" && (
-          <Text style={estilosTexto.secundario}>O app acompanha o modo claro ou escuro do seu celular.</Text>
-        )}
-      </View>
+      <Pressable
+        onPress={() => setEscolhendoAparencia(true)}
+        style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+      >
+        <Ionicons name="contrast-outline" size={20} color={cores.primaria} />
+        <Text style={styles.linkSenhaTexto}>Aparência</Text>
+        <Text style={[estilosTexto.secundario, { marginLeft: "auto" }]}>{rotuloAparencia[preferencia]}</Text>
+        <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
+      </Pressable>
 
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
@@ -159,6 +174,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
       {/* Modais de conta */}
       <TrocarSenhaModal visivel={trocandoSenha} onFechar={() => setTrocandoSenha(false)} />
       <TrocarEmailModal visivel={trocandoEmail} onFechar={() => setTrocandoEmail(false)} />
+      <AparenciaModal visivel={escolhendoAparencia} onFechar={() => setEscolhendoAparencia(false)} />
     </ModalFormulario>
   );
 }
@@ -306,6 +322,108 @@ function OpcaoSheet({
     </Pressable>
   );
 }
+
+/** Escolha entre modo claro, escuro ou automático (salva no aparelho), com prévia do resultado. */
+function AparenciaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStyles);
+  const estilosTexto = useEstilosTexto();
+  const { preferencia, definirPreferencia, esquema } = useTema();
+  return (
+    <ModalFormulario visivel={visivel} titulo="Aparência" onFechar={onFechar}>
+      <PreviaTema paleta={esquema === "escuro" ? paletaEscura : paletaClara} />
+      <Card>
+        <Selecao rotulo="Modo" opcoes={opcoesAparencia} valor={preferencia} onChange={definirPreferencia} />
+        <View style={styles.aparenciaDescricao}>
+          <Ionicons name="information-circle-outline" size={18} color={cores.textoSecundario} style={{ marginTop: 1 }} />
+          <Text style={[estilosTexto.secundario, { flex: 1 }]}>{descricaoAparencia[preferencia]}</Text>
+        </View>
+      </Card>
+    </ModalFormulario>
+  );
+}
+
+/** Miniatura do app (cabeçalho, cartão, selos e abas) desenhada com a paleta do modo escolhido. */
+function PreviaTema({ paleta: p }: { paleta: Paleta }) {
+  const e = useMemo(() => criarPrevia(p), [p]);
+  return (
+    <View style={e.moldura} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={e.tela}>
+        <View style={e.cabecalho}>
+          <View style={[e.linha, { width: 84, height: 10, backgroundColor: p.texto }]} />
+          <View style={e.avatar} />
+        </View>
+        <View style={e.conteudo}>
+          <View style={e.card}>
+            <View style={[e.linha, { width: "62%", height: 9, backgroundColor: p.texto }]} />
+            <View style={[e.linha, { width: "90%", height: 7, backgroundColor: p.textoSecundario, opacity: 0.55 }]} />
+            <View style={[e.linha, { width: "74%", height: 7, backgroundColor: p.textoSecundario, opacity: 0.55 }]} />
+            <View style={e.selos}>
+              <View style={[e.selo, { backgroundColor: p.sucessoClaro }]}>
+                <View style={[e.linha, { width: 30, height: 6, backgroundColor: p.sucesso }]} />
+              </View>
+              <View style={[e.selo, { backgroundColor: p.alertaClaro }]}>
+                <View style={[e.linha, { width: 30, height: 6, backgroundColor: p.alerta }]} />
+              </View>
+            </View>
+          </View>
+          <View style={e.botao}>
+            <View style={[e.linha, { width: 54, height: 7, backgroundColor: p.textoSobreCor }]} />
+          </View>
+        </View>
+        <View style={e.abas}>
+          {[true, false, false, false].map((ativa, i) => (
+            <View key={i} style={e.aba}>
+              <View style={[e.abaIcone, { backgroundColor: ativa ? p.primaria : p.textoSecundario, opacity: ativa ? 1 : 0.45 }]} />
+              <View style={[e.linha, { width: 20, height: 4, backgroundColor: ativa ? p.primaria : p.textoSecundario, opacity: ativa ? 1 : 0.45 }]} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const criarPrevia = (p: Paleta) =>
+  StyleSheet.create({
+    moldura: {
+      alignSelf: "center",
+      width: "78%",
+      maxWidth: 280,
+      padding: 6,
+      borderRadius: 26,
+      backgroundColor: p.borda,
+      borderWidth: 1,
+      borderColor: p.borda,
+    },
+    tela: { borderRadius: 20, overflow: "hidden", backgroundColor: p.fundo },
+    cabecalho: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      backgroundColor: p.superficie,
+    },
+    avatar: { width: 20, height: 20, borderRadius: 10, backgroundColor: p.primaria },
+    conteudo: { padding: 12, gap: 10 },
+    card: { gap: 7, padding: 12, borderRadius: 12, backgroundColor: p.superficie, borderWidth: 1, borderColor: p.borda },
+    selos: { flexDirection: "row", gap: 6, marginTop: 3 },
+    selo: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    botao: { alignSelf: "flex-start", paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10, backgroundColor: p.primaria },
+    linha: { borderRadius: 4 },
+    abas: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      paddingVertical: 9,
+      marginTop: 6,
+      backgroundColor: p.superficie,
+      borderTopWidth: 1,
+      borderTopColor: p.borda,
+    },
+    aba: { alignItems: "center", gap: 4 },
+    abaIcone: { width: 14, height: 14, borderRadius: 4 },
+  });
 
 /** Modal separado para troca de senha. */
 function TrocarSenhaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
@@ -496,6 +614,7 @@ const criarStyles = (cores: Paleta) =>
     },
     linkSenhaTexto: { fontSize: 15, fontWeight: "500", color: cores.primaria },
     separador: { height: 1, backgroundColor: cores.borda, marginVertical: 4 },
+    aparenciaDescricao: { flexDirection: "row", gap: 8, alignItems: "flex-start", marginTop: 4 },
     sucesso: { flexDirection: "row", alignItems: "center", gap: 6 },
   });
 

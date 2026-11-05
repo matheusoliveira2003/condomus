@@ -172,6 +172,70 @@ export function Chips<T extends string>({
   );
 }
 
+/**
+ * Campo de seleção: mostra a opção atual e, ao tocar, abre a lista abaixo para escolher uma.
+ * Escolher uma opção fecha a lista.
+ */
+export function Selecao<T extends string>({
+  rotulo,
+  opcoes,
+  valor,
+  onChange,
+}: {
+  rotulo?: string;
+  opcoes: { valor: T; rotulo: string; icone?: keyof typeof Ionicons.glyphMap }[];
+  valor: T;
+  onChange: (valor: T) => void;
+}) {
+  const cores = useCores();
+  const styles = useEstilos(criarEstilos);
+  const [aberta, setAberta] = useState(false);
+  const atual = opcoes.find((o) => o.valor === valor);
+  return (
+    <View style={{ gap: 4 }}>
+      {rotulo && <Text style={styles.rotulo}>{rotulo}</Text>}
+      <Pressable
+        onPress={() => setAberta((a) => !a)}
+        style={({ pressed }) => [styles.selecaoCampo, pressed && { opacity: 0.7 }]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: aberta }}
+        accessibilityLabel={rotulo ? `${rotulo}: ${atual?.rotulo ?? ""}` : atual?.rotulo}
+      >
+        {atual?.icone && <Ionicons name={atual.icone} size={20} color={cores.primaria} />}
+        <Text style={styles.selecaoTexto}>{atual?.rotulo ?? ""}</Text>
+        <Ionicons name={aberta ? "chevron-up" : "chevron-down"} size={20} color={cores.textoSecundario} />
+      </Pressable>
+      {aberta && (
+        <View style={styles.selecaoLista}>
+          {opcoes.map((o, i) => {
+            const ativa = o.valor === valor;
+            return (
+              <Pressable
+                key={o.valor}
+                onPress={() => {
+                  setAberta(false);
+                  onChange(o.valor);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: ativa }}
+                style={({ pressed }) => [
+                  styles.selecaoOpcao,
+                  i > 0 && { borderTopWidth: 1, borderTopColor: cores.borda },
+                  pressed && { backgroundColor: cores.fundo },
+                ]}
+              >
+                {o.icone && <Ionicons name={o.icone} size={20} color={ativa ? cores.primaria : cores.textoSecundario} />}
+                <Text style={[styles.selecaoOpcaoTexto, ativa && { color: cores.primaria, fontWeight: "600" }]}>{o.rotulo}</Text>
+                {ativa && <Ionicons name="checkmark" size={20} color={cores.primaria} />}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 /** Lista com pull-to-refresh, mensagem de vazio e de erro. */
 export function Lista<T extends { id: string }>({
   dados,
@@ -391,6 +455,28 @@ const criarEstilos = (cores: Paleta) =>
     },
     modalTitulo: { fontSize: 18, fontWeight: "600", color: cores.texto },
     secao: { fontSize: 13, fontWeight: "600", color: cores.textoSecundario, textTransform: "uppercase", marginTop: 4 },
+    // Campo de seleção (Selecao)
+    selecaoCampo: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+      borderRadius: 10,
+      padding: 12,
+    },
+    selecaoTexto: { flex: 1, fontSize: 16, color: cores.texto },
+    selecaoLista: {
+      borderWidth: 1,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+      borderRadius: 10,
+      overflow: "hidden",
+    },
+    selecaoOpcao: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 14 },
+    selecaoOpcaoTexto: { flex: 1, fontSize: 15, color: cores.texto },
     // Botão flutuante (BotaoFlutuante)
     fabBotao: {
       position: "absolute",
