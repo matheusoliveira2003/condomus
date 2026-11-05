@@ -64,7 +64,7 @@ Em português, no padrão recente do repositório: `Área: o que mudou`, no pass
 
 ```
 Cadastros: senha temporária por e-mail, reenvio e selo "Aguardando acesso"
-API pronta para o Railway: prisma em produção, start sem .env, README de deploy
+API pronta para o Render: prisma em produção, start sem .env, README de deploy
 Avisos: alfinete vermelho nos avisos fixados
 ```
 
@@ -96,7 +96,7 @@ Rode `git status --short` e `git log -1 --oneline` para confirmar que a árvore 
 
 ## Push
 
-**Não faça push sozinho.** Envia código para fora do computador e dispara o Railway quando a branch é a de produção. Ao fim de um conjunto de commits, diga quantos ficaram à frente do remoto (`git status -sb`) e pergunte se o usuário quer enviar.
+**Não faça push sozinho.** Envia código para fora do computador e dispara o deploy no Render quando a branch é a de produção. Ao fim de um conjunto de commits, diga quantos ficaram à frente do remoto (`git status -sb`) e pergunte se o usuário quer enviar.
 
 Com o pedido explícito: `git push` na `develop`. Na `main`, só por pull request (`gh pr create --base main --head develop`), nunca push direto.
 
