@@ -19,7 +19,7 @@ beforeEach(async () => {
 });
 
 const autorizar = (token: string, nomeVisitante = "Carlos") =>
-  chamar(app, "POST", "/visitas", { token, corpo: { nomeVisitante } });
+  chamar(app, "POST", "/visitas", { token, corpo: { nomeVisitante, documento: "12345678900" } });
 
 /**
  * Portaria registra a entrada apresentando o código do convite (como faz ao ler o QR code).
@@ -51,10 +51,28 @@ describe("ciclo da visita", () => {
   it("entrada direta pela portaria já começa no condomínio, sem autorização prévia", async () => {
     const r = await chamar(app, "POST", "/visitas/entrada-direta", {
       token: c.tokens.porteiro,
-      corpo: { unidadeId: c.unidades.b201.id, nomeVisitante: "Entregador" },
+      corpo: { unidadeId: c.unidades.b201.id, nomeVisitante: "Entregador", documento: "12345678900" },
     });
     expect(r.status).toBe(201);
     expect(r.corpo).toMatchObject({ status: "EM_ANDAMENTO", autorizadoPorId: null, codigoAcesso: null });
+  });
+
+  it("exige o documento do visitante, na autorização e na entrada direta", async () => {
+    for (const corpo of [{ nomeVisitante: "Carlos" }, { nomeVisitante: "Carlos", documento: "   " }, { nomeVisitante: "Carlos", documento: "123" }]) {
+      const r = await chamar(app, "POST", "/visitas", { token: c.tokens.morador, corpo });
+      expect(r.status).toBe(400);
+    }
+    const direta = await chamar(app, "POST", "/visitas/entrada-direta", {
+      token: c.tokens.porteiro,
+      corpo: { unidadeId: c.unidades.a101.id, nomeVisitante: "Entregador" },
+    });
+    expect(direta.status).toBe(400);
+    expect(await prisma.visita.count()).toBe(0);
+  });
+
+  it("guarda o documento sem espaços nas pontas", async () => {
+    const r = await chamar(app, "POST", "/visitas", { token: c.tokens.morador, corpo: { nomeVisitante: "Carlos", documento: "  12345678900 " } });
+    expect(r.corpo.documento).toBe("12345678900");
   });
 
   it("morador só cancela visitas agendadas da própria unidade", async () => {

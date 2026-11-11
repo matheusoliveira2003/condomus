@@ -117,7 +117,7 @@ export function useVisitas(filtro: string) {
 export function useCriarVisita() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: { nomeVisitante: string; documento?: string; placaVeiculo?: string; dataPrevista?: string }) =>
+    mutationFn: (dados: { nomeVisitante: string; documento: string; placaVeiculo?: string; dataPrevista?: string }) =>
       enviar<Visita>("POST", "/visitas", dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
   });
@@ -143,7 +143,7 @@ export function useRegistrarEntradaSaida() {
 export function useEntradaDireta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento?: string; placaVeiculo?: string }) =>
+    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento: string; placaVeiculo?: string }) =>
       enviar<Visita>("POST", "/visitas/entrada-direta", dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
   });

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { api, obterToken, type Visita } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
+import { Calendario } from "../ui/Calendario";
+import { data } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useEstilos, type Paleta } from "../ui/tema";
 import { adaptarQuery, useCancelarVisita, useCriarVisita, useVisitas } from "../hooks/queries";
@@ -19,7 +21,7 @@ import {
   ModalTela,
   useEstilosTexto,
 } from "../ui/componentes";
-import { DetalhesVisita, SeloVisita, proximosDias } from "../ui/visita";
+import { DetalhesVisita, SeloVisita } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
@@ -186,14 +188,23 @@ const criarStyles = (cores: Paleta) =>
     cartao: { width: "80%", alignSelf: "center", borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: cores.borda },
   });
 
-const SEM_DATA = "sem-data";
+type OpcaoDia = "qualquer" | "hoje" | "amanha" | "data";
 
 function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: (visita: Visita) => void }) {
   const estilosTexto = useEstilosTexto();
   const [nome, setNome] = useState("");
   const [documento, setDocumento] = useState("");
   const [placa, setPlaca] = useState("");
-  const [dia, setDia] = useState<string>(SEM_DATA);
+  const hoje = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const amanha = useMemo(() => new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1), [hoje]);
+  const [opcaoDia, setOpcaoDia] = useState<OpcaoDia>("qualquer");
+  /** Dia escolhido no calendário (só vale quando a opção é "data"). */
+  const [diaCalendario, setDiaCalendario] = useState<Date | null>(null);
+  const diaEscolhido = opcaoDia === "hoje" ? hoje : opcaoDia === "amanha" ? amanha : opcaoDia === "data" ? diaCalendario : null;
   const [erro, setErro] = useState<string | null>(null);
   const criar = useCriarVisita();
 
@@ -202,14 +213,15 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
     try {
       const visita = await criar.mutateAsync({
         nomeVisitante: nome.trim(),
-        documento: documento.trim() || undefined,
+        documento: documento.trim(),
         placaVeiculo: placa.trim().toUpperCase() || undefined,
-        dataPrevista: dia === SEM_DATA ? undefined : dia,
+        dataPrevista: diaEscolhido?.toISOString(),
       });
       setNome("");
       setDocumento("");
       setPlaca("");
-      setDia(SEM_DATA);
+      setOpcaoDia("qualquer");
+      setDiaCalendario(null);
       onCriada(visita);
     } catch (e) {
       setErro((e as Error).message);
@@ -219,14 +231,24 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
   return (
     <ModalFormulario visivel={visivel} titulo="Autorizar visitante" onFechar={onFechar}>
       <Campo rotulo="Nome do visitante" value={nome} onChangeText={setNome} placeholder="Nome completo" />
-      <Campo rotulo="Documento (opcional)" value={documento} onChangeText={setDocumento} placeholder="RG ou CPF" />
+      <Campo rotulo="Documento" value={documento} onChangeText={setDocumento} placeholder="RG ou CPF" />
       <Campo rotulo="Placa do veículo (opcional)" value={placa} onChangeText={setPlaca} autoCapitalize="characters" placeholder="ABC1D23" />
       <View style={{ gap: 8 }}>
         <Text style={estilosTexto.titulo}>Quando?</Text>
-        <Chips opcoes={[{ valor: SEM_DATA, rotulo: "Qualquer dia" }, ...proximosDias(7)]} valor={dia} onChange={setDia} />
+        <Chips
+          opcoes={[
+            { valor: "qualquer" as const, rotulo: "Qualquer dia" },
+            { valor: "hoje" as const, rotulo: "Hoje" },
+            { valor: "amanha" as const, rotulo: "Amanhã" },
+            { valor: "data" as const, rotulo: diaCalendario ? data(diaCalendario) : "Selecionar data" },
+          ]}
+          valor={opcaoDia}
+          onChange={setOpcaoDia}
+        />
+        {opcaoDia === "data" && <Calendario valor={diaCalendario} onChange={setDiaCalendario} minimo={hoje} />}
       </View>
       <MensagemErro texto={erro} />
-      <Botao titulo="Autorizar" onPress={autorizar} carregando={criar.isPending} desabilitado={nome.trim().length < 2} />
+      <Botao titulo="Autorizar" onPress={autorizar} carregando={criar.isPending} desabilitado={nome.trim().length < 2 || documento.trim().length < 5 || (opcaoDia === "data" && !diaCalendario)} />
     </ModalFormulario>
   );
 }
