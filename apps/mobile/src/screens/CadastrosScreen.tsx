@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
+import { api, enviar, type AreaComum, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
@@ -12,12 +12,13 @@ import { useCores, useEstilos, type Paleta } from "../ui/tema";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 
-type Aba = "moradores" | "funcionarios" | "unidades";
+type Aba = "moradores" | "funcionarios" | "unidades" | "areas";
 
 const abas: { valor: Aba; rotulo: string }[] = [
   { valor: "moradores", rotulo: "Moradores" },
   { valor: "funcionarios", rotulo: "Funcionários" },
   { valor: "unidades", rotulo: "Unidades" },
+  { valor: "areas", rotulo: "Áreas" },
 ];
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
@@ -40,12 +41,16 @@ export function CadastrosScreen() {
     <View style={{ flex: 1 }}>
       {aba === "unidades" ? (
         <ListaUnidades cabecalho={seletor} />
+      ) : aba === "areas" ? (
+        <ListaAreas cabecalho={seletor} />
       ) : (
         <ListaUsuarios aba={aba} cabecalho={seletor} />
       )}
       <BotaoFlutuante onPress={() => setCriando(true)} />
       {aba === "unidades" ? (
         <NovaUnidadeModal visivel={criando} onFechar={fechar} />
+      ) : aba === "areas" ? (
+        <NovaAreaModal visivel={criando} onFechar={fechar} />
       ) : (
         <NovoUsuarioModal visivel={criando} morador={aba === "moradores"} onFechar={fechar} />
       )}
@@ -53,7 +58,7 @@ export function CadastrosScreen() {
   );
 }
 
-function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabecalho: ReactNode }) {
+function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; cabecalho: ReactNode }) {
   const estilosTexto = useEstilosTexto();
   const { usuario: eu } = useAuth();
   const qc = useQueryClient();
@@ -250,6 +255,75 @@ function EditarUnidadeModal({ unidade, onFechar }: { unidade: UnidadeComMoradore
       <Campo rotulo="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" placeholder="Ex.: 101" />
       <MensagemErro texto={erro} />
       <Botao titulo="Salvar" onPress={salvar} carregando={salvando} desabilitado={!bloco.trim() || !numero.trim()} />
+    </ModalFormulario>
+  );
+}
+
+function ListaAreas({ cabecalho }: { cabecalho: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
+  const query = useQuery({
+    queryKey: ["cadastros", "areas"],
+    queryFn: () => api<AreaComum[]>("/areas"),
+  });
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
+  return (
+    <Lista
+      dados={dados}
+      carregando={carregando}
+      recarregando={recarregando}
+      erro={erro}
+      recarregar={recarregar}
+      cabecalho={cabecalho}
+      vazio="Nenhuma área cadastrada. Toque em + para criar a primeira."
+      renderItem={(a) => (
+        <Card>
+          <Text style={estilosTexto.titulo}>{a.nome}</Text>
+          {a.descricao && <Text style={estilosTexto.corpo}>{a.descricao}</Text>}
+          {a.capacidade && <Text style={estilosTexto.secundario}>Capacidade: {a.capacidade} pessoas</Text>}
+        </Card>
+      )}
+    />
+  );
+}
+
+function NovaAreaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const qc = useQueryClient();
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [capacidade, setCapacidade] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvar() {
+    setSalvando(true);
+    setErro(null);
+    try {
+      await enviar("POST", "/areas", {
+        nome: nome.trim(),
+        descricao: descricao.trim() || undefined,
+        capacidade: capacidade.trim() ? Number(capacidade) : undefined,
+      });
+      setNome("");
+      setDescricao("");
+      setCapacidade("");
+      // A tela de reservas guarda a lista de áreas em cache por 5 minutos.
+      void qc.invalidateQueries({ queryKey: ["areas"] });
+      onFechar();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const capacidadeInvalida = capacidade.trim() !== "" && !/^[1-9]\d*$/.test(capacidade.trim());
+  return (
+    <ModalFormulario visivel={visivel} titulo="Nova área" onFechar={onFechar}>
+      <Campo rotulo="Nome" value={nome} onChangeText={setNome} placeholder="Ex.: Salão de festas" />
+      <Campo rotulo="Descrição (opcional)" value={descricao} onChangeText={setDescricao} placeholder="Ex.: Aberto das 8h às 22h" />
+      <Campo rotulo="Capacidade (opcional)" value={capacidade} onChangeText={setCapacidade} keyboardType="number-pad" placeholder="Pessoas" />
+      <MensagemErro texto={erro} />
+      <Botao titulo="Cadastrar área" onPress={salvar} carregando={salvando} desabilitado={nome.trim().length < 2 || capacidadeInvalida} />
     </ModalFormulario>
   );
 }

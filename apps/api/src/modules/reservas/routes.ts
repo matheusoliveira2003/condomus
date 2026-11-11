@@ -25,6 +25,12 @@ const filtroSchema = z.object({
   status: z.enum(["PENDENTE", "CONFIRMADA", "RECUSADA", "CANCELADA"]).optional(),
 });
 
+const areaSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome da área").max(60),
+  descricao: z.string().trim().max(200).optional(),
+  capacidade: z.number().int().min(1).max(10000).optional(),
+});
+
 const recusaSchema = z.object({ motivo: z.string().trim().max(300).optional() });
 
 const idParam = z.object({ id: z.uuid() });
@@ -38,6 +44,18 @@ export async function reservasRoutes(app: FastifyInstance) {
   app.get("/areas", { preHandler: app.autorizar() }, async (req) =>
     prisma.areaComum.findMany({ where: { ativa: true, condominioId: req.user.condominioId }, orderBy: { nome: "asc" } }),
   );
+
+  // Só o síndico cadastra áreas; o nome é único dentro do condomínio.
+  app.post("/areas", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
+    const { nome, descricao, capacidade } = areaSchema.parse(req.body);
+    const { condominioId } = req.user;
+    const existente = await prisma.areaComum.findUnique({ where: { condominioId_nome: { condominioId, nome } } });
+    if (existente) throw new HttpError(409, "Já existe uma área com esse nome");
+    const area = await prisma.areaComum.create({
+      data: { nome, descricao: descricao || null, capacidade: capacidade ?? null, condominioId },
+    });
+    return reply.status(201).send(area);
+  });
 
   // Todos veem as reservas que ocupam horário, para saber a disponibilidade das áreas.
   app.get("/reservas", { preHandler: app.autorizar() }, async (req) => {
