@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, SimpleLineIcons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useCriarAviso, useAvisos, useEditarAviso, useRemoverAviso } from "../hooks/queries";
@@ -47,8 +47,8 @@ export function AvisosScreen() {
           <Card>
             {aviso.fixado && (
               <View style={estilos.fixado}>
-                <Ionicons name="pin" size={13} color={cores.primaria} />
-                <Text style={estilos.fixadoTexto}>Fixado</Text>
+                <SimpleLineIcons name="pin" size={13} color={cores.primaria} />
+                <Text style={estilos.fixadoTexto}>FIXADO</Text>
               </View>
             )}
             <View style={estilos.cabecalho}>
@@ -179,14 +179,14 @@ const criarEstilos = (cores: Paleta) =>
       flexDirection: "row",
       alignItems: "center",
       alignSelf: "flex-start",
-      gap: 5,
+      gap: 6,
       backgroundColor: cores.primariaClara,
-      borderRadius: 999,
-      paddingVertical: 4,
+      borderRadius: 10,
+      paddingVertical: 6,
       paddingHorizontal: 10,
-      marginBottom: 10,
+      marginBottom: 12,
     },
-    fixadoTexto: { fontSize: 12, fontWeight: "700", color: cores.primaria },
+    fixadoTexto: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3, color: cores.primaria },
     cabecalho: { flexDirection: "row", alignItems: "center", gap: 12 },
     titulo: { flex: 1, fontSize: 18, fontWeight: "700", color: cores.texto, lineHeight: 24 },
     acoes: { flexDirection: "row", gap: 8 },
