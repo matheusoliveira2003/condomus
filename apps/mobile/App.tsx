@@ -5,9 +5,11 @@ import { DarkTheme, DefaultTheme, NavigationContainer, createNavigationContainer
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentType } from "react";
+import type { Contadores } from "@condomus/types";
 import type { Papel } from "./src/api/client";
+import { useContadores } from "./src/hooks/queries";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RecuperarSenhaScreen } from "./src/screens/RecuperarSenhaScreen";
@@ -35,6 +37,8 @@ interface Aba {
   titulo: string;
   icone: keyof typeof Ionicons.glyphMap;
   tela: ComponentType;
+  /** Qual contador do perfil vira o emblema da aba (omitido = sem emblema). */
+  contador?: keyof Contadores;
 }
 
 /**
@@ -67,9 +71,9 @@ const VisitasMoradorLazy = comSpinner(VisitasMoradorScreen);
 const CadastrosLazy = comSpinner(CadastrosScreen);
 
 const avisos: Aba = { nome: "Avisos", titulo: "Avisos", icone: "megaphone-outline", tela: AvisosLazy };
-const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasLazy };
-const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy };
-const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaLazy };
+const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasLazy, contador: "encomendas" };
+const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy, contador: "reservasPendentes" };
+const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaLazy, contador: "visitasEsperadas" };
 
 /** Abas disponíveis para cada perfil de acesso. */
 const abasPorPapel: Record<Papel, Aba[]> = {
@@ -272,6 +276,7 @@ function TelasPublicas({
 function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; setContaAberta: (v: boolean) => void }) {
   const { usuario } = useAuth();
   const { cores } = useTema();
+  const { data: contadores } = useContadores(!!usuario);
   if (!usuario) return null;
 
   return (
@@ -303,6 +308,8 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
               title: aba.titulo,
               tabBarLabel: aba.nome,
               tabBarIcon: ({ color, size }) => <Ionicons name={aba.icone} color={color} size={size} />,
+              // Zero some: sem emblema, a aba não pede nenhuma ação.
+              tabBarBadge: (aba.contador && contadores?.[aba.contador]) || undefined,
             }}
           />
         ))}
@@ -313,6 +320,12 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
 }
 
 const queryClient = new QueryClient({
+  // Qualquer alteração (visita, encomenda, reserva) pode mudar os números das abas.
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["contadores"] });
+    },
+  }),
   defaultOptions: {
     queries: {
       // Dados considerados frescos por 30s — evita re-fetch desnecessário ao alternar abas rapidamente.

@@ -6,7 +6,7 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
@@ -15,6 +15,7 @@ import { api, enviar } from "../api/client";
 export const keys = {
   perfil: ["perfil"] as const,
   resumo: ["resumo"] as const,
+  contadores: ["contadores"] as const,
   visitas: (filtro: string) => ["visitas", filtro] as const,
   encomendas: (status: string) => ["encomendas", status] as const,
   avisos: ["avisos"] as const,
@@ -81,6 +82,24 @@ export function useResumo() {
       const inicioDoDia = new Date();
       inicioDoDia.setHours(0, 0, 0, 0);
       return api<Resumo>(`/resumo?inicioDoDia=${inicioDoDia.toISOString()}`);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Contadores (emblemas das abas)
+// ---------------------------------------------------------------------------
+/** Números que pedem ação de quem está logado; `habilitado` evita a chamada antes do login. */
+export function useContadores(habilitado = true) {
+  return useQuery({
+    queryKey: keys.contadores,
+    enabled: habilitado,
+    // Atualiza sozinho: a portaria deixa o app aberto e novas visitas chegam de fora.
+    refetchInterval: 60_000,
+    queryFn: () => {
+      const inicioDoDia = new Date();
+      inicioDoDia.setHours(0, 0, 0, 0);
+      return api<Contadores>(`/contadores?inicioDoDia=${inicioDoDia.toISOString()}`);
     },
   });
 }

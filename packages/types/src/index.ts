@@ -156,6 +156,16 @@ export interface Pagina<T> {
 // Resumo (tela Início do morador)
 // ---------------------------------------------------------------------------
 
+/** Números do emblema das abas (GET /contadores); zero onde não se aplica ao perfil. */
+export interface Contadores {
+  /** Morador: encomendas aguardando retirada. */
+  encomendas: number;
+  /** Portaria e síndico: visitantes esperados hoje ou sem data. */
+  visitasEsperadas: number;
+  /** Síndico: reservas pendentes de aprovação. */
+  reservasPendentes: number;
+}
+
 export interface Resumo {
   unidade: Unidade | null;
   encomendas: {
