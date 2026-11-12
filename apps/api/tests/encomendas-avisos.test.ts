@@ -100,7 +100,7 @@ describe("resumo do Início", () => {
   it("junta encomendas, visitantes, próxima reserva e os 3 avisos mais recentes da unidade", async () => {
     await registrar(c.unidades.a101.id, "Minha caixa");
     await registrar(c.unidades.b201.id, "Do vizinho");
-    await chamar(app, "POST", "/visitas", { token: c.tokens.morador, corpo: { nomeVisitante: "Esperado" } });
+    await chamar(app, "POST", "/visitas", { token: c.tokens.morador, corpo: { nomeVisitante: "Esperado", documento: "12345678900" } });
     for (const titulo of ["1", "2", "3", "4"]) await chamar(app, "POST", "/avisos", { token: c.tokens.sindico, corpo: { titulo: `Aviso ${titulo}`, conteudo: "..." } });
 
     const inicioDoDia = new Date();

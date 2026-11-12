@@ -134,7 +134,7 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
       await entradaDireta.mutateAsync({
         unidadeId,
         nomeVisitante: nome.trim(),
-        documento: documento.trim() || undefined,
+        documento: documento.trim(),
         placaVeiculo: placa.trim().toUpperCase() || undefined,
       });
       setUnidadeId(null);
@@ -154,7 +154,7 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
       <Campo rotulo="Documento" value={documento} onChangeText={setDocumento} placeholder="RG ou CPF" />
       <Campo rotulo="Placa do veículo (opcional)" value={placa} onChangeText={setPlaca} autoCapitalize="characters" />
       <MensagemErro texto={erro} />
-      <Botao titulo="Registrar entrada" onPress={registrar} carregando={entradaDireta.isPending} desabilitado={!unidadeId || nome.trim().length < 2} />
+      <Botao titulo="Registrar entrada" onPress={registrar} carregando={entradaDireta.isPending} desabilitado={!unidadeId || nome.trim().length < 2 || documento.trim().length < 5} />
     </ModalFormulario>
   );
 }

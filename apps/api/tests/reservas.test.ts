@@ -136,3 +136,34 @@ describe("cancelamento e consulta", () => {
     expect(cancelada.corpo.status).toBe("CANCELADA");
   });
 });
+
+describe("cadastro de áreas", () => {
+  it("só o síndico cria; a área aparece na lista de todos", async () => {
+    const corpo = { nome: "Piscina", descricao: "Aberta das 8h às 20h", capacidade: 30 };
+    for (const token of [c.tokens.morador, c.tokens.porteiro]) {
+      expect((await chamar(app, "POST", "/areas", { token, corpo })).status).toBe(403);
+    }
+    const r = await chamar(app, "POST", "/areas", { token: c.tokens.sindico, corpo: { ...corpo, nome: "  Piscina " } });
+    expect(r.status).toBe(201);
+    expect(r.corpo).toMatchObject({ nome: "Piscina", descricao: "Aberta das 8h às 20h", capacidade: 30, ativa: true });
+
+    const lista = await chamar(app, "GET", "/areas", { token: c.tokens.morador });
+    expect(lista.corpo.map((a: { nome: string }) => a.nome)).toEqual(["Piscina", "Salão de festas"]);
+  });
+
+  it("recusa nome repetido e dados inválidos", async () => {
+    const criar = (corpo: unknown) => chamar(app, "POST", "/areas", { token: c.tokens.sindico, corpo });
+    expect((await criar({ nome: "Salão de festas" })).status).toBe(409);
+    expect((await criar({ nome: "A" })).status).toBe(400);
+    expect((await criar({ nome: "Sauna", capacidade: 0 })).status).toBe(400);
+  });
+
+  it("a área criada pode ser reservada pelo morador", async () => {
+    const { corpo: area } = await chamar(app, "POST", "/areas", { token: c.tokens.sindico, corpo: { nome: "Quadra" } });
+    const r = await chamar(app, "POST", "/reservas", {
+      token: c.tokens.morador,
+      corpo: { areaId: area.id, inicio: daquiA(24), fim: daquiA(26) },
+    });
+    expect(r.status).toBe(201);
+  });
+});

@@ -292,7 +292,15 @@ function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; o
     <ModalFormulario visivel={visivel} titulo="Nova reserva" onFechar={onFechar}>
       <View style={{ gap: 8 }}>
         <Text style={estilosTexto.titulo}>Área</Text>
-        <Chips opcoes={areas.map((a) => ({ valor: a.id, rotulo: a.nome }))} valor={areaId} onChange={setAreaId} />
+        {areasQuery.isError ? (
+          <MensagemErro texto="Não foi possível carregar as áreas. Tente de novo." />
+        ) : areasQuery.isSuccess && areas.length === 0 ? (
+          <Text style={estilosTexto.secundario}>
+            Nenhuma área disponível para reserva. Peça ao síndico para cadastrar as áreas do condomínio.
+          </Text>
+        ) : (
+          <Chips opcoes={areas.map((a) => ({ valor: a.id, rotulo: a.nome }))} valor={areaId} onChange={setAreaId} />
+        )}
       </View>
       <View style={{ gap: 8 }}>
         <Text style={estilosTexto.titulo}>Dia</Text>

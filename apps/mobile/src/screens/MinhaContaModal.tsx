@@ -46,6 +46,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const { preferencia } = useTema();
   const { sair, usuario, definirFoto } = useAuth();
   const { data: perfil } = usePerfil(visivel);
+  const { data: condominio } = useCondominio(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
   const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
@@ -121,6 +122,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
           <FotoDePerfil enviando={enviandoFoto} onAbrirSheet={() => setSheetAberto(true)} />
           <Text style={[estilosTexto.titulo, { fontSize: 18 }]}>{perfil.nome}</Text>
           <Text style={estilosTexto.secundario}>{perfil.email}</Text>
+          {condominio && <Text style={estilosTexto.secundario}>{condominio.nome}</Text>}
           <Text style={estilosTexto.corpo}>
             {rotuloPapel[perfil.papel]}
             {perfil.unidade && ` · ${unidadeTexto(perfil.unidade)}`}

@@ -90,4 +90,39 @@ export async function resumoRoutes(app: FastifyInstance) {
       avisos,
     };
   });
+
+  // Números do emblema das abas: só o que pede uma ação de quem está logado.
+  //  - morador: encomendas aguardando retirada na sua unidade;
+  //  - portaria e síndico: visitantes esperados hoje ou sem data;
+  //  - síndico: reservas pendentes de aprovação.
+  app.get("/contadores", { preHandler: app.autorizar("MORADOR", "PORTEIRO", "SINDICO") }, async (req) => {
+    const { inicioDoDia } = consultaSchema.parse(req.query);
+    const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
+    const { condominioId, papel } = req.user;
+
+    if (papel === "MORADOR") {
+      const { unidadeId } = (await prisma.usuario.findUnique({
+        where: { id: req.user.sub },
+        select: { unidadeId: true },
+      })) ?? { unidadeId: null };
+      const encomendas = unidadeId
+        ? await prisma.encomenda.count({ where: { unidadeId, status: "AGUARDANDO_RETIRADA", unidade: { condominioId } } })
+        : 0;
+      return { encomendas, visitasEsperadas: 0, reservasPendentes: 0 };
+    }
+
+    const [visitasEsperadas, reservasPendentes] = await Promise.all([
+      prisma.visita.count({
+        where: {
+          unidade: { condominioId },
+          status: "AGENDADA",
+          OR: [{ dataPrevista: null }, { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
+        },
+      }),
+      papel === "SINDICO"
+        ? prisma.reserva.count({ where: { area: { condominioId }, status: "PENDENTE", fim: { gt: new Date() } } })
+        : Promise.resolve(0),
+    ]);
+    return { encomendas: 0, visitasEsperadas, reservasPendentes };
+  });
 }

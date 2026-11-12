@@ -28,15 +28,3 @@ export function DetalhesVisita({ visita }: { visita: Visita }) {
     </Text>
   ));
 }
-
-/** Próximos dias como opções de chip, com valor ISO (meia-noite local). */
-export function proximosDias(quantidade: number) {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return Array.from({ length: quantidade }, (_, i) => {
-    const d = new Date(hoje);
-    d.setDate(hoje.getDate() + i);
-    const rotulo = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : data(d);
-    return { valor: d.toISOString(), rotulo };
-  });
-}

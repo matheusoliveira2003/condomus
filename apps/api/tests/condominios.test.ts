@@ -205,7 +205,7 @@ describe("isolamento entre condomínios", () => {
     expect(encomenda.status).toBe(404);
     const visita = await chamar("POST", "/visitas/entrada-direta", {
       auth: c.tokens.porteiro,
-      corpo: { unidadeId: o.unidade.id, nomeVisitante: "Fulano" },
+      corpo: { unidadeId: o.unidade.id, nomeVisitante: "Fulano", documento: "12345678900" },
     });
     expect(visita.status).toBe(404);
 

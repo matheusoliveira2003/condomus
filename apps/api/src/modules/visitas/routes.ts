@@ -8,7 +8,7 @@ import { gerarCartaoConvite } from "../../lib/cartaoConvite.js";
 
 const agendarSchema = z.object({
   nomeVisitante: z.string().min(2),
-  documento: z.string().optional(),
+  documento: z.string().trim().min(5, "Informe o documento do visitante (RG ou CPF)"),
   placaVeiculo: z.string().optional(),
   dataPrevista: z.coerce.date().optional(),
   observacao: z.string().optional(),

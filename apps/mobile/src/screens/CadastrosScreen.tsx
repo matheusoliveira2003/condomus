@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, enviar, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
+import { api, enviar, type AreaComum, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
@@ -12,12 +12,13 @@ import { useCores, useEstilos, type Paleta } from "../ui/tema";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 
-type Aba = "moradores" | "funcionarios" | "unidades";
+type Aba = "moradores" | "funcionarios" | "unidades" | "areas";
 
 const abas: { valor: Aba; rotulo: string }[] = [
   { valor: "moradores", rotulo: "Moradores" },
   { valor: "funcionarios", rotulo: "Funcionários" },
   { valor: "unidades", rotulo: "Unidades" },
+  { valor: "areas", rotulo: "Áreas" },
 ];
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
@@ -40,12 +41,16 @@ export function CadastrosScreen() {
     <View style={{ flex: 1 }}>
       {aba === "unidades" ? (
         <ListaUnidades cabecalho={seletor} />
+      ) : aba === "areas" ? (
+        <ListaAreas cabecalho={seletor} />
       ) : (
         <ListaUsuarios aba={aba} cabecalho={seletor} />
       )}
       <BotaoFlutuante onPress={() => setCriando(true)} />
       {aba === "unidades" ? (
         <NovaUnidadeModal visivel={criando} onFechar={fechar} />
+      ) : aba === "areas" ? (
+        <NovaAreaModal visivel={criando} onFechar={fechar} />
       ) : (
         <NovoUsuarioModal visivel={criando} morador={aba === "moradores"} onFechar={fechar} />
       )}
@@ -53,7 +58,7 @@ export function CadastrosScreen() {
   );
 }
 
-function ListaUsuarios({ aba, cabecalho }: { aba: Exclude<Aba, "unidades">; cabecalho: ReactNode }) {
+function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; cabecalho: ReactNode }) {
   const estilosTexto = useEstilosTexto();
   const { usuario: eu } = useAuth();
   const qc = useQueryClient();
@@ -155,7 +160,28 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
   });
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
   const mensagens = useMensagens();
+  const qc = useQueryClient();
+  const [editando, setEditando] = useState<UnidadeComMoradores | null>(null);
+
+  function excluir(u: UnidadeComMoradores) {
+    mensagens.confirmar({
+      titulo: "Excluir unidade",
+      texto: `Excluir a unidade ${unidadeTexto(u)}? Só é possível se ela não tiver moradores nem histórico.`,
+      confirmar: "Excluir",
+      perigo: true,
+      aoConfirmar: () => {
+        enviar("DELETE", `/unidades/${u.id}`)
+          .then(() => {
+            void qc.invalidateQueries({ queryKey: ["cadastros"] });
+            mensagens.sucesso("Unidade excluída");
+          })
+          .catch((e: Error) => mensagens.erro(e.message));
+      },
+    });
+  }
+
   return (
+    <>
     <Lista
       dados={dados}
       carregando={carregando}
@@ -173,15 +199,98 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
             </Text>
           </View>
           <Botao titulo="Gerar convite" variante="secundario" pequeno onPress={() => gerarConvite(mensagens, u)} />
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Botao titulo="Excluir" variante="perigo" pequeno onPress={() => excluir(u)} />
+            </View>
+          </View>
+        </Card>
+      )}
+    />
+    <EditarUnidadeModal
+      unidade={editando}
+      onFechar={() => {
+        setEditando(null);
+        void qc.invalidateQueries({ queryKey: ["cadastros"] });
+      }}
+    />
+    </>
+  );
+}
+
+function EditarUnidadeModal({ unidade, onFechar }: { unidade: UnidadeComMoradores | null; onFechar: () => void }) {
+  const [bloco, setBloco] = useState("");
+  const [numero, setNumero] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    if (unidade) {
+      setBloco(unidade.bloco ?? "");
+      setNumero(unidade.numero);
+      setErro(null);
+    }
+  }, [unidade]);
+
+  async function salvar() {
+    if (!unidade) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      await enviar("PATCH", `/unidades/${unidade.id}`, { bloco, numero });
+      onFechar();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <ModalFormulario visivel={!!unidade} titulo="Editar unidade" onFechar={onFechar}>
+      <Campo rotulo="Bloco" value={bloco} onChangeText={setBloco} autoCapitalize="characters" placeholder="Ex.: A" />
+      <Campo rotulo="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" placeholder="Ex.: 101" />
+      <MensagemErro texto={erro} />
+      <Botao titulo="Salvar" onPress={salvar} carregando={salvando} desabilitado={!bloco.trim() || !numero.trim()} />
+    </ModalFormulario>
+  );
+}
+
+function ListaAreas({ cabecalho }: { cabecalho: ReactNode }) {
+  const estilosTexto = useEstilosTexto();
+  const query = useQuery({
+    queryKey: ["cadastros", "areas"],
+    queryFn: () => api<AreaComum[]>("/areas"),
+  });
+  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(query);
+  return (
+    <Lista
+      dados={dados}
+      carregando={carregando}
+      recarregando={recarregando}
+      erro={erro}
+      recarregar={recarregar}
+      cabecalho={cabecalho}
+      vazio="Nenhuma área cadastrada. Toque em + para criar a primeira."
+      renderItem={(a) => (
+        <Card>
+          <Text style={estilosTexto.titulo}>{a.nome}</Text>
+          {a.descricao && <Text style={estilosTexto.corpo}>{a.descricao}</Text>}
+          {a.capacidade && <Text style={estilosTexto.secundario}>Capacidade: {a.capacidade} pessoas</Text>}
         </Card>
       )}
     />
   );
 }
 
-function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
-  const [bloco, setBloco] = useState("");
-  const [numero, setNumero] = useState("");
+function NovaAreaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const qc = useQueryClient();
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [capacidade, setCapacidade] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -189,9 +298,103 @@ function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
     setSalvando(true);
     setErro(null);
     try {
-      await enviar("POST", "/unidades", { bloco, numero });
-      setBloco("");
-      setNumero("");
+      await enviar("POST", "/areas", {
+        nome: nome.trim(),
+        descricao: descricao.trim() || undefined,
+        capacidade: capacidade.trim() ? Number(capacidade) : undefined,
+      });
+      setNome("");
+      setDescricao("");
+      setCapacidade("");
+      // A tela de reservas guarda a lista de áreas em cache por 5 minutos.
+      void qc.invalidateQueries({ queryKey: ["areas"] });
+      onFechar();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const capacidadeInvalida = capacidade.trim() !== "" && !/^[1-9]\d*$/.test(capacidade.trim());
+  return (
+    <ModalFormulario visivel={visivel} titulo="Nova área" onFechar={onFechar}>
+      <Campo rotulo="Nome" value={nome} onChangeText={setNome} placeholder="Ex.: Salão de festas" />
+      <Campo rotulo="Descrição (opcional)" value={descricao} onChangeText={setDescricao} placeholder="Ex.: Aberto das 8h às 22h" />
+      <Campo rotulo="Capacidade (opcional)" value={capacidade} onChangeText={setCapacidade} keyboardType="number-pad" placeholder="Pessoas" />
+      <MensagemErro texto={erro} />
+      <Botao titulo="Cadastrar área" onPress={salvar} carregando={salvando} desabilitado={nome.trim().length < 2 || capacidadeInvalida} />
+    </ModalFormulario>
+  );
+}
+
+type ModoUnidade = "uma" | "lote";
+
+const modosUnidade: { valor: ModoUnidade; rotulo: string }[] = [
+  { valor: "uma", rotulo: "Uma unidade" },
+  { valor: "lote", rotulo: "Em lote" },
+];
+
+function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
+  const mensagens = useMensagens();
+  const estilosTexto = useEstilosTexto();
+  const [modo, setModo] = useState<ModoUnidade>("uma");
+  const [bloco, setBloco] = useState("");
+  const [numero, setNumero] = useState("");
+  const [blocos, setBlocos] = useState("");
+  const [andarInicial, setAndarInicial] = useState("1");
+  const [andarFinal, setAndarFinal] = useState("");
+  const [porAndar, setPorAndar] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  const listaBlocos = blocos
+    .split(/[,\s]+/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  const inicial = Number(andarInicial);
+  const final = Number(andarFinal);
+  const apartamentos = Number(porAndar);
+  const loteValido =
+    listaBlocos.length > 0 &&
+    andarInicial !== "" &&
+    andarFinal !== "" &&
+    porAndar !== "" &&
+    [inicial, final, apartamentos].every(Number.isInteger) &&
+    final >= inicial &&
+    apartamentos >= 1;
+  const total = loteValido ? listaBlocos.length * (final - inicial + 1) * apartamentos : 0;
+
+  function limpar() {
+    setBloco("");
+    setNumero("");
+    setBlocos("");
+    setAndarInicial("1");
+    setAndarFinal("");
+    setPorAndar("");
+    setErro(null);
+  }
+
+  async function salvar() {
+    setSalvando(true);
+    setErro(null);
+    try {
+      if (modo === "uma") {
+        await enviar("POST", "/unidades", { bloco, numero });
+      } else {
+        const { criadas, ignoradas } = await enviar<{ criadas: number; ignoradas: number }>("POST", "/unidades/lote", {
+          blocos: listaBlocos,
+          andarInicial: inicial,
+          andarFinal: final,
+          porAndar: apartamentos,
+        });
+        mensagens.sucesso(
+          ignoradas > 0
+            ? `${criadas} unidades criadas; ${ignoradas} já existiam`
+            : `${criadas} ${criadas === 1 ? "unidade criada" : "unidades criadas"}`,
+        );
+      }
+      limpar();
       onFechar();
     } catch (e) {
       setErro((e as Error).message);
@@ -202,10 +405,29 @@ function NovaUnidadeModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
 
   return (
     <ModalFormulario visivel={visivel} titulo="Nova unidade" onFechar={onFechar}>
-      <Campo rotulo="Bloco" value={bloco} onChangeText={setBloco} autoCapitalize="characters" placeholder="Ex.: A" />
-      <Campo rotulo="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" placeholder="Ex.: 101" />
-      <MensagemErro texto={erro} />
-      <Botao titulo="Cadastrar unidade" onPress={salvar} carregando={salvando} desabilitado={!bloco.trim() || !numero.trim()} />
+      <Chips opcoes={modosUnidade} valor={modo} onChange={setModo} />
+      {modo === "uma" ? (
+        <>
+          <Campo rotulo="Bloco" value={bloco} onChangeText={setBloco} autoCapitalize="characters" placeholder="Ex.: A" />
+          <Campo rotulo="Número" value={numero} onChangeText={setNumero} keyboardType="number-pad" placeholder="Ex.: 101" />
+          <MensagemErro texto={erro} />
+          <Botao titulo="Cadastrar unidade" onPress={salvar} carregando={salvando} desabilitado={!bloco.trim() || !numero.trim()} />
+        </>
+      ) : (
+        <>
+          <Campo rotulo="Blocos" value={blocos} onChangeText={setBlocos} autoCapitalize="characters" placeholder="Ex.: A, B, C" />
+          <Campo rotulo="Andar inicial" value={andarInicial} onChangeText={setAndarInicial} keyboardType="number-pad" placeholder="Ex.: 1" />
+          <Campo rotulo="Andar final" value={andarFinal} onChangeText={setAndarFinal} keyboardType="number-pad" placeholder="Ex.: 8" />
+          <Campo rotulo="Apartamentos por andar" value={porAndar} onChangeText={setPorAndar} keyboardType="number-pad" placeholder="Ex.: 4" />
+          {loteValido && (
+            <Text style={estilosTexto.secundario}>
+              Serão {total} unidades, numeradas {inicial * 100 + 1} a {final * 100 + apartamentos} em cada bloco. As que já existem são ignoradas.
+            </Text>
+          )}
+          <MensagemErro texto={erro} />
+          <Botao titulo="Cadastrar em lote" onPress={salvar} carregando={salvando} desabilitado={!loteValido} />
+        </>
+      )}
     </ModalFormulario>
   );
 }

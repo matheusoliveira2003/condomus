@@ -6,7 +6,7 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
@@ -15,6 +15,7 @@ import { api, enviar } from "../api/client";
 export const keys = {
   perfil: ["perfil"] as const,
   resumo: ["resumo"] as const,
+  contadores: ["contadores"] as const,
   visitas: (filtro: string) => ["visitas", filtro] as const,
   encomendas: (status: string) => ["encomendas", status] as const,
   avisos: ["avisos"] as const,
@@ -86,6 +87,24 @@ export function useResumo() {
 }
 
 // ---------------------------------------------------------------------------
+// Contadores (emblemas das abas)
+// ---------------------------------------------------------------------------
+/** Números que pedem ação de quem está logado; `habilitado` evita a chamada antes do login. */
+export function useContadores(habilitado = true) {
+  return useQuery({
+    queryKey: keys.contadores,
+    enabled: habilitado,
+    // Atualiza sozinho: a portaria deixa o app aberto e novas visitas chegam de fora.
+    refetchInterval: 60_000,
+    queryFn: () => {
+      const inicioDoDia = new Date();
+      inicioDoDia.setHours(0, 0, 0, 0);
+      return api<Contadores>(`/contadores?inicioDoDia=${inicioDoDia.toISOString()}`);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Visitas
 // ---------------------------------------------------------------------------
 export function useVisitas(filtro: string) {
@@ -98,7 +117,7 @@ export function useVisitas(filtro: string) {
 export function useCriarVisita() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: { nomeVisitante: string; documento?: string; placaVeiculo?: string; dataPrevista?: string }) =>
+    mutationFn: (dados: { nomeVisitante: string; documento: string; placaVeiculo?: string; dataPrevista?: string }) =>
       enviar<Visita>("POST", "/visitas", dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
   });
@@ -124,7 +143,7 @@ export function useRegistrarEntradaSaida() {
 export function useEntradaDireta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento?: string; placaVeiculo?: string }) =>
+    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento: string; placaVeiculo?: string }) =>
       enviar<Visita>("POST", "/visitas/entrada-direta", dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
   });
