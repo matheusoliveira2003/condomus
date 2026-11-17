@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { gerarCodigoConvite, normalizarCodigo } from "../../lib/codigo.js";
 import { emitirSessao } from "../../lib/sessao.js";
+import { limitar } from "../../lib/limites.js";
 
 const VALIDADE_CONVITE_DIAS = 7;
 
@@ -45,7 +46,7 @@ export async function convitesRoutes(app: FastifyInstance) {
   });
 
   // Público: o morador ainda não tem conta. Não expõe ids internos.
-  app.get("/convite/:codigo", async (req) => {
+  app.get("/convite/:codigo", { config: limitar(30) }, async (req) => {
     const { codigo } = codigoParam.parse(req.params);
     const { unidade } = await buscarConviteValido(codigo);
     return {
@@ -54,7 +55,7 @@ export async function convitesRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post("/cadastro", async (req, reply) => {
+  app.post("/cadastro", { config: limitar(10) }, async (req, reply) => {
     const { codigo, nome, email, senha } = cadastroSchema.parse(req.body);
     const convite = await buscarConviteValido(codigo);
     const senhaHash = await bcrypt.hash(senha, 10);

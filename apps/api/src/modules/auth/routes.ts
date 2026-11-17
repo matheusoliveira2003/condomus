@@ -6,6 +6,7 @@ import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { enviarCodigoRecuperacao, enviarCodigoTrocaEmail } from "../../lib/email.js";
 import { gerarCodigoNumerico } from "../../lib/codigo.js";
 import { emitirSessao } from "../../lib/sessao.js";
+import { limitar } from "../../lib/limites.js";
 
 /** O código de recuperação vale por este tempo após ser gerado. */
 const VALIDADE_CODIGO_MINUTOS = 15;
@@ -13,7 +14,16 @@ const VALIDADE_CODIGO_MINUTOS = 15;
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
   senha: z.string().min(1),
+  /** Quando o mesmo e-mail e senha servem em mais de um condomínio, o app reenvia o login com o escolhido. */
+  condominioId: z.uuid().optional(),
 });
+
+/**
+ * Hash de uma senha qualquer, só para o login gastar o mesmo tempo (uma comparação bcrypt) quando o
+ * e-mail não existe. Sem isso, "e-mail inexistente" responderia bem mais rápido que "senha errada" e
+ * revelaria quais e-mails têm conta. Calculado uma vez, no custo usado nas contas reais (10).
+ */
+const HASH_FALSO = bcrypt.hashSync("senha-que-ninguem-usa", 10);
 
 const trocarSenhaSchema = z
   .object({
@@ -43,12 +53,31 @@ const redefinirSenhaSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post("/auth/login", async (req) => {
-    const { email, senha } = loginSchema.parse(req.body);
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
-    if (!usuario || !usuario.ativo || !(await bcrypt.compare(senha, usuario.senhaHash))) {
-      throw new HttpError(401, "E-mail ou senha inválidos");
+  app.post("/auth/login", { config: limitar(10) }, async (req) => {
+    const { email, senha, condominioId } = loginSchema.parse(req.body);
+    // O mesmo e-mail pode existir em mais de um condomínio. Confere a senha em cada conta ativa.
+    const candidatas = await prisma.usuario.findMany({
+      where: { email, ativo: true, ...(condominioId && { condominioId }) },
+      include: { condominio: { select: { nome: true } } },
+    });
+    // Sempre ao menos uma comparação, para o tempo não revelar se o e-mail existe.
+    let validas: typeof candidatas = [];
+    if (candidatas.length) {
+      const resultados = await Promise.all(candidatas.map(async (u) => ({ u, ok: await bcrypt.compare(senha, u.senhaHash) })));
+      validas = resultados.filter((r) => r.ok).map((r) => r.u);
+    } else {
+      await bcrypt.compare(senha, HASH_FALSO); // resultado descartado: só equilibra o tempo de resposta
     }
+    if (validas.length === 0) throw new HttpError(401, "E-mail ou senha inválidos");
+
+    // Mais de uma conta com esse e-mail e essa senha: a pessoa escolhe o condomínio. A lista só
+    // aparece depois de a senha conferir, então não revela quem tem conta em qual condomínio.
+    if (validas.length > 1) {
+      return {
+        escolherCondominio: validas.map((u) => ({ condominioId: u.condominioId, nome: u.condominio.nome })),
+      };
+    }
+    const usuario = validas[0];
     // Limpa código de recuperação expirado que porventura ficou para trás (fire-and-forget).
     if (usuario.codigoRecuperacaoExpira && usuario.codigoRecuperacaoExpira < new Date()) {
       prisma.usuario
@@ -89,10 +118,12 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Esqueci a senha — passo 1: pede o código por e-mail. A resposta é sempre a mesma, exista ou
   // não o e-mail (e exista ou não erro no envio), para não revelar quais e-mails têm conta.
-  app.post("/auth/recuperar-senha", async (req, reply) => {
+  app.post("/auth/recuperar-senha", { config: limitar(5) }, async (req, reply) => {
     const { email } = pedirRecuperacaoSchema.parse(req.body);
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
-    if (usuario?.ativo) {
+    // O e-mail pode ter conta em mais de um condomínio: cada conta recebe o próprio código (e o
+    // próprio e-mail). A redefinição acha a conta certa pelo código que a pessoa digitar.
+    const contas = await prisma.usuario.findMany({ where: { email, ativo: true } });
+    for (const usuario of contas) {
       const codigo = gerarCodigoNumerico();
       await prisma.usuario.update({
         where: { id: usuario.id },
@@ -107,33 +138,49 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Esqueci a senha — passo 2: confere o código e define a nova senha.
-  app.post("/auth/redefinir-senha", async (req) => {
+  app.post("/auth/redefinir-senha", { config: limitar(5) }, async (req) => {
     const { email, codigo, novaSenha } = redefinirSenhaSchema.parse(req.body);
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
-    const codigoValido =
-      usuario?.ativo &&
-      usuario.codigoRecuperacaoHash &&
-      usuario.codigoRecuperacaoExpira &&
-      usuario.codigoRecuperacaoExpira > new Date() &&
-      (await bcrypt.compare(codigo, usuario.codigoRecuperacaoHash));
-    if (!codigoValido) throw new HttpError(400, "Código inválido ou expirado");
-    // Invalida o código: ele não pode ser usado de novo.
+    const contas = await prisma.usuario.findMany({ where: { email, ativo: true } });
+    let usuario: (typeof contas)[number] | undefined;
+    for (const conta of contas) {
+      const valido =
+        conta.codigoRecuperacaoHash &&
+        conta.codigoRecuperacaoExpira &&
+        conta.codigoRecuperacaoExpira > new Date() &&
+        (await bcrypt.compare(codigo, conta.codigoRecuperacaoHash));
+      if (valido) {
+        usuario = conta;
+        break;
+      }
+    }
+    // Mesma resposta para e-mail sem conta, código errado e código vencido.
+    if (!usuario) throw new HttpError(400, "Código inválido ou expirado");
+    // Invalida o código: ele não pode ser usado de novo. O tokenVersion derruba as sessões abertas
+    // (quem tinha a senha antiga perde o acesso) e senhaTemporaria sai, pois a pessoa escolheu a senha.
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { senhaHash: await bcrypt.hash(novaSenha, 10), codigoRecuperacaoHash: null, codigoRecuperacaoExpira: null },
+      data: {
+        senhaHash: await bcrypt.hash(novaSenha, 10),
+        codigoRecuperacaoHash: null,
+        codigoRecuperacaoExpira: null,
+        tokenVersion: { increment: 1 },
+        senhaTemporaria: false,
+      },
     });
     return { ok: true };
   });
 
   // Trocar e-mail — passo 1: valida senha atual, salva e-mail pendente e envia código para o novo e-mail.
-  app.post("/auth/trocar-email", { preHandler: app.autorizar() }, async (req, reply) => {
+  app.post("/auth/trocar-email", { preHandler: app.autorizar(), config: limitar(5) }, async (req, reply) => {
     const { novoEmail, senhaAtual } = trocarEmailSchema.parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
     if (!usuario) throw naoEncontrado("Usuário");
     if (novoEmail === usuario.email) throw new HttpError(400, "O novo e-mail deve ser diferente do atual");
     if (!(await bcrypt.compare(senhaAtual, usuario.senhaHash))) throw new HttpError(400, "Senha incorreta");
-    // Verifica se o novo e-mail já está em uso por outra conta.
-    const existente = await prisma.usuario.findUnique({ where: { email: novoEmail } });
+    // Verifica se o novo e-mail já está em uso por outra conta do mesmo condomínio (em outro é permitido).
+    const existente = await prisma.usuario.findUnique({
+      where: { condominioId_email: { condominioId: usuario.condominioId, email: novoEmail } },
+    });
     if (existente) throw new HttpError(400, "Este e-mail já está em uso");
     const codigo = gerarCodigoNumerico();
     await prisma.usuario.update({
@@ -149,7 +196,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Trocar e-mail — passo 2: valida o código e efetiva a troca de e-mail.
-  app.post("/auth/confirmar-email", { preHandler: app.autorizar() }, async (req) => {
+  app.post("/auth/confirmar-email", { preHandler: app.autorizar(), config: limitar(5) }, async (req) => {
     const { codigo } = confirmarEmailSchema.parse(req.body);
     const usuario = await prisma.usuario.findUnique({ where: { id: req.user.sub } });
     if (!usuario) throw naoEncontrado("Usuário");
@@ -161,7 +208,7 @@ export async function authRoutes(app: FastifyInstance) {
       (await bcrypt.compare(codigo, usuario.codigoEmailHash));
     if (!codigoValido) throw new HttpError(400, "Código inválido ou expirado");
     // Efetiva a troca: atualiza e-mail, limpa campos pendentes e invalida tokens antigos.
-    await prisma.usuario.update({
+    const atualizado = await prisma.usuario.update({
       where: { id: usuario.id },
       data: {
         email: usuario.emailPendente!,
@@ -171,6 +218,8 @@ export async function authRoutes(app: FastifyInstance) {
         tokenVersion: { increment: 1 },
       },
     });
-    return { ok: true };
+    // Devolve a sessão nova: o token usado nesta requisição acabou de ser invalidado e o app precisa
+    // trocá-lo, senão a próxima chamada cairia em 401 e a pessoa seria deslogada logo após o sucesso.
+    return emitirSessao(app, atualizado);
   });
 }

@@ -5,6 +5,8 @@ import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { notificarUnidade } from "../../lib/push.js";
 import { gerarCodigo, normalizarCodigo } from "../../lib/codigo.js";
 import { gerarCartaoConvite } from "../../lib/cartaoConvite.js";
+import { dadosDaVerificacao, renovarPrazoRosto, verificacaoSchema } from "../rostos/regras.js";
+import { FUSO, aindaValem, antesDoDia, inicioDoDia, venceEm, venceu } from "../../lib/validadeVisita.js";
 
 const agendarSchema = z.object({
   nomeVisitante: z.string().min(2),
@@ -15,7 +17,7 @@ const agendarSchema = z.object({
 });
 
 /** Portaria registrando um visitante sem pré-autorização (entrada imediata). */
-const entradaDiretaSchema = agendarSchema.extend({ unidadeId: z.uuid() });
+const entradaDiretaSchema = agendarSchema.extend({ unidadeId: z.uuid(), verificacao: verificacaoSchema.optional() });
 
 /** Agrupamentos de status usados pelo app: visitas em aberto ou já encerradas. */
 const SITUACOES = {
@@ -35,7 +37,7 @@ const filtroSchema = z.object({
 
 const idParam = z.object({ id: z.uuid() });
 
-const entradaSchema = z.object({ codigo: z.string().optional() });
+const entradaSchema = z.object({ codigo: z.string().optional(), verificacao: verificacaoSchema.optional() });
 
 export async function visitasRoutes(app: FastifyInstance) {
   // Morador vê as visitas da própria unidade; portaria e síndico veem todas.
@@ -48,10 +50,18 @@ export async function visitasRoutes(app: FastifyInstance) {
       ? await prisma.visita.findFirst({ where: { id: cursor, unidade: { condominioId } }, select: { criadoEm: true } })
       : null;
 
+    const agora = new Date();
     const visitas = await prisma.visita.findMany({
       where: {
         unidade: { condominioId },
         status: status ?? (situacao && { in: [...SITUACOES[situacao]] }),
+        // Convite vencido ainda não cancelado pela limpeza não aparece como esperado. Condição positiva
+        // (aindaValem), nunca um NOT sobre a vencida: com dataPrevista nula, o SQL dá "desconhecido"
+        // na comparação, e NOT de desconhecido continua desconhecido, o que descartaria a linha.
+        // AND explícito: o OR do cursor, abaixo, ocupa a chave `OR` do nível de cima.
+        ...(status === "AGENDADA" || situacao === "ativas"
+          ? { AND: [{ OR: [{ status: { not: "AGENDADA" as const } }, aindaValem(agora)] }] }
+          : {}),
         ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
         // Cursor: registros mais antigos que o último recebido (mesma data → desambigua pelo id).
         ...(ancoraCursor && { OR: [
@@ -68,15 +78,25 @@ export async function visitasRoutes(app: FastifyInstance) {
     const itens = temMais ? visitas.slice(0, limite) : visitas;
     const proximoCursor = temMais ? itens[itens.length - 1].id : null;
 
+    // Entrou há mais de 24 h e a saída não foi registrada: a portaria precisa conferir. Não muda o status.
+    const limiteSemSaida = agora.getTime() - 24 * 60 * 60 * 1000;
+    const comAviso = itens.map((v) => ({
+      ...v,
+      semSaida: v.status === "EM_ANDAMENTO" && !!v.entradaEm && v.entradaEm.getTime() < limiteSemSaida,
+    }));
     const resultado = papel === "MORADOR"
-      ? itens
-      : itens.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
+      ? comAviso
+      : comAviso.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
 
     return { itens: resultado, proximoCursor };
   });
 
   app.post("/visitas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
     const dados = agendarSchema.parse(req.body);
+    // O dia previsto não pode ter passado (hoje vale, mesmo que a hora já tenha passado).
+    if (dados.dataPrevista && dados.dataPrevista < inicioDoDia(new Date())) {
+      throw new HttpError(400, "A data prevista não pode ser anterior a hoje");
+    }
     const visita = await prisma.visita.create({
       data: { ...dados, unidadeId: req.user.unidadeId!, autorizadoPorId: req.user.sub, codigoAcesso: await codigoLivre() },
     });
@@ -84,13 +104,15 @@ export async function visitasRoutes(app: FastifyInstance) {
   });
 
   app.post("/visitas/entrada-direta", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
-    const dados = entradaDiretaSchema.parse(req.body);
+    const { verificacao, ...dados } = entradaDiretaSchema.parse(req.body);
     if (!(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId: req.user.condominioId } }))) {
       throw naoEncontrado("Unidade");
     }
+    const verificada = await dadosDaVerificacao(req.user, dados.documento, verificacao);
     const visita = await prisma.visita.create({
-      data: { ...dados, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
+      data: { ...dados, ...verificada, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
     });
+    await renovarPrazoRosto(req.user.condominioId, visita.documento);
     avisarChegada(visita.unidadeId, visita.nomeVisitante);
     return reply.status(201).send(visita);
   });
@@ -98,17 +120,22 @@ export async function visitasRoutes(app: FastifyInstance) {
   app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
     const visita = await buscar(req.params, req.user.condominioId);
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível registrar entrada de visitas agendadas");
+    // O convite só vale no dia previsto (sem data, por 30 dias): antes ou depois disso, a entrada é recusada.
+    if (venceu(visita)) throw new HttpError(409, `Este convite venceu em ${formatarDia(venceEm(visita))}`);
+    if (antesDoDia(visita)) throw new HttpError(409, `Este convite só vale a partir de ${formatarDia(inicioDoDia(visita.dataPrevista!))}`);
     // Visita com convite só entra com o código dele (lido do QR code ou digitado).
     // Visitas antigas, criadas antes do convite existir, não têm código e seguem sem exigência.
+    const { codigo, verificacao } = entradaSchema.parse(req.body ?? {});
     if (visita.codigoAcesso) {
-      const { codigo } = entradaSchema.parse(req.body ?? {});
       if (!codigo) throw new HttpError(400, "Leia o QR code do convite (ou digite o código) para registrar a entrada");
       if (normalizarCodigo(codigo) !== visita.codigoAcesso) throw new HttpError(400, "Este convite não é desta visita");
     }
+    const verificada = await dadosDaVerificacao(req.user, visita.documento, verificacao);
     const atualizada = await prisma.visita.update({
       where: { id: visita.id },
-      data: { status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
+      data: { ...verificada, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
     });
+    await renovarPrazoRosto(req.user.condominioId, visita.documento);
     avisarChegada(visita.unidadeId, visita.nomeVisitante);
     return atualizada;
   });
@@ -187,3 +214,5 @@ async function buscar(params: unknown, condominioId: string) {
   if (!visita) throw naoEncontrado("Visita", "f");
   return visita;
 }
+
+const formatarDia = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: FUSO });

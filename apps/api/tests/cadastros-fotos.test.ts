@@ -113,6 +113,62 @@ describe("cadastros pelo síndico", () => {
   });
 });
 
+describe("editar usuário pelo síndico", () => {
+  const editar = (id: string, corpo: Record<string, unknown>, token = c.tokens.sindico) =>
+    chamar(app, "PATCH", `/usuarios/${id}`, { token, corpo });
+
+  it("corrige o nome", async () => {
+    const r = await editar(c.usuarios.morador.id, { nome: "  Morador Corrigido " });
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ nome: "Morador Corrigido", email: "morador@teste.dev" });
+    expect(r.corpo).not.toHaveProperty("senhaHash");
+  });
+
+  it("muda o morador de unidade e encerra a sessão antiga, pois a unidade vai no token", async () => {
+    const r = await editar(c.usuarios.morador.id, { unidadeId: c.unidades.b201.id });
+    expect(r.status).toBe(200);
+    expect(r.corpo.unidade).toMatchObject({ numero: "201" });
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).status).toBe(401);
+    const novoToken = await entrar(app, "morador@teste.dev");
+    expect((await chamar(app, "GET", "/auth/me", { token: novoToken })).corpo.unidade).toMatchObject({ numero: "201" });
+  });
+
+  it("só mudar o nome não derruba a sessão", async () => {
+    await editar(c.usuarios.morador.id, { nome: "Outro Nome" });
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).status).toBe(200);
+  });
+
+  it("não troca o e-mail nem o papel, mesmo que venham no corpo", async () => {
+    const r = await editar(c.usuarios.morador.id, { nome: "Fulano", email: "invasor@teste.dev", papel: "SINDICO" });
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ email: "morador@teste.dev", papel: "MORADOR" });
+  });
+
+  it("funcionário não ganha unidade", async () => {
+    const r = await editar(c.usuarios.porteiro.id, { unidadeId: c.unidades.a101.id });
+    expect(r.status).toBe(409);
+  });
+
+  it("recusa unidade de outro condomínio e usuário de outro condomínio", async () => {
+    const outro = await prisma.condominio.create({ data: { nome: "Outro", planoStatus: "ATIVO" } });
+    const unidadeFora = await prisma.unidade.create({ data: { bloco: "Z", numero: "9", condominioId: outro.id } });
+    const usuarioFora = await prisma.usuario.create({
+      data: { nome: "Fora", email: "fora@teste.dev", papel: "MORADOR", senhaHash: "x", condominioId: outro.id, unidadeId: unidadeFora.id },
+    });
+    expect((await editar(c.usuarios.morador.id, { unidadeId: unidadeFora.id })).status).toBe(404);
+    expect((await editar(usuarioFora.id, { nome: "Invadido" })).status).toBe(404);
+    expect((await prisma.usuario.findUniqueOrThrow({ where: { id: usuarioFora.id } })).nome).toBe("Fora");
+  });
+
+  it("só o síndico edita, e o corpo precisa ter nome ou unidade", async () => {
+    for (const token of [c.tokens.morador, c.tokens.porteiro]) {
+      expect((await editar(c.usuarios.vizinho.id, { nome: "Xis" }, token)).status).toBe(403);
+    }
+    expect((await editar(c.usuarios.morador.id, {})).status).toBe(400);
+    expect((await editar(c.usuarios.morador.id, { nome: "A" })).status).toBe(400);
+  });
+});
+
 describe("foto de perfil", () => {
   // Menor JPEG válido o suficiente para o teste: começa com FF D8 FF.
   const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]).toString("base64");

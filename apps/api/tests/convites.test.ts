@@ -85,7 +85,7 @@ describe("cadastro por convite", () => {
     expect(r.corpo.usuario).toMatchObject({ nome: "Novo Morador", papel: "MORADOR", unidadeId: c.unidades.a101.id });
     expect(JSON.stringify(r.corpo)).not.toContain("senhaHash");
 
-    const criado = await prisma.usuario.findUniqueOrThrow({ where: { email: "novo@teste.dev" } });
+    const criado = await prisma.usuario.findUniqueOrThrow({ where: { condominioId_email: { condominioId: c.condominio.id, email: "novo@teste.dev" } } });
     expect(criado.condominioId).toBe(c.condominio.id);
 
     // O token devolvido já é válido e o login com a senha cadastrada também.
@@ -100,7 +100,7 @@ describe("cadastro por convite", () => {
     const segunda = await chamar(app, "POST", "/cadastro", { corpo: dadosCadastro(codigo, "outro@teste.dev") });
     expect(segunda.status).toBe(410);
     expect((await chamar(app, "GET", `/convite/${codigo}`)).status).toBe(410);
-    expect(await prisma.usuario.findUnique({ where: { email: "outro@teste.dev" } })).toBeNull();
+    expect(await prisma.usuario.findUnique({ where: { condominioId_email: { condominioId: c.condominio.id, email: "outro@teste.dev" } } })).toBeNull();
   });
 
   it("convite expirado é recusado", async () => {
@@ -110,7 +110,7 @@ describe("cadastro por convite", () => {
     expect((await chamar(app, "GET", `/convite/${codigo}`)).status).toBe(410);
     const r = await chamar(app, "POST", "/cadastro", { corpo: dadosCadastro(codigo) });
     expect(r.status).toBe(410);
-    expect(await prisma.usuario.findUnique({ where: { email: "novo@teste.dev" } })).toBeNull();
+    expect(await prisma.usuario.findUnique({ where: { condominioId_email: { condominioId: c.condominio.id, email: "novo@teste.dev" } } })).toBeNull();
   });
 
   it("código inválido é 404", async () => {

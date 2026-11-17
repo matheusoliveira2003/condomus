@@ -23,6 +23,14 @@ function gerarSenhaTemporaria() {
   return randomBytes(9).toString("base64url").slice(0, 12);
 }
 
+/** O síndico corrige o nome e muda o morador de unidade. E-mail e papel ficam de fora de propósito. */
+const editarSchema = z
+  .object({
+    nome: z.string().trim().min(2).optional(),
+    unidadeId: z.uuid().optional(),
+  })
+  .refine((d) => d.nome !== undefined || d.unidadeId !== undefined, { message: "Informe o nome ou a unidade" });
+
 const filtroSchema = z.object({ papel: z.enum(["MORADOR", "PORTEIRO", "SINDICO"]).optional() });
 const ativoSchema = z.object({ ativo: z.boolean() });
 const idParam = z.object({ id: z.uuid() });
@@ -55,6 +63,31 @@ export async function usuariosRoutes(app: FastifyInstance) {
     enviarBoasVindas(dados.email, dados.nome, senhaGerada);
     // Devolve a senha gerada para o síndico ver na tela (não é armazenada em texto claro).
     return reply.status(201).send({ ...usuario, senhaGerada });
+  });
+
+  // Editar nome e, para morador, a unidade. O e-mail não muda aqui: quem troca é o próprio dono, com
+  // código enviado ao novo endereço. Se o síndico pudesse trocá-lo, bastaria pedir a recuperação de
+  // senha para assumir a conta de qualquer morador.
+  app.patch("/usuarios/:id", { preHandler: app.autorizar("SINDICO") }, async (req) => {
+    const { id } = idParam.parse(req.params);
+    const { nome, unidadeId } = editarSchema.parse(req.body);
+    const { condominioId } = req.user;
+    const usuario = await prisma.usuario.findFirst({ where: { id, condominioId } });
+    if (!usuario) throw naoEncontrado("Usuário");
+
+    if (unidadeId !== undefined) {
+      if (usuario.papel !== "MORADOR") throw new HttpError(409, "Só moradores têm unidade");
+      if (!(await prisma.unidade.findFirst({ where: { id: unidadeId, condominioId } }))) throw naoEncontrado("Unidade", "f");
+    }
+    const mudouUnidade = unidadeId !== undefined && unidadeId !== usuario.unidadeId;
+    return prisma.usuario.update({
+      where: { id },
+      data: {
+        ...(nome !== undefined && { nome }),
+        ...(mudouUnidade && { unidadeId, tokenVersion: { increment: 1 } }),
+      },
+      select: publico,
+    });
   });
 
   // Reenviar senha temporária: gera uma nova senha e reenvia o e-mail de boas-vindas.
