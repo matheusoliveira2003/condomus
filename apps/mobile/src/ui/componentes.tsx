@@ -247,6 +247,8 @@ export function Lista<T extends { id: string }>({
   vazio,
   cabecalho,
   espacoFinal = 96,
+  carregarMais,
+  carregandoMais,
 }: {
   dados: T[];
   /** Primeira carga (sem dados ainda): mostra spinner no lugar da lista vazia. */
@@ -260,6 +262,9 @@ export function Lista<T extends { id: string }>({
   cabecalho?: ReactNode;
   /** Espaço livre no fim da lista; 96 cobre um botão flutuante, 168 cobre dois empilhados. */
   espacoFinal?: number;
+  /** Listas paginadas: chamado ao chegar perto do fim, para buscar a próxima página. */
+  carregarMais?: () => void;
+  carregandoMais?: boolean;
 }) {
   const cores = useCores();
   const styles = useEstilos(criarEstilos);
@@ -271,6 +276,9 @@ export function Lista<T extends { id: string }>({
       data={dados}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <>{renderItem(item)}</>}
+      onEndReached={carregarMais}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={carregandoMais ? <ActivityIndicator color={cores.primaria} style={{ marginVertical: 16 }} /> : null}
       refreshControl={<RefreshControl refreshing={recarregando ?? carregando} onRefresh={recarregar} tintColor={cores.primaria} colors={[cores.primaria]} />}
       ListHeaderComponent={
         <>

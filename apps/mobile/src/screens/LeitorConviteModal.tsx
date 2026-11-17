@@ -7,6 +7,7 @@ import { Avatar } from "../ui/Avatar";
 import { data, dataHora, unidadeTexto } from "../ui/formatar";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
+import { useEntradaComRosto } from "../rosto/useEntradaComRosto";
 
 /**
  * Portaria lê o QR code do convite (ou digita o código), confere os dados e registra a entrada.
@@ -32,6 +33,7 @@ export function LeitorConviteModal({
   const [erro, setErro] = useState<string | null>(null);
   const [codigoDigitado, setCodigoDigitado] = useState("");
   const [registrando, setRegistrando] = useState(false);
+  const { entrar, modal: modalRosto } = useEntradaComRosto();
 
   // Cada abertura começa do zero (câmera ligada, sem resultado anterior).
   useEffect(() => {
@@ -62,14 +64,15 @@ export function LeitorConviteModal({
   async function registrarEntrada() {
     if (!visita) return;
     setRegistrando(true);
-    try {
-      await enviar("PATCH", `/visitas/${visita.id}/entrada`, { codigo: codigoLido });
-      onEntrada();
-    } catch (e) {
-      setErro((e as Error).message);
-    } finally {
-      setRegistrando(false);
-    }
+    setErro(null);
+    // Visitante com rosto cadastrado só entra depois da verificação do rosto.
+    await entrar({
+      nomeVisitante: visita.nomeVisitante,
+      documento: visita.documento,
+      registrar: (verificacao) => enviar("PATCH", `/visitas/${visita.id}/entrada`, { codigo: codigoLido, verificacao }).then(() => undefined),
+      aoRegistrar: onEntrada,
+    });
+    setRegistrando(false);
   }
 
   return (
@@ -102,6 +105,7 @@ export function LeitorConviteModal({
           <Botao titulo="Buscar código" variante="secundario" onPress={() => buscar(codigoDigitado)} desabilitado={!codigoDigitado.trim() || buscando} />
         </>
       )}
+      {modalRosto}
     </ModalFormulario>
   );
 }

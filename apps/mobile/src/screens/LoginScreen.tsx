@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Animated, BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, type CondominioDaEscolha } from "../auth/AuthContext";
 import { Botao, Campo, MensagemErro } from "../ui/componentes";
 import { emailValido } from "../ui/formatar";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
@@ -28,6 +28,8 @@ export function LoginScreen({
   const [lembrar, setLembrar] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  /** Condomínios em que a senha serve, quando o mesmo e-mail tem conta em mais de um. */
+  const [escolhas, setEscolhas] = useState<CondominioDaEscolha[] | null>(null);
   // Bloqueia toques e BackHandler quando o painel não está visível.
   const [ativo, setAtivo] = useState(!progresso);
 
@@ -66,7 +68,23 @@ export function LoginScreen({
     setErro(null);
     setCarregando(true);
     try {
-      await entrar(email, senha, lembrar);
+      const lista = await entrar(email, senha, lembrar);
+      if (lista) {
+        setEscolhas(lista);
+        setCarregando(false);
+      }
+    } catch (e) {
+      setErro((e as Error).message);
+      setCarregando(false);
+    }
+  }
+
+  /** Reenvia o login para o condomínio que a pessoa escolheu. */
+  async function escolher(condominioId: string) {
+    setErro(null);
+    setCarregando(true);
+    try {
+      await entrar(email, senha, lembrar, condominioId);
     } catch (e) {
       setErro((e as Error).message);
       setCarregando(false);
@@ -91,7 +109,10 @@ export function LoginScreen({
               autoComplete="email"
               keyboardType="email-address"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => {
+                setEmail(v);
+                setEscolhas(null);
+              }}
             />
             <Campo
               icone="lock-closed-outline"
@@ -99,7 +120,10 @@ export function LoginScreen({
               senha
               autoComplete="current-password"
               value={senha}
-              onChangeText={setSenha}
+              onChangeText={(v) => {
+                setSenha(v);
+                setEscolhas(null);
+              }}
               onSubmitEditing={aoEntrar}
             />
             <View style={styles.linhaMeio}>
@@ -118,7 +142,16 @@ export function LoginScreen({
                 <Text style={styles.link}>Esqueceu sua senha?</Text>
               </Pressable>
             </View>
-            <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
+            {escolhas ? (
+              <View style={{ gap: 10 }}>
+                <Text style={styles.subtitulo}>Este e-mail tem acesso a mais de um condomínio. Em qual você quer entrar?</Text>
+                {escolhas.map((c) => (
+                  <Botao key={c.condominioId} titulo={c.nome} variante="secundario" onPress={() => escolher(c.condominioId)} carregando={carregando} />
+                ))}
+              </View>
+            ) : (
+              <Botao titulo="Entrar" onPress={aoEntrar} carregando={carregando} desabilitado={!email || !senha} />
+            )}
             <MensagemErro texto={erro} />
           </ScrollView>
         </KeyboardAvoidingView>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { enviar, type PlanoStatus, type Usuario } from "../api/client";
+import { enviar, type Condominio, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
 import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selecao, Selo, useEstilosTexto } from "../ui/componentes";
@@ -10,6 +10,7 @@ import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { useMensagens } from "../ui/mensagens";
 import { paletaClara, paletaEscura, useCores, useEstilos, useTema, type Paleta, type Preferencia } from "../ui/tema";
+import { ProvaRostoModal } from "../rosto/ProvaRostoModal"; // PROVA TÉCNICA: remover antes do merge
 import type { Papel } from "../api/client";
 
 const opcoesAparencia: { valor: Preferencia; rotulo: string; icone: keyof typeof Ionicons.glyphMap }[] = [
@@ -39,6 +40,17 @@ const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primar
   SUSPENSO: { texto: "Suspenso", tom: "neutro" },
 };
 
+/** Texto do aviso do período de teste: perto do fim, ou já na carência, quando ainda funciona por poucos dias. */
+function avisoDoTeste(c: Condominio): string {
+  if (c.emCarencia) {
+    const dias = c.diasDeCarencia ?? 0;
+    return `O período de teste terminou. O app continua funcionando por mais ${dias} ${dias === 1 ? "dia" : "dias"}; depois, moradores e funcionários ficam sem acesso. Fale com o suporte para ativar o plano.`;
+  }
+  const dias = Math.max(c.diasParaExpirar ?? 0, 0);
+  if (dias === 0) return "O período de teste termina hoje. Fale com o suporte para ativar o plano.";
+  return `O período de teste termina em ${dias} ${dias === 1 ? "dia" : "dias"}. Fale com o suporte para ativar o plano.`;
+}
+
 export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
   const cores = useCores();
   const styles = useEstilos(criarStyles);
@@ -49,6 +61,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const { data: condominio } = useCondominio(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
+  const [provaRosto, setProvaRosto] = useState(false); // PROVA TÉCNICA: remover antes do merge
   const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
@@ -168,6 +181,22 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
       </Pressable>
 
+      {/* PROVA TÉCNICA: remover antes do merge. Só o porteiro faz a captura. */}
+      {usuario?.papel === "PORTEIRO" && (
+        <>
+          <Pressable
+            onPress={() => setProvaRosto(true)}
+            style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="scan-outline" size={20} color={cores.primaria} />
+            <Text style={styles.linkSenhaTexto}>Teste de reconhecimento</Text>
+            <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
+          </Pressable>
+          <ProvaRostoModal visivel={provaRosto} onFechar={() => setProvaRosto(false)} />
+        </>
+      )}
+
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
 
@@ -201,6 +230,7 @@ function PlanoDoCondominio() {
           </Text>
         )}
       </View>
+      {condominio.avisarVencimento && <Text style={estilosTexto.corpo}>{avisoDoTeste(condominio)}</Text>}
     </Card>
   );
 }
@@ -496,6 +526,7 @@ function TrocarEmailModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const { confirmarTrocaDeSenha } = useAuth();
 
   function fechar() {
     setEtapa(1);
@@ -524,7 +555,10 @@ function TrocarEmailModal({ visivel, onFechar }: { visivel: boolean; onFechar: (
     setErro(null);
     setSalvando(true);
     try {
-      await enviar("POST", "/auth/confirmar-email", { codigo });
+      // A troca invalida o token em uso: adota a sessão nova antes da próxima requisição, senão a
+      // pessoa seria deslogada logo depois do "sucesso".
+      const { token, usuario: sessao } = await enviar<{ token: string; usuario: Usuario }>("POST", "/auth/confirmar-email", { codigo });
+      await confirmarTrocaDeSenha(token, sessao);
       setSucesso(true);
     } catch (e) {
       setErro((e as Error).message);

@@ -70,6 +70,7 @@ function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; 
   const dados = todos.filter((u) => (aba === "moradores" ? u.papel === "MORADOR" : u.papel !== "MORADOR"));
   const { carregando, recarregando, erro, recarregar } = adaptarQuery(query);
   const mensagens = useMensagens();
+  const [editando, setEditando] = useState<UsuarioCadastro | null>(null);
 
   function alternarAtivo(u: UsuarioCadastro) {
     const acao = u.ativo ? "Desativar" : "Reativar";
@@ -101,6 +102,7 @@ function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; 
   }
 
   return (
+    <>
     <Lista
       dados={dados}
       carregando={carregando}
@@ -131,12 +133,78 @@ function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; 
               {u.ativo && u.senhaTemporaria && (
                 <Botao titulo="Reenviar senha por e-mail" variante="secundario" pequeno onPress={() => reenviarSenha(u)} />
               )}
-              <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
+                </View>
+              </View>
             </View>
           )}
         </Card>
       )}
     />
+    <EditarUsuarioModal
+      usuario={editando}
+      onFechar={() => {
+        setEditando(null);
+        void qc.invalidateQueries({ queryKey: ["cadastros"] });
+      }}
+    />
+    </>
+  );
+}
+
+/** O síndico corrige o nome e muda o morador de apartamento. O e-mail só o próprio usuário troca. */
+function EditarUsuarioModal({ usuario, onFechar }: { usuario: UsuarioCadastro | null; onFechar: () => void }) {
+  const [nome, setNome] = useState("");
+  const [unidadeId, setUnidadeId] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const mensagens = useMensagens();
+  const estilosTexto = useEstilosTexto();
+  const morador = usuario?.papel === "MORADOR";
+
+  useEffect(() => {
+    if (usuario) {
+      setNome(usuario.nome);
+      setUnidadeId(usuario.unidade?.id ?? null);
+      setErro(null);
+    }
+  }, [usuario]);
+
+  async function salvar() {
+    if (!usuario) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      // Só manda o que mudou: mudar a unidade encerra a sessão do morador, então não mexe nela à toa.
+      const mudouUnidade = morador && unidadeId && unidadeId !== usuario.unidade?.id;
+      await enviar("PATCH", `/usuarios/${usuario.id}`, {
+        ...(nome.trim() !== usuario.nome && { nome: nome.trim() }),
+        ...(mudouUnidade && { unidadeId }),
+      });
+      if (mudouUnidade) mensagens.informar("Unidade alterada", `${usuario.nome} precisará entrar de novo no app para ver a nova unidade.`);
+      onFechar();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const semMudanca = !usuario || (nome.trim() === usuario.nome && (!morador || unidadeId === (usuario.unidade?.id ?? null)));
+
+  return (
+    <ModalFormulario visivel={!!usuario} titulo="Editar usuário" onFechar={onFechar}>
+      <Campo rotulo="Nome" value={nome} onChangeText={setNome} autoCapitalize="words" />
+      {morador && <SeletorUnidade valor={unidadeId} onChange={setUnidadeId} />}
+      <Text style={estilosTexto.secundario}>O e-mail só pode ser trocado pelo próprio usuário, em Minha conta.</Text>
+      <MensagemErro texto={erro} />
+      <Botao titulo="Salvar" onPress={salvar} carregando={salvando} desabilitado={nome.trim().length < 2 || semMudanca} />
+    </ModalFormulario>
   );
 }
 
