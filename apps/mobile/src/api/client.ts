@@ -22,6 +22,9 @@ export type {
   PlanoStatus,
   Condominio,
   ConviteInfo,
+  RostoVisitante,
+  RostoPorDocumento,
+  VerificacaoEntrada,
 } from "@condomus/types";
 
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */

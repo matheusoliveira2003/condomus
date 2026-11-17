@@ -11,7 +11,7 @@ export async function limparBanco() {
   const [{ current_database: nome }] = await prisma.$queryRawUnsafe<{ current_database: string }[]>("SELECT current_database()");
   if (!nome.endsWith("_teste")) throw new Error(`Recusando limpar o banco "${nome}": os testes só rodam em bancos *_teste`);
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "ConviteUnidade", "Unidade", "AreaComum", "Condominio" RESTART IDENTITY CASCADE`,
+    `TRUNCATE "RostoVisitante", "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "ConviteUnidade", "Unidade", "AreaComum", "Condominio" RESTART IDENTITY CASCADE`,
   );
 }
 
@@ -85,11 +85,25 @@ export async function chamar(
 }
 
 /** App pronto para os testes de um arquivo (sem logs). */
-export async function criarApp() {
-  const app = await buildApp({ logger: false });
+export async function criarApp({ limites = false }: { limites?: boolean } = {}) {
+  // Sem limite de tentativas por padrão: os testes fazem login do mesmo IP o tempo todo.
+  const app = await buildApp({ logger: false, limites });
   await app.ready();
   return app;
 }
 
 /** Uma data no futuro, em horas a partir de agora (reservas não podem ser no passado). */
 export const daquiA = (horas: number) => new Date(Date.now() + horas * 60 * 60 * 1000).toISOString();
+
+/**
+ * Horário de reserva válido: `dias` dias à frente, de `de`h a `ate`h (horas cheias de Brasília, dentro do
+ * funcionamento). Ao contrário de daquiA, não muda com a hora em que o teste roda.
+ */
+export function reservaEm(dias: number, de: number, ate: number) {
+  // Meia-noite de Brasília de hoje (UTC-3, sem horário de verão) + dias, depois a hora cheia.
+  const agora = new Date();
+  const hojeLocal = new Date(agora.getTime() - 3 * 3600_000);
+  const meiaNoite = Date.UTC(hojeLocal.getUTCFullYear(), hojeLocal.getUTCMonth(), hojeLocal.getUTCDate()) + 3 * 3600_000;
+  const em = (h: number) => new Date(meiaNoite + dias * 86_400_000 + h * 3600_000).toISOString();
+  return { inicio: em(de), fim: em(ate) };
+}

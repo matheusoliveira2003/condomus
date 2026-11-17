@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { StorageNaoConfiguradoError, deletarFoto, downloadFoto, uploadFoto } from "../../lib/storage.js";
+import { ehJpeg } from "../../lib/imagem.js";
 
 /** O app envia a foto já reduzida (~30–50 KB); o limite só barra envios fora do padrão. */
 const TAMANHO_MAXIMO = 500 * 1024;
@@ -10,8 +11,6 @@ const TAMANHO_MAXIMO = 500 * 1024;
 const fotoSchema = z.object({ imagem: z.base64("Imagem inválida") });
 const idParam = z.object({ id: z.uuid() });
 
-/** JPEG começa com os bytes FF D8 FF. */
-const ehJpeg = (b: Buffer) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
 
 export async function fotosRoutes(app: FastifyInstance) {
   app.put("/auth/foto", { preHandler: app.autorizar() }, async (req) => {
@@ -34,7 +33,12 @@ export async function fotosRoutes(app: FastifyInstance) {
   });
 
   app.delete("/auth/foto", { preHandler: app.autorizar() }, async (req, reply) => {
-    await deletarFoto(req.user.sub);
+    try {
+      await deletarFoto(req.user.sub);
+    } catch (e) {
+      if (e instanceof StorageNaoConfiguradoError) throw new HttpError(503, e.message);
+      throw e;
+    }
     await prisma.usuario.update({ where: { id: req.user.sub }, data: { fotoAtualizadaEm: null } });
     return reply.status(204).send();
   });

@@ -105,7 +105,7 @@ describe("troca de senha", () => {
   });
 
   it("senha temporária: troca sem informar a senha atual e libera o acesso normal", async () => {
-    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    await prisma.usuario.update({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } }, data: { senhaTemporaria: true } });
     // É o que a tela de troca obrigatória envia: senhaAtual vazia.
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: "nova-senha" } });
     expect(r.status).toBe(200);
@@ -116,7 +116,7 @@ describe("troca de senha", () => {
   });
 
   it("senha temporária: a nova senha não pode ser a própria temporária", async () => {
-    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    await prisma.usuario.update({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } }, data: { senhaTemporaria: true } });
     const r = await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: "", novaSenha: SENHA } });
     expect(r.status).toBe(400);
   });
@@ -138,7 +138,7 @@ describe("troca de senha", () => {
 
   it("/auth/me informa senhaTemporaria, para o app restaurar a tela de troca obrigatória", async () => {
     expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).corpo.senhaTemporaria).toBe(false);
-    await prisma.usuario.update({ where: { email: "morador@teste.dev" }, data: { senhaTemporaria: true } });
+    await prisma.usuario.update({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } }, data: { senhaTemporaria: true } });
     expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).corpo.senhaTemporaria).toBe(true);
   });
 
@@ -161,13 +161,13 @@ describe("recuperação de senha", () => {
     });
 
   it("pedir recuperação grava um código com hash e validade futura", async () => {
-    const antes = await prisma.usuario.findUniqueOrThrow({ where: { email: "morador@teste.dev" } });
+    const antes = await prisma.usuario.findUniqueOrThrow({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } } });
     expect(antes.codigoRecuperacaoHash).toBeNull();
 
     const r = await chamar(app, "POST", "/auth/recuperar-senha", { corpo: { email: "morador@teste.dev" } });
     expect(r.status).toBe(204);
 
-    const depois = await prisma.usuario.findUniqueOrThrow({ where: { email: "morador@teste.dev" } });
+    const depois = await prisma.usuario.findUniqueOrThrow({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } } });
     expect(depois.codigoRecuperacaoHash).toEqual(expect.any(String));
     expect(depois.codigoRecuperacaoHash).not.toBe(antes.codigoRecuperacaoHash);
     expect(depois.codigoRecuperacaoExpira!.getTime()).toBeGreaterThan(Date.now());
@@ -189,6 +189,21 @@ describe("recuperação de senha", () => {
     expect(r.status).toBe(200);
     await expect(entrar(app, "morador@teste.dev", SENHA)).rejects.toThrow();
     await expect(entrar(app, "morador@teste.dev", "nova-senha")).resolves.toEqual(expect.any(String));
+  });
+
+  it("recuperar a senha derruba a sessão aberta com a senha antiga e encerra a senha temporária", async () => {
+    const antiga = await entrar(app, "morador@teste.dev", SENHA);
+    await prisma.usuario.update({ where: { condominioId_email: { condominioId: c.condominio.id, email: "morador@teste.dev" } }, data: { senhaTemporaria: true } });
+    await definirCodigo(c.usuarios.morador.id);
+    const r = await chamar(app, "POST", "/auth/redefinir-senha", {
+      corpo: { email: "morador@teste.dev", codigo: CODIGO, novaSenha: "nova-senha" },
+    });
+    expect(r.status).toBe(200);
+
+    expect((await chamar(app, "GET", "/auth/me", { token: antiga })).status).toBe(401);
+    const nova = await entrar(app, "morador@teste.dev", "nova-senha");
+    const eu = await chamar(app, "GET", "/auth/me", { token: nova });
+    expect(eu.corpo.senhaTemporaria).toBe(false);
   });
 
   it("código errado, ou código de outra conta, é recusado", async () => {
@@ -278,5 +293,46 @@ describe("plano inativo", () => {
     expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(402);
     await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "ATIVO" } });
     expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(200);
+  });
+});
+
+describe("troca de e-mail", () => {
+  const CODIGO = "712845";
+  const pedir = (token: string, novoEmail = "novo@teste.dev", senhaAtual = SENHA) =>
+    chamar(app, "POST", "/auth/trocar-email", { token, corpo: { novoEmail, senhaAtual } });
+  const confirmar = (token: string, codigo = CODIGO) => chamar(app, "POST", "/auth/confirmar-email", { token, corpo: { codigo } });
+  /** O código real só vai por e-mail; o teste grava o hash de um código conhecido. */
+  const definirCodigo = (id: string, codigo = CODIGO, expiraEm = new Date(Date.now() + 15 * 60 * 1000)) =>
+    prisma.usuario.update({ where: { id }, data: { codigoEmailHash: bcrypt.hashSync(codigo, 4), codigoEmailExpira: expiraEm } });
+
+  it("confirmar devolve a sessão nova: o token novo vale, o anterior não, e o login passa a ser pelo novo e-mail", async () => {
+    expect((await pedir(c.tokens.morador)).status).toBe(204);
+    await definirCodigo(c.usuarios.morador.id);
+
+    const r = await confirmar(c.tokens.morador);
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ token: expect.any(String), usuario: { id: c.usuarios.morador.id, papel: "MORADOR" } });
+
+    // O app troca o token pelo novo: sem isso, a pessoa seria deslogada logo após o "sucesso".
+    expect((await chamar(app, "GET", "/auth/me", { token: r.corpo.token })).corpo.email).toBe("novo@teste.dev");
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).status).toBe(401);
+    await expect(entrar(app, "novo@teste.dev")).resolves.toEqual(expect.any(String));
+    await expect(entrar(app, "morador@teste.dev")).rejects.toThrow();
+  });
+
+  it("recusa senha errada, e-mail igual ao atual e e-mail já em uso", async () => {
+    expect((await pedir(c.tokens.morador, "novo@teste.dev", "errada")).status).toBe(400);
+    expect((await pedir(c.tokens.morador, "morador@teste.dev")).status).toBe(400);
+    expect((await pedir(c.tokens.morador, "vizinho@teste.dev")).status).toBe(400);
+  });
+
+  it("código errado ou vencido não troca o e-mail", async () => {
+    await pedir(c.tokens.morador);
+    await definirCodigo(c.usuarios.morador.id);
+    expect((await confirmar(c.tokens.morador, "000000")).status).toBe(400);
+
+    await definirCodigo(c.usuarios.morador.id, CODIGO, new Date(Date.now() - 60_000));
+    expect((await confirmar(c.tokens.morador)).status).toBe(400);
+    expect((await prisma.usuario.findUniqueOrThrow({ where: { id: c.usuarios.morador.id } })).email).toBe("morador@teste.dev");
   });
 });

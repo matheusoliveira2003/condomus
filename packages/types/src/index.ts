@@ -72,7 +72,22 @@ export interface Visita {
   autorizadoPor: Pessoa | null;
   /** Só na visão da portaria: a visita tem convite, então a entrada exige ler o QR code. */
   temConvite?: boolean;
+  /** Entrou há mais de 24 h e a saída não foi registrada: a portaria precisa conferir. */
+  semSaida?: boolean;
 }
+
+/** Rosto de referência do visitante (só a portaria vê). Vale enquanto ele continuar vindo. */
+export type RostoVisitante =
+  | { cadastrado: false }
+  | { cadastrado: true; consentimentoEm: string; ultimaVisitaEm: string; expiraEm: string; limiar: number };
+
+/** Consulta pelo documento (entrada direta, antes de a visita existir). */
+export type RostoPorDocumento = { cadastrado: false } | { cadastrado: true; limiar: number };
+
+/** Como a portaria verificou um visitante com rosto cadastrado; enviado junto do registro da entrada. */
+export type VerificacaoEntrada =
+  | { tipo: "RECONHECIMENTO"; semelhanca: number }
+  | { tipo: "MANUAL"; motivo: string; semelhanca?: number };
 
 // ---------------------------------------------------------------------------
 // Encomendas
@@ -133,6 +148,13 @@ export interface Condominio {
   nome: string;
   planoStatus: PlanoStatus;
   planoExpiraEm: string | null;
+  /** Os campos abaixo vêm da API mais nova; ficam opcionais para o app não quebrar contra uma API antiga. */
+  diasParaExpirar?: number | null;
+  /** O teste passou da data, mas ainda está na carência: tudo funciona e o síndico vê o aviso. */
+  emCarencia?: boolean;
+  diasDeCarencia?: number | null;
+  /** Mostrar o aviso de vencimento do teste (faltam 7 dias ou menos, ou em carência). */
+  avisarVencimento?: boolean;
 }
 
 /** Dados públicos de um convite (GET /convite/:codigo), mostrados antes do cadastro do morador. */

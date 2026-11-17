@@ -21,7 +21,11 @@ interface AuthContextValue {
   restaurando: boolean;
   /** true quando a API recusou o acesso (402) porque o plano do condomínio está inativo. */
   planoInativo: boolean;
-  entrar: (email: string, senha: string, lembrar?: boolean) => Promise<void>;
+  /**
+   * Entra na conta. Se o mesmo e-mail e senha servem em mais de um condomínio, devolve a lista para a
+   * pessoa escolher (e quem chama reenvia com o `condominioId`); se entrou, devolve null.
+   */
+  entrar: (email: string, senha: string, lembrar?: boolean, condominioId?: string) => Promise<CondominioDaEscolha[] | null>;
   /** Guarda uma sessão já emitida pela API (login ou auto-cadastro por convite). */
   iniciarSessao: (token: string, usuario: Usuario) => Promise<void>;
   sair: () => Promise<void>;
@@ -29,6 +33,12 @@ interface AuthContextValue {
   definirFoto: (fotoAtualizadaEm: string | null) => void;
   /** Adota a sessão devolvida pela troca de senha (o token anterior deixa de valer). */
   confirmarTrocaDeSenha: (token: string, usuario: Usuario) => Promise<void>;
+}
+
+/** Condomínio em que o e-mail e a senha informados têm conta. */
+export interface CondominioDaEscolha {
+  condominioId: string;
+  nome: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,17 +118,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(novo);
   }
 
-  async function entrar(email: string, senha: string, lembrar = true) {
-    const { token, usuario } = await enviar<{ token: string; usuario: Usuario }>(
+  async function entrar(email: string, senha: string, lembrar = true, condominioId?: string) {
+    const resposta = await enviar<{ token: string; usuario: Usuario } | { escolherCondominio: CondominioDaEscolha[] }>(
       "POST",
       "/auth/login",
-      { email: email.trim().toLowerCase(), senha },
+      { email: email.trim().toLowerCase(), senha, ...(condominioId && { condominioId }) },
       TEMPO_LIMITE_ACORDAR_MS,
     );
-    definirToken(token);
-    if (lembrar) await SecureStore.setItemAsync(CHAVE_TOKEN, token);
+    // A senha serve em mais de um condomínio: a pessoa escolhe e a tela reenvia com o escolhido.
+    if ("escolherCondominio" in resposta) return resposta.escolherCondominio;
+    definirToken(resposta.token);
+    if (lembrar) await SecureStore.setItemAsync(CHAVE_TOKEN, resposta.token);
     setPlanoInativo(false);
-    setUsuario(usuario);
+    setUsuario(resposta.usuario);
+    return null;
   }
 
   const definirFoto = useCallback((fotoAtualizadaEm: string | null) => {

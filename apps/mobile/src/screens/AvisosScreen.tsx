@@ -14,7 +14,7 @@ export function AvisosScreen() {
   const estilos = useEstilos(criarEstilos);
   const { usuario } = useAuth();
   const ehSindico = usuario?.papel === "SINDICO";
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useAvisos());
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useAvisos());
   const remover = useRemoverAviso();
   const mensagens = useMensagens();
   const [criando, setCriando] = useState(false);
@@ -42,6 +42,8 @@ export function AvisosScreen() {
         recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
+        carregarMais={carregarMais}
+        carregandoMais={carregandoMais}
         vazio="Nenhum aviso no momento"
         renderItem={(aviso) => (
           <Card>

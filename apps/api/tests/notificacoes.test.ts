@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { type Cenario, chamar, criarApp, criarCenario, limparBanco, prisma } from "./ajuda.js";
+import { type Cenario, chamar, criarApp, criarCenario, limparBanco, prisma, reservaEm } from "./ajuda.js";
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -68,8 +68,7 @@ describe("notificações push", () => {
 
   it("pedido de reserva avisa o síndico", async () => {
     await registrarCelulares();
-    const inicio = new Date(Date.now() + 86400000).toISOString();
-    const fim = new Date(Date.now() + 90000000).toISOString();
+    const { inicio, fim } = reservaEm(1, 10, 11);
     await chamar(app, "POST", "/reservas", { token: c.tokens.morador, corpo: { areaId: c.area.id, inicio, fim } });
     await aguardarEnvio(1);
     expect(enviadas[0]).toMatchObject({ to: TOKEN_SINDICO, data: { aba: "Reservas" } });

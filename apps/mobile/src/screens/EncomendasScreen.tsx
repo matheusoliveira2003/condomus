@@ -38,7 +38,7 @@ export function EncomendasScreen() {
   const [vendoHistorico, setVendoHistorico] = useState(false);
 
   const statusQuery = ehPortaria ? filtro : "AGUARDANDO_RETIRADA";
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useEncomendas(statusQuery));
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useEncomendas(statusQuery));
 
   return (
     <View style={{ flex: 1 }}>
@@ -48,6 +48,8 @@ export function EncomendasScreen() {
         recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
+        carregarMais={carregarMais}
+        carregandoMais={carregandoMais}
         vazio={ehPortaria ? "Nenhuma encomenda nesta lista" : "Nenhuma encomenda esperando por você"}
         cabecalho={
           ehPortaria ? (
@@ -108,7 +110,7 @@ function CardEncomenda({ encomenda: e, ehPortaria, onRetirar }: { encomenda: Enc
 
 /** Últimas encomendas retiradas da unidade do morador. */
 function HistoricoEncomendas() {
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useEncomendas(`RETIRADA&limite=${LIMITE_HISTORICO}`));
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useEncomendas(`RETIRADA&limite=${LIMITE_HISTORICO}`));
   return (
     <Lista
       dados={dados}
@@ -116,6 +118,8 @@ function HistoricoEncomendas() {
         recarregando={recarregando}
       erro={erro}
       recarregar={recarregar}
+      carregarMais={carregarMais}
+      carregandoMais={carregandoMais}
       vazio="Nenhuma encomenda retirada ainda"
       renderItem={(e) => <CardEncomenda encomenda={e} />}
     />

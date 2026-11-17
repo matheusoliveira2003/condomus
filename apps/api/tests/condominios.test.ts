@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { ADMIN_SECRET, type Cenario, SENHA, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
+import { ADMIN_SECRET, type Cenario, SENHA, criarApp, criarCenario, entrar, limparBanco, prisma, reservaEm } from "./ajuda.js";
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -55,13 +55,16 @@ describe("POST /admin/condominios", () => {
     expect(await prisma.condominio.count()).toBe(1);
   });
 
-  it("e-mail do síndico já em uso: 409 e nenhum condomínio órfão", async () => {
+  it("o mesmo e-mail pode ser síndico de outro condomínio, cada um com a própria conta", async () => {
     const r = await chamar("POST", "/admin/condominios", {
       auth: ADMIN_SECRET,
       corpo: { ...novoCondominio, sindico: { ...novoCondominio.sindico, email: "sindico@teste.dev" } },
     });
-    expect(r.status).toBe(409);
-    expect(await prisma.condominio.count()).toBe(1);
+    expect(r.status).toBe(201);
+    expect(await prisma.condominio.count()).toBe(2);
+    const contas = await prisma.usuario.findMany({ where: { email: "sindico@teste.dev" } });
+    expect(contas).toHaveLength(2);
+    expect(new Set(contas.map((u) => u.condominioId)).size).toBe(2);
   });
 });
 
@@ -88,7 +91,16 @@ describe("GET /condominios/meu", () => {
     for (const perfil of ["morador", "porteiro", "sindico"] as const) {
       const r = await chamar("GET", "/condominios/meu", { auth: c.tokens[perfil] });
       expect(r.status).toBe(200);
-      expect(r.corpo).toEqual({ id: c.condominio.id, nome: "Condomínio Teste", planoStatus: "ATIVO", planoExpiraEm: null });
+      expect(r.corpo).toEqual({
+        id: c.condominio.id,
+        nome: "Condomínio Teste",
+        planoStatus: "ATIVO",
+        planoExpiraEm: null,
+        diasParaExpirar: null,
+        emCarencia: false,
+        diasDeCarencia: null,
+        avisarVencimento: false,
+      });
     }
   });
 });
@@ -192,8 +204,7 @@ describe("isolamento entre condomínios", () => {
     expect(criarMorador.status).toBe(404);
 
     // Reservar área alheia.
-    const inicio = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
-    const fim = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+    const { inicio, fim } = reservaEm(1, 10, 11);
     const reserva = await chamar("POST", "/reservas", { auth: c.tokens.morador, corpo: { areaId: o.area.id, inicio, fim } });
     expect(reserva.status).toBe(404);
 

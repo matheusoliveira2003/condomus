@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env } from "../../lib/env.js";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
+import { deveAvisar, situacaoDoPlano } from "../../lib/plano.js";
 
 const planoStatusSchema = z.enum(["TRIAL", "ATIVO", "EXPIRADO", "SUSPENSO"]);
 
@@ -73,6 +74,15 @@ export async function condominiosRoutes(app: FastifyInstance) {
       select: { id: true, nome: true, planoStatus: true, planoExpiraEm: true },
     });
     if (!condominio) throw naoEncontrado("Condomínio");
-    return condominio;
+    const situacao = situacaoDoPlano(condominio);
+    return {
+      ...condominio,
+      // O status que vale agora: um teste além da carência já aparece como expirado.
+      planoStatus: situacao.status,
+      diasParaExpirar: situacao.diasParaExpirar,
+      emCarencia: situacao.emCarencia,
+      diasDeCarencia: situacao.diasDeCarencia,
+      avisarVencimento: deveAvisar(situacao),
+    };
   });
 }

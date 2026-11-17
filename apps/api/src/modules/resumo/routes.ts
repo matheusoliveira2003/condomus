@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
+import { semDataValida } from "../../lib/validadeVisita.js";
 
 const consultaSchema = z.object({
   /** Meia-noite no fuso do celular; define o que é "hoje" para o morador. */
@@ -63,7 +64,8 @@ export async function resumoRoutes(app: FastifyInstance) {
           unidadeId,
           unidade: { condominioId },
           status: "AGENDADA",
-          OR: [{ dataPrevista: null }, { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
+          // Hoje, ou sem data e ainda dentro da validade (não aparece convite velho para sempre).
+          OR: [semDataValida(), { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
         },
         select: { id: true, nomeVisitante: true, dataPrevista: true },
         orderBy: { criadoEm: "asc" },
@@ -116,7 +118,7 @@ export async function resumoRoutes(app: FastifyInstance) {
         where: {
           unidade: { condominioId },
           status: "AGENDADA",
-          OR: [{ dataPrevista: null }, { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
+          OR: [semDataValida(), { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
         },
       }),
       papel === "SINDICO"

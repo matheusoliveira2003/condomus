@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { notificarPapel, notificarUnidade } from "../../lib/push.js";
+import { REGRAS_RESERVA, validarJanela } from "../../lib/regrasReserva.js";
 
 /** Reservas nesses status seguram o horário: ninguém mais pode pedir o mesmo intervalo. */
 const OCUPAM_HORARIO: StatusReserva[] = ["PENDENTE", "CONFIRMADA"];
@@ -85,6 +86,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   app.post("/reservas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
     const { areaId, inicio, fim } = reservaSchema.parse(req.body);
     if (inicio < new Date()) throw new HttpError(400, "Não é possível reservar no passado");
+    validarJanela(inicio, fim);
 
     const area = await prisma.areaComum.findFirst({ where: { id: areaId, condominioId: req.user.condominioId } });
     if (!area || !area.ativa) throw naoEncontrado("Área comum");
@@ -103,6 +105,18 @@ export async function reservasRoutes(app: FastifyInstance) {
         where: { areaId, status: { in: OCUPAM_HORARIO }, inicio: { lt: fim }, fim: { gt: inicio } },
       });
       if (conflito) throw new HttpError(409, "Horário indisponível para esta área");
+
+      // Limite por unidade e área, contado aqui dentro: o lock acima impede dois pedidos simultâneos
+      // de passarem juntos pela contagem e furarem o limite.
+      const abertas = await tx.reserva.count({
+        where: { areaId, unidadeId: req.user.unidadeId!, status: { in: OCUPAM_HORARIO }, fim: { gt: new Date() } },
+      });
+      if (abertas >= REGRAS_RESERVA.maximoPorUnidadeEArea) {
+        throw new HttpError(
+          409,
+          `Sua unidade já tem ${abertas} reservas pendentes ou futuras nesta área (máximo ${REGRAS_RESERVA.maximoPorUnidadeEArea}). Cancele uma ou espere uma passar.`,
+        );
+      }
 
       return tx.reserva.create({
         data: { areaId, inicio, fim, unidadeId: req.user.unidadeId!, usuarioId: req.user.sub },

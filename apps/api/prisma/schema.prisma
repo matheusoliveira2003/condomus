@@ -14,8 +14,14 @@ enum Papel {
   SINDICO
 }
 
+/// Como a entrada de um visitante com rosto cadastrado foi liberada.
+enum VerificacaoEntrada {
+  RECONHECIMENTO // o app comparou o rosto ao vivo com o cadastrado e a semelhança passou do limiar
+  MANUAL // o porteiro liberou por conta própria, com motivo, depois de conferir o documento
+}
+
 enum StatusVisita {
-  AGENDADA   // pré-autorizada pelo morador
+  AGENDADA // pré-autorizada pelo morador
   EM_ANDAMENTO // visitante entrou
   FINALIZADA // visitante saiu
   CANCELADA
@@ -27,7 +33,7 @@ enum StatusEncomenda {
 }
 
 enum StatusReserva {
-  PENDENTE   // aguardando aprovação do síndico (já ocupa o horário)
+  PENDENTE // aguardando aprovação do síndico (já ocupa o horário)
   CONFIRMADA
   RECUSADA
   CANCELADA
@@ -54,6 +60,7 @@ model Condominio {
   usuarios Usuario[]
   areas    AreaComum[]
   avisos   Aviso[]
+  rostos   RostoVisitante[]
 }
 
 /// Código de convite gerado pelo síndico para o morador se cadastrar numa unidade.
@@ -65,19 +72,19 @@ model ConviteUnidade {
   criadoEm DateTime  @default(now())
 
   unidadeId String
-  unidade   Unidade  @relation(fields: [unidadeId], references: [id])
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
 }
 
 /// Apartamento/casa do condomínio.
 model Unidade {
-  id        String      @id @default(uuid())
-  bloco     String
-  numero    String
-  moradores Usuario[]
-  visitas   Visita[]
+  id         String           @id @default(uuid())
+  bloco      String
+  numero     String
+  moradores  Usuario[]
+  visitas    Visita[]
   encomendas Encomenda[]
-  reservas  Reserva[]
-  convites  ConviteUnidade[]
+  reservas   Reserva[]
+  convites   ConviteUnidade[]
 
   condominioId String
   condominio   Condominio @relation(fields: [condominioId], references: [id])
@@ -86,17 +93,17 @@ model Unidade {
 }
 
 model Usuario {
-  id           String   @id @default(uuid())
-  nome         String
-  email        String   @unique
+  id               String    @id @default(uuid())
+  nome             String
+  email            String
   senhaHash        String
   /// true quando a senha foi gerada automaticamente pelo sistema; força troca no primeiro login.
-  senhaTemporaria  Boolean  @default(false)
-  papel        Papel
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now())
+  senhaTemporaria  Boolean   @default(false)
+  papel            Papel
+  ativo            Boolean   @default(true)
+  criadoEm         DateTime  @default(now())
   /// Incrementado ao desativar a conta ou trocar a senha; invalida todos os tokens emitidos antes.
-  tokenVersion Int      @default(0)
+  tokenVersion     Int       @default(0)
   /// Muda a cada troca de foto; o app usa como versão para não reaproveitar a imagem antiga do cache.
   /// A foto em si fica no object storage (S3/compatível), não no banco.
   fotoAtualizadaEm DateTime?
@@ -117,12 +124,18 @@ model Usuario {
   codigoEmailHash   String?
   codigoEmailExpira DateTime?
 
-  visitasAutorizadas  Visita[]    @relation("VisitaAutorizadaPor")
-  visitasRegistradas  Visita[]    @relation("VisitaRegistradaPor")
+  visitasAutorizadas  Visita[]          @relation("VisitaAutorizadaPor")
+  visitasRegistradas  Visita[]          @relation("VisitaRegistradaPor")
+  rostosRegistrados   RostoVisitante[]
   encomendasRecebidas Encomenda[]
   avisos              Aviso[]
   reservas            Reserva[]
   dispositivos        DispositivoPush[]
+
+  /// O e-mail é único por condomínio: a mesma pessoa pode ter conta em dois condomínios.
+  @@unique([condominioId, email])
+  /// O login e a recuperação de senha buscam só pelo e-mail.
+  @@index([email])
 }
 
 /// Celular registrado para receber notificações push (token do Expo).
@@ -132,47 +145,79 @@ model DispositivoPush {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
-  usuarioId    String
-  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
 model Visita {
-  id               String       @id @default(uuid())
-  nomeVisitante    String
-  documento        String?
-  placaVeiculo     String?
-  dataPrevista     DateTime?
-  status           StatusVisita @default(AGENDADA)
-  entradaEm        DateTime?
-  saidaEm          DateTime?
-  observacao       String?
-  criadoEm         DateTime     @default(now())
+  id            String       @id @default(uuid())
+  nomeVisitante String
+  documento     String?
+  placaVeiculo  String?
+  dataPrevista  DateTime?
+  status        StatusVisita @default(AGENDADA)
+  entradaEm     DateTime?
+  saidaEm       DateTime?
+  observacao    String?
+  criadoEm      DateTime     @default(now())
   /// Código do convite (QR code) que o visitante apresenta na portaria; só vale enquanto AGENDADA.
-  codigoAcesso     String?      @unique
+  codigoAcesso  String?      @unique
 
-  unidadeId        String
-  unidade          Unidade      @relation(fields: [unidadeId], references: [id])
+  unidadeId       String
+  unidade         Unidade  @relation(fields: [unidadeId], references: [id])
   /// Morador que pré-autorizou (nulo quando a portaria registra direto).
-  autorizadoPorId  String?
-  autorizadoPor    Usuario?     @relation("VisitaAutorizadaPor", fields: [autorizadoPorId], references: [id])
+  autorizadoPorId String?
+  autorizadoPor   Usuario? @relation("VisitaAutorizadaPor", fields: [autorizadoPorId], references: [id])
   /// Porteiro que registrou a entrada.
-  registradoPorId  String?
-  registradoPor    Usuario?     @relation("VisitaRegistradaPor", fields: [registradoPorId], references: [id])
+  registradoPorId String?
+  registradoPor   Usuario? @relation("VisitaRegistradaPor", fields: [registradoPorId], references: [id])
+
+  /// Preenchidos só quando o visitante tinha rosto cadastrado válido na entrada.
+  verificacao     VerificacaoEntrada?
+  /// Semelhança calculada pelo app (cosseno), registrada junto do reconhecimento ou da recusa.
+  semelhanca      Float?
+  /// Motivo informado pelo porteiro na liberação manual.
+  motivoLiberacao String?
+}
+
+/// Rosto de referência de um visitante, cadastrado pela portaria na primeira visita e usado nas
+/// seguintes para o porteiro comparar com a foto ao vivo. É dado biométrico (LGPD, art. 11): só
+/// existe com o consentimento do visitante, e é apagado após um prazo sem visitas.
+/// A foto fica no object storage; aqui ficam só os metadados.
+model RostoVisitante {
+  id              String   @id @default(uuid())
+  /// Documento do visitante normalizado (só letras e dígitos, em maiúsculas): é o que liga as visitas.
+  documento       String
+  /// Consentimento do visitante, registrado pelo porteiro, e a versão do termo mostrado a ele.
+  consentimentoEm DateTime
+  termoVersao     String
+  /// Última entrada do visitante; a foto é apagada quando passa do prazo sem nenhuma nova.
+  ultimaVisitaEm  DateTime
+  criadoEm        DateTime @default(now())
+
+  condominioId    String
+  condominio      Condominio @relation(fields: [condominioId], references: [id])
+  /// Porteiro que cadastrou (ou recadastrou) o rosto.
+  registradoPorId String
+  registradoPor   Usuario    @relation(fields: [registradoPorId], references: [id])
+
+  @@unique([condominioId, documento])
+  @@index([ultimaVisitaEm])
 }
 
 model Encomenda {
-  id              String          @id @default(uuid())
-  descricao       String
-  remetente       String?
-  status          StatusEncomenda @default(AGUARDANDO_RETIRADA)
-  recebidaEm      DateTime        @default(now())
-  retiradaEm      DateTime?
-  retiradaPor     String?
+  id          String          @id @default(uuid())
+  descricao   String
+  remetente   String?
+  status      StatusEncomenda @default(AGUARDANDO_RETIRADA)
+  recebidaEm  DateTime        @default(now())
+  retiradaEm  DateTime?
+  retiradaPor String?
 
-  unidadeId       String
-  unidade         Unidade         @relation(fields: [unidadeId], references: [id])
-  recebidaPorId   String
-  recebidaPor     Usuario         @relation(fields: [recebidaPorId], references: [id])
+  unidadeId     String
+  unidade       Unidade @relation(fields: [unidadeId], references: [id])
+  recebidaPorId String
+  recebidaPor   Usuario @relation(fields: [recebidaPorId], references: [id])
 }
 
 model Aviso {
@@ -182,8 +227,8 @@ model Aviso {
   fixado   Boolean  @default(false)
   criadoEm DateTime @default(now())
 
-  autorId  String
-  autor    Usuario  @relation(fields: [autorId], references: [id])
+  autorId String
+  autor   Usuario @relation(fields: [autorId], references: [id])
 
   condominioId String
   condominio   Condominio @relation(fields: [condominioId], references: [id])
@@ -204,21 +249,21 @@ model AreaComum {
 }
 
 model Reserva {
-  id        String        @id @default(uuid())
-  inicio    DateTime
-  fim       DateTime
-  status    StatusReserva @default(PENDENTE)
-  criadoEm  DateTime      @default(now())
+  id           String        @id @default(uuid())
+  inicio       DateTime
+  fim          DateTime
+  status       StatusReserva @default(PENDENTE)
+  criadoEm     DateTime      @default(now())
   /// Quando o síndico aprovou ou recusou.
   decididaEm   DateTime?
   motivoRecusa String?
 
   areaId    String
-  area      AreaComum     @relation(fields: [areaId], references: [id])
+  area      AreaComum @relation(fields: [areaId], references: [id])
   unidadeId String
-  unidade   Unidade       @relation(fields: [unidadeId], references: [id])
+  unidade   Unidade   @relation(fields: [unidadeId], references: [id])
   usuarioId String
-  usuario   Usuario       @relation(fields: [usuarioId], references: [id])
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
 
   @@index([areaId, inicio])
 }

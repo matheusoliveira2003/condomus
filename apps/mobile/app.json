@@ -28,6 +28,7 @@
       "expo-secure-store",
       "expo-notifications",
       "expo-dev-client",
+      "react-native-fast-tflite",
       [
         "expo-splash-screen",
         {
