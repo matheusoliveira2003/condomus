@@ -33,7 +33,7 @@ async function main() {
     { nome: "Nathan Martinez Lazarete", email: "nathanml@condomus.dev", papel: "PORTEIRO" as const, unidadeId: null },
   ];
   for (const u of usuarios) {
-    await prisma.usuario.upsert({ where: { email: u.email }, update: {}, create: { ...u, condominioId, senhaHash } });
+    await prisma.usuario.upsert({ where: { condominioId_email: { condominioId, email: u.email } }, update: {}, create: { ...u, condominioId, senhaHash } });
   }
 
   for (const nome of ["Salão de festas", "Churrasqueira", "Quadra"]) {

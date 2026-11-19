@@ -5,8 +5,8 @@
  * Mutações que alteram dados chamam queryClient.invalidateQueries para
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
-import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, Unidade, Usuario, Visita } from "@condomus/types";
+import { useQueryClient, useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, RostoPorDocumento, RostoVisitante, Unidade, Usuario, VerificacaoEntrada, Visita } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,7 @@ export const keys = {
   reservasMinhas: ["reservas", "minhas"] as const,
   areas: ["areas"] as const,
   condominio: ["condominio"] as const,
+  rosto: (visitaId: string) => ["rosto", visitaId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -105,13 +106,30 @@ export function useContadores(habilitado = true) {
 }
 
 // ---------------------------------------------------------------------------
+// Listas paginadas
+// ---------------------------------------------------------------------------
+/**
+ * Lista que a API entrega em páginas (`{ itens, proximoCursor }`). Busca a primeira página e, a
+ * pedido da tela (`carregarMais`), as seguintes, juntando tudo em `data`. Antes o app lia só a
+ * primeira página, e o que passava dela (visitas e encomendas antigas) ficava inalcançável.
+ */
+function usePaginada<T>(chave: readonly unknown[], caminho: string) {
+  const separador = caminho.includes("?") ? "&" : "?";
+  return useInfiniteQuery({
+    queryKey: chave,
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      api<Pagina<T>>(pageParam ? `${caminho}${separador}cursor=${pageParam}` : caminho),
+    getNextPageParam: (ultima) => ultima.proximoCursor,
+    select: (resultado) => resultado.pages.flatMap((pagina) => pagina.itens),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Visitas
 // ---------------------------------------------------------------------------
 export function useVisitas(filtro: string) {
-  return useQuery({
-    queryKey: keys.visitas(filtro),
-    queryFn: () => api<Pagina<Visita>>(`/visitas?${filtro}`).then((p) => p.itens),
-  });
+  return usePaginada<Visita>(keys.visitas(filtro), `/visitas?${filtro}`);
 }
 
 export function useCriarVisita() {
@@ -134,16 +152,52 @@ export function useCancelarVisita() {
 export function useRegistrarEntradaSaida() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, acao, codigo }: { id: string; acao: "entrada" | "saida"; codigo?: string }) =>
-      enviar("PATCH", `/visitas/${id}/${acao}`, codigo ? { codigo } : undefined),
+    mutationFn: ({ id, acao, codigo, verificacao }: { id: string; acao: "entrada" | "saida"; codigo?: string; verificacao?: VerificacaoEntrada }) =>
+      enviar("PATCH", `/visitas/${id}/${acao}`, codigo || verificacao ? { codigo, verificacao } : undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Rosto de referência do visitante (só a portaria)
+// ---------------------------------------------------------------------------
+export function useRostoVisitante(visitaId: string | null) {
+  return useQuery({
+    queryKey: keys.rosto(visitaId ?? ""),
+    queryFn: () => api<RostoVisitante>(`/visitas/${visitaId}/rosto`),
+    enabled: !!visitaId,
+    // O rosto pode vencer ou ser apagado a qualquer momento: sempre consulta de novo ao abrir.
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+/** Consulta pelo documento, para saber se o visitante já tem rosto antes de a visita existir. */
+export function consultarRostoPorDocumento(documento: string) {
+  return enviar<RostoPorDocumento>("POST", "/rostos/consulta", { documento });
+}
+
+export function useCadastrarRosto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ visitaId, imagem, termoVersao }: { visitaId: string; imagem: string; termoVersao: string }) =>
+      enviar("PUT", `/visitas/${visitaId}/rosto`, { imagem, consentimento: true, termoVersao }, 30000),
+    onSuccess: (_r, { visitaId }) => qc.invalidateQueries({ queryKey: keys.rosto(visitaId) }),
+  });
+}
+
+export function useApagarRosto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (visitaId: string) => enviar("DELETE", `/visitas/${visitaId}/rosto`),
+    onSuccess: (_r, visitaId) => qc.invalidateQueries({ queryKey: keys.rosto(visitaId) }),
   });
 }
 
 export function useEntradaDireta() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento: string; placaVeiculo?: string }) =>
+    mutationFn: (dados: { unidadeId: string; nomeVisitante: string; documento: string; placaVeiculo?: string; verificacao?: VerificacaoEntrada }) =>
       enviar<Visita>("POST", "/visitas/entrada-direta", dados),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
   });
@@ -153,10 +207,7 @@ export function useEntradaDireta() {
 // Encomendas
 // ---------------------------------------------------------------------------
 export function useEncomendas(status: string) {
-  return useQuery({
-    queryKey: keys.encomendas(status),
-    queryFn: () => api<Pagina<Encomenda>>(`/encomendas?status=${status}`).then((p) => p.itens),
-  });
+  return usePaginada<Encomenda>(keys.encomendas(status), `/encomendas?status=${status}`);
 }
 
 export function useRegistrarEncomenda() {
@@ -181,10 +232,7 @@ export function useRegistrarRetirada() {
 // Avisos
 // ---------------------------------------------------------------------------
 export function useAvisos() {
-  return useQuery({
-    queryKey: keys.avisos,
-    queryFn: () => api<Pagina<Aviso>>("/avisos").then((p) => p.itens),
-  });
+  return usePaginada<Aviso>(keys.avisos, "/avisos");
 }
 
 export function useCriarAviso() {
@@ -290,14 +338,40 @@ export function useRecusarReserva() {
 // ---------------------------------------------------------------------------
 
 /** Converte o estado do useQuery para o formato { dados, carregando, erro, recarregar } do componente Lista. */
-export function adaptarQuery<T>(query: ReturnType<typeof useQuery<T>>) {
+export function adaptarQuery<T>(query: ReturnType<typeof useQuery<T>>): {
+  dados: T;
+  carregando: boolean;
+  recarregando: boolean;
+  erro: string | null;
+  recarregar: () => Promise<unknown>;
+  carregarMais?: undefined;
+  carregandoMais?: undefined;
+};
+export function adaptarQuery<T>(query: ReturnType<typeof useInfiniteQuery<Pagina<T>, Error, T[]>>): {
+  dados: T[];
+  carregando: boolean;
+  recarregando: boolean;
+  erro: string | null;
+  recarregar: () => Promise<unknown>;
+  /** Pede a próxima página; não faz nada se não há mais ou se já está buscando. */
+  carregarMais: () => void;
+  carregandoMais: boolean;
+};
+export function adaptarQuery(query: any) {
   return {
-    dados: query.data ?? ([] as unknown as T),
+    dados: query.data ?? [],
     // isLoading: só true na primeira busca (sem dados). Evita spinner infinito em refetches.
-    // recarregando: true em qualquer fetch ativo, para o pull-to-refresh girar.
     carregando: query.isLoading,
-    recarregando: query.isFetching,
+    // recarregando: true em qualquer fetch ativo, para o pull-to-refresh girar. Buscar a página
+    // seguinte não conta: é o rodapé da lista que mostra isso.
+    recarregando: query.isFetching && !query.isFetchingNextPage,
     erro: query.error ? (query.error as Error).message : null,
     recarregar: query.refetch as () => Promise<unknown>,
+    ...("fetchNextPage" in query && {
+      carregarMais: () => {
+        if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+      },
+      carregandoMais: query.isFetchingNextPage as boolean,
+    }),
   };
 }

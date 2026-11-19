@@ -25,7 +25,7 @@ import { DetalhesVisita, SeloVisita } from "../ui/visita";
 
 export function VisitasMoradorScreen() {
   // Lista principal só com visitas em aberto; finalizadas e canceladas ficam no histórico.
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas("situacao=ativas"));
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useVisitas("situacao=ativas"));
   const cancelar = useCancelarVisita();
   const mensagens = useMensagens();
   const [agendando, setAgendando] = useState(false);
@@ -56,6 +56,8 @@ export function VisitasMoradorScreen() {
         recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
+        carregarMais={carregarMais}
+        carregandoMais={carregandoMais}
         vazio="Nenhum visitante autorizado"
         cabecalho={<LinkHistorico texto="Ver histórico de visitas" onPress={() => setVendoHistorico(true)} />}
         renderItem={(visita) => (
@@ -111,7 +113,7 @@ const LIMITE_HISTORICO = 50;
 
 /** Últimas visitas finalizadas ou canceladas da unidade. */
 function HistoricoVisitas() {
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas(`situacao=historico&limite=${LIMITE_HISTORICO}`));
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useVisitas(`situacao=historico&limite=${LIMITE_HISTORICO}`));
   return (
     <Lista
       dados={dados}
@@ -119,6 +121,8 @@ function HistoricoVisitas() {
         recarregando={recarregando}
       erro={erro}
       recarregar={recarregar}
+      carregarMais={carregarMais}
+      carregandoMais={carregandoMais}
       vazio="Nenhuma visita no histórico"
       renderItem={(visita) => <CardVisita visita={visita} />}
     />

@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { type StatusVisita, type Visita } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useVisitas } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
 import { useMensagens } from "../ui/mensagens";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
+import { RostoVisitanteModal } from "../rosto/RostoVisitanteModal";
+import { useEntradaComRosto } from "../rosto/useEntradaComRosto";
 import { LeitorConviteModal } from "./LeitorConviteModal";
 
 const abas: { valor: StatusVisita; rotulo: string }[] = [
@@ -24,9 +27,13 @@ export function PortariaVisitasScreen() {
   const [lendo, setLendo] = useState(false);
   /** Visita da lista cujo convite está sendo conferido. */
   const [conferindo, setConferindo] = useState<Visita | null>(null);
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useVisitas(`status=${status}`));
+  /** Visita cujo rosto está sendo cadastrado ou conferido. */
+  const [verificandoRosto, setVerificandoRosto] = useState<Visita | null>(null);
+  const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useVisitas(`status=${status}`));
   const registrarAcao = useRegistrarEntradaSaida();
   const mensagens = useMensagens();
+  // Só o porteiro cadastra e confere o rosto; o síndico usa esta tela sem esse botão.
+  const ehPorteiro = useAuth().usuario?.papel === "PORTEIRO";
 
   // Busca por nome do visitante, documento, placa ou unidade (ex.: "A-101").
   const filtradas = useMemo(() => {
@@ -39,7 +46,19 @@ export function PortariaVisitasScreen() {
     );
   }, [dados, busca]);
 
+  const { entrar, modal: modalRosto } = useEntradaComRosto();
+
   async function registrar(visita: Visita, acao: "entrada" | "saida") {
+    if (acao === "entrada") {
+      // Visitante com rosto cadastrado só entra depois da verificação do rosto.
+      await entrar({
+        nomeVisitante: visita.nomeVisitante,
+        documento: visita.documento,
+        registrar: (verificacao) => registrarAcao.mutateAsync({ id: visita.id, acao, verificacao }).then(() => undefined),
+        aoRegistrar: () => setStatus("EM_ANDAMENTO"),
+      });
+      return;
+    }
     try {
       await registrarAcao.mutateAsync({ id: visita.id, acao });
     } catch (e) {
@@ -55,6 +74,8 @@ export function PortariaVisitasScreen() {
         recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
+        carregarMais={carregarMais}
+        carregandoMais={carregandoMais}
         vazio={busca ? "Nenhum resultado para a busca" : "Nenhum visitante nesta lista"}
         espacoFinal={168}
         cabecalho={
@@ -69,6 +90,7 @@ export function PortariaVisitasScreen() {
               <Text style={estilosTexto.titulo}>{visita.nomeVisitante}</Text>
               <SeloVisita status={visita.status} />
             </View>
+            {visita.semSaida && <Selo texto="Sem saída há mais de 24 h" tom="alerta" />}
             <Text style={estilosTexto.corpo}>{unidadeTexto(visita.unidade)}</Text>
             <DetalhesVisita visita={visita} />
             {visita.autorizadoPor && (
@@ -76,6 +98,9 @@ export function PortariaVisitasScreen() {
                 <Avatar pessoa={visita.autorizadoPor} tamanho={28} />
                 <Text style={estilosTexto.secundario}>Autorizado por {visita.autorizadoPor.nome}</Text>
               </View>
+            )}
+            {ehPorteiro && !!visita.documento && (visita.status === "AGENDADA" || visita.status === "EM_ANDAMENTO") && (
+              <Botao titulo="Rosto do visitante" variante="secundario" pequeno onPress={() => setVerificandoRosto(visita)} />
             )}
             {visita.status === "AGENDADA" && (
               <Botao
@@ -106,6 +131,8 @@ export function PortariaVisitasScreen() {
           setStatus("EM_ANDAMENTO");
         }}
       />
+      <RostoVisitanteModal visita={verificandoRosto} onFechar={() => setVerificandoRosto(null)} />
+      {modalRosto}
       <EntradaDiretaModal
         visivel={registrando}
         onFechar={() => setRegistrando(false)}
@@ -126,25 +153,32 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
   const [placa, setPlaca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const entradaDireta = useEntradaDireta();
+  const { entrar, modal: modalRosto } = useEntradaComRosto();
 
   async function registrar() {
     if (!unidadeId) return;
     setErro(null);
-    try {
-      await entradaDireta.mutateAsync({
-        unidadeId,
-        nomeVisitante: nome.trim(),
-        documento: documento.trim(),
-        placaVeiculo: placa.trim().toUpperCase() || undefined,
-      });
-      setUnidadeId(null);
-      setNome("");
-      setDocumento("");
-      setPlaca("");
-      onRegistrada();
-    } catch (e) {
-      setErro((e as Error).message);
-    }
+    await entrar({
+      nomeVisitante: nome.trim(),
+      documento: documento.trim(),
+      registrar: (verificacao) =>
+        entradaDireta
+          .mutateAsync({
+            unidadeId,
+            nomeVisitante: nome.trim(),
+            documento: documento.trim(),
+            placaVeiculo: placa.trim().toUpperCase() || undefined,
+            verificacao,
+          })
+          .then(() => undefined),
+      aoRegistrar: () => {
+        setUnidadeId(null);
+        setNome("");
+        setDocumento("");
+        setPlaca("");
+        onRegistrada();
+      },
+    });
   }
 
   return (
@@ -155,6 +189,7 @@ function EntradaDiretaModal({ visivel, onFechar, onRegistrada }: { visivel: bool
       <Campo rotulo="Placa do veículo (opcional)" value={placa} onChangeText={setPlaca} autoCapitalize="characters" />
       <MensagemErro texto={erro} />
       <Botao titulo="Registrar entrada" onPress={registrar} carregando={entradaDireta.isPending} desabilitado={!unidadeId || nome.trim().length < 2 || documento.trim().length < 5} />
+      {modalRosto}
     </ModalFormulario>
   );
 }

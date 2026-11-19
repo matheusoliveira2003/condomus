@@ -5,6 +5,7 @@ import type { Papel } from "@prisma/client";
 import { env } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { HttpError, proibido } from "../lib/errors.js";
+import { planoBloqueado, situacaoDoPlano } from "../lib/plano.js";
 
 export interface UsuarioToken {
   sub: string;
@@ -45,15 +46,17 @@ export default fp(async (app) => {
     // tokens novos já carregam a versão atual — o middleware rejeita versões antigas.
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user.sub },
-      select: { ativo: true, tokenVersion: true, condominioId: true, condominio: { select: { planoStatus: true } } },
+      select: { ativo: true, tokenVersion: true, condominioId: true, condominio: { select: { planoStatus: true, planoExpiraEm: true } } },
     });
     if (!usuario?.ativo) throw new HttpError(401, "Conta desativada");
     if (usuario.tokenVersion !== req.user.tokenVersion) throw new HttpError(401, "Sessão inválida");
     // Token sem condomínio (emitido antes do multi-tenant) ou de outro condomínio é inválido.
     if (usuario.condominioId !== req.user.condominioId) throw new HttpError(401, "Sessão inválida");
     // Plano inativo bloqueia o condomínio inteiro. O síndico passa sempre: precisa entrar para ver o status e falar com o suporte.
-    const planoInativo = usuario.condominio.planoStatus === "EXPIRADO" || usuario.condominio.planoStatus === "SUSPENSO";
-    if (planoInativo && req.user.papel !== "SINDICO") throw new HttpError(402, "Plano do condomínio inativo");
+    // Um teste (TRIAL) que passou da data e da carência conta como expirado, mesmo sem ninguém mudar o status.
+    if (planoBloqueado(situacaoDoPlano(usuario.condominio)) && req.user.papel !== "SINDICO") {
+      throw new HttpError(402, "Plano do condomínio inativo");
+    }
     if (papeis.length > 0 && !papeis.includes(req.user.papel)) throw proibido();
   });
 });
