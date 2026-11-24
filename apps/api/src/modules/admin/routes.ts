@@ -43,6 +43,13 @@ const novaContaSchema = z.object({
   senha: z.string().min(12, "A senha do administrador deve ter pelo menos 12 caracteres"),
 });
 
+const trocarSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1, "Informe a senha atual"),
+    novaSenha: z.string().min(12, "A nova senha deve ter pelo menos 12 caracteres"),
+  })
+  .refine((s) => s.senhaAtual !== s.novaSenha, { message: "A nova senha deve ser diferente da atual", path: ["novaSenha"] });
+
 const novoCondominioSchema = z.object({
   nome: z.string().trim().min(2),
   cnpj: z.string().trim().min(1).optional(),
@@ -97,6 +104,20 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get("/admin/eu", { preHandler: app.exigirAdministrador }, async (req) =>
     prisma.administrador.findUniqueOrThrow({ where: { id: req.administrador!.id }, select: { id: true, nome: true, email: true } }),
   );
+
+  // Troca de senha do próprio administrador. Pede a senha atual (uma sessão esquecida aberta não basta),
+  // tem limite de tentativas e encerra as outras sessões: o token usado aqui também perde a validade, e
+  // a resposta traz um novo para o painel continuar aberto.
+  app.patch("/admin/senha", { preHandler: app.exigirAdministrador, config: limitar(5) }, async (req) => {
+    const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
+    const conta = await prisma.administrador.findUniqueOrThrow({ where: { id: req.administrador!.id } });
+    if (!(await bcrypt.compare(senhaAtual, conta.senhaHash))) throw new HttpError(400, "Senha atual incorreta");
+    const atualizada = await prisma.administrador.update({
+      where: { id: conta.id },
+      data: { senhaHash: await bcrypt.hash(novaSenha, 10), tokenVersion: { increment: 1 } },
+    });
+    return { token: emitirTokenAdmin(atualizada.id, atualizada.tokenVersion) };
+  });
 
   // --- Condomínios --------------------------------------------------------------------------
   app.get("/admin/painel/condominios", { preHandler: app.exigirAdministrador }, async () => {
