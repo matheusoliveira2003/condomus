@@ -104,23 +104,24 @@ export function Conversa({ unidadeId }: { unidadeId?: string }) {
           }}
           onEndReachedThreshold={0.4}
           ListFooterComponent={conversa.isFetchingNextPage ? <ActivityIndicator color={cores.primaria} /> : null}
-          ListEmptyComponent={
-            <View style={[styles.vazio, { transform: [{ scaleY: -1 }] }]}>
-              <Ionicons name="chatbubbles-outline" size={40} color={cores.textoSecundario} />
-              <Text style={estilosTexto.secundario}>
-                {meuLado === "MORADOR" ? "Fale com a portaria por aqui." : "Nenhuma mensagem desta unidade ainda."}
-              </Text>
-            </View>
-          }
         />
+      )}
+      {/* Fora da lista: ela é invertida, e o texto de dentro sai espelhado. */}
+      {!conversa.isLoading && itens.length === 0 && (
+        <View style={styles.vazio} pointerEvents="none">
+          <Ionicons name="chatbubbles-outline" size={40} color={cores.textoSecundario} />
+          <Text style={[estilosTexto.secundario, { textAlign: "center" }]}>
+            {meuLado === "MORADOR" ? "Fale com a portaria por aqui." : "Nenhuma mensagem desta unidade ainda."}
+          </Text>
+        </View>
       )}
       <MensagemErro texto={conversa.error ? (conversa.error as Error).message : null} />
       {demorando && <Text style={styles.conectando}>Conectando ao servidor…</Text>}
       <View style={styles.barra}>
-        <Pressable onPress={() => void enviarFoto("camera")} hitSlop={6} disabled={enviarMensagem.isPending} accessibilityRole="button" accessibilityLabel="Tirar foto e enviar">
+        <Pressable onPress={() => void enviarFoto("camera")} hitSlop={6} disabled={enviarMensagem.isPending} style={styles.icone} accessibilityRole="button" accessibilityLabel="Tirar foto e enviar">
           <Ionicons name="camera-outline" size={25} color={cores.primaria} />
         </Pressable>
-        <Pressable onPress={() => void enviarFoto("galeria")} hitSlop={6} disabled={enviarMensagem.isPending} accessibilityRole="button" accessibilityLabel="Escolher foto da galeria e enviar">
+        <Pressable onPress={() => void enviarFoto("galeria")} hitSlop={6} disabled={enviarMensagem.isPending} style={styles.icone} accessibilityRole="button" accessibilityLabel="Escolher foto da galeria e enviar">
           <Ionicons name="image-outline" size={24} color={cores.primaria} />
         </Pressable>
         <TextInput
@@ -198,7 +199,7 @@ function FotoDaMensagem({ id }: { id: string }) {
 
 const criarStyles = (cores: Paleta) =>
   StyleSheet.create({
-    vazio: { alignItems: "center", gap: 8, paddingVertical: 48 },
+    vazio: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 72 },
     conectando: { textAlign: "center", fontSize: 12, color: cores.textoSecundario, paddingVertical: 4 },
     dia: { alignSelf: "center", fontSize: 12, color: cores.textoSecundario, marginVertical: 4 },
     linhaBalao: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
@@ -235,5 +236,7 @@ const criarStyles = (cores: Paleta) =>
       color: cores.texto,
       backgroundColor: cores.fundo,
     },
+    // Mesma altura do campo (40): o ícone fica no centro dele, e não colado no fundo da barra.
+    icone: { width: 32, height: 40, alignItems: "center", justifyContent: "center" },
     enviar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: cores.primaria },
   });

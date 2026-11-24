@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { aquecerServidor, type ConversaChat, type UnidadeComMoradores } from "../api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { aquecerServidor, type LadoChat, type MensagemChat, type UnidadeComMoradores } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Conversa } from "../chat/Conversa";
-import { adaptarQuery, useConversas } from "../hooks/queries";
+import { adaptarQuery, useContadores, useConversa, useConversas } from "../hooks/queries";
 import { BotaoFlutuante, Lista, ModalFormulario, ModalTela, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /**
- * Aba Chat. O morador vê direto a conversa da própria unidade com a portaria. A portaria e o
- * síndico veem a lista de conversas das unidades e abrem a que quiserem responder.
+ * Aba Chat. O morador vê um cartão da conversa com a portaria e a abre numa janela, como a portaria
+ * faz com cada unidade. A portaria e o síndico veem a lista de conversas das unidades.
  */
 export function ChatScreen() {
   const { usuario } = useAuth();
@@ -22,7 +23,36 @@ export function ChatScreen() {
   useEffect(() => {
     if (emFoco) aquecerServidor();
   }, [emFoco]);
-  return usuario?.papel === "MORADOR" ? <Conversa /> : <ConversasDaPortaria />;
+  return usuario?.papel === "MORADOR" ? <ChatDoMorador /> : <ConversasDaPortaria />;
+}
+
+/** O morador tem uma conversa só (a da unidade): um cartão "Portaria" que abre a conversa numa janela. */
+function ChatDoMorador() {
+  const emFoco = useIsFocused();
+  const [aberta, setAberta] = useState(false);
+  // Janela aberta: a própria conversa busca as novas a cada 4 s. Fechada, o cartão se atualiza mais devagar.
+  const conversa = useConversa(undefined, emFoco && !aberta);
+  const { data: contadores } = useContadores();
+  const qc = useQueryClient();
+  const ultima: MensagemChat | undefined = conversa.data?.[0];
+  const naoLidas = contadores?.chatNaoLidas ?? 0;
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+      <ItemConversa titulo="Portaria" icone="chatbubbles-outline" ultima={ultima} naoLidas={naoLidas} meuLado="MORADOR" onAbrir={() => setAberta(true)} />
+      <ModalTela
+        visivel={aberta}
+        titulo="Portaria"
+        onFechar={() => {
+          setAberta(false);
+          // A conversa acabou de ser lida: atualiza o selo do cartão e da aba sem esperar o próximo ciclo.
+          void qc.invalidateQueries({ queryKey: ["contadores"] });
+        }}
+      >
+        <Conversa />
+      </ModalTela>
+    </View>
+  );
 }
 
 /** A conversa aberta: da lista, ou de uma unidade recém-escolhida que ainda não tem mensagem. */
@@ -47,7 +77,14 @@ function ConversasDaPortaria() {
         recarregar={recarregar}
         vazio="Não há mensagens por enquanto"
         renderItem={(c) => (
-          <ItemConversa conversa={c} onAbrir={() => setAberta({ unidadeId: c.unidade.id, titulo: unidadeTexto(c.unidade) })} />
+          <ItemConversa
+            titulo={unidadeTexto(c.unidade)}
+            icone="home-outline"
+            ultima={c.ultima}
+            naoLidas={c.naoLidas}
+            meuLado="PORTARIA"
+            onAbrir={() => setAberta({ unidadeId: c.unidade.id, titulo: unidadeTexto(c.unidade) })}
+          />
         )}
       />
       <BotaoFlutuante icone="create-outline" rotulo="Nova conversa" onPress={() => setIniciando(true)} />
@@ -113,28 +150,46 @@ function NovaConversaModal({
   );
 }
 
-function ItemConversa({ conversa, onAbrir }: { conversa: ConversaChat; onAbrir: () => void }) {
+/**
+ * Cartão de uma conversa: título, última mensagem, horário e não lidas. Serve à lista da portaria (uma
+ * por unidade) e à aba do morador (a conversa com a portaria). Sem mensagem ainda, convida a escrever.
+ */
+function ItemConversa({
+  titulo,
+  icone,
+  ultima,
+  naoLidas,
+  meuLado,
+  onAbrir,
+}: {
+  titulo: string;
+  icone: "home-outline" | "chatbubbles-outline";
+  ultima?: MensagemChat;
+  naoLidas: number;
+  /** De que lado está quem vê o cartão: a última mensagem dele aparece como "Você". */
+  meuLado: LadoChat;
+  onAbrir: () => void;
+}) {
   const cores = useCores();
   const styles = useEstilos(criarStyles);
   const estilosTexto = useEstilosTexto();
-  const { ultima, naoLidas } = conversa;
-  const hoje = data(new Date()) === data(ultima.criadaEm);
-  const previa = ultima.texto ?? (ultima.temFoto ? "📷 Foto" : "");
+  const hoje = !!ultima && data(new Date()) === data(ultima.criadaEm);
+  const previa = ultima ? (ultima.texto ?? (ultima.temFoto ? "📷 Foto" : "")) : "Fale com a portaria";
   return (
     <Pressable onPress={onAbrir} style={({ pressed }) => [styles.item, pressed && { opacity: 0.6 }]} accessibilityRole="button">
       <View style={styles.icone}>
-        <Ionicons name="home-outline" size={20} color={cores.primaria} />
+        <Ionicons name={icone} size={20} color={cores.primaria} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.topo}>
           <Text style={[styles.unidade, naoLidas > 0 && { fontWeight: "800" }]} numberOfLines={1}>
-            {unidadeTexto(conversa.unidade)}
+            {titulo}
           </Text>
-          <Text style={estilosTexto.secundario}>{hoje ? hora(ultima.criadaEm) : data(ultima.criadaEm)}</Text>
+          {ultima && <Text style={estilosTexto.secundario}>{hoje ? hora(ultima.criadaEm) : data(ultima.criadaEm)}</Text>}
         </View>
         <View style={styles.topo}>
           <Text style={[estilosTexto.secundario, { flex: 1 }, naoLidas > 0 && { color: cores.texto }]} numberOfLines={1}>
-            {ultima.lado === "PORTARIA" ? "Você: " : `${ultima.autor.nome}: `}
+            {ultima ? (ultima.lado === meuLado ? "Você: " : `${ultima.autor.nome}: `) : ""}
             {previa}
           </Text>
           {naoLidas > 0 && (
