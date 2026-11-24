@@ -6,7 +6,7 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, RostoPorDocumento, RostoVisitante, Unidade, Usuario, VerificacaoEntrada, Visita } from "@condomus/types";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, RostoPorDocumento, RostoVisitante, Unidade, Usuario, VerificacaoEntrada, Visita, VisitanteFrequente } from "@condomus/types";
 import { api, enviar } from "../api/client";
 
 // ---------------------------------------------------------------------------
@@ -24,6 +24,9 @@ export const keys = {
   areas: ["areas"] as const,
   condominio: ["condominio"] as const,
   rosto: (visitaId: string) => ["rosto", visitaId] as const,
+  /** Rosto pelo documento (portaria): o documento vai no corpo, mas a chave do cache precisa dele. */
+  rostoPorDocumento: (documento: string) => ["rosto", "documento", documento] as const,
+  visitantes: ["visitantes"] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -137,7 +140,44 @@ export function useCriarVisita() {
   return useMutation({
     mutationFn: (dados: { nomeVisitante: string; documento: string; placaVeiculo?: string; dataPrevista?: string }) =>
       enviar<Visita>("POST", "/visitas", dados),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["visitas"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["visitas"] });
+      // Quem foi autorizado entra (ou volta) na lista de visitantes frequentes.
+      qc.invalidateQueries({ queryKey: keys.visitantes });
+    },
+  });
+}
+
+/** Visitantes que a unidade autorizou nos últimos 90 dias (só o morador). */
+export function useVisitantes(habilitado = true) {
+  return useQuery({
+    queryKey: keys.visitantes,
+    queryFn: () => api<VisitanteFrequente[]>("/visitantes"),
+    enabled: habilitado,
+  });
+}
+
+/** Tira o visitante da lista da unidade; não apaga o histórico. */
+export function useOcultarVisitante() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documento: string) => enviar("POST", "/visitantes/ocultar", { documento }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.visitantes }),
+  });
+}
+
+/**
+ * Se o visitante tem rosto cadastrado e válido, para a portaria oferecer a entrada pelo rosto.
+ * Só consulta quando há documento e quem chama habilita (o porteiro, nas visitas com convite).
+ */
+export function useTemRosto(documento: string | null, habilitado: boolean) {
+  const doc = documento?.trim() ?? "";
+  return useQuery({
+    queryKey: keys.rostoPorDocumento(doc),
+    queryFn: () => consultarRostoPorDocumento(doc),
+    enabled: habilitado && doc.length >= 5,
+    // O rosto pode vencer ou ser apagado: não guarda por muito tempo.
+    staleTime: 30_000,
   });
 }
 

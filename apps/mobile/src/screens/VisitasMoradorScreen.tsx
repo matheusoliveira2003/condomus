@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
-import { api, obterToken, type Visita } from "../api/client";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { api, obterToken, type Visita, type VisitanteFrequente } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
 import { Calendario } from "../ui/Calendario";
 import { data } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
-import { useEstilos, type Paleta } from "../ui/tema";
-import { adaptarQuery, useCancelarVisita, useCriarVisita, useVisitas } from "../hooks/queries";
+import { useCores, useEstilos, type Paleta } from "../ui/tema";
+import { adaptarQuery, useCancelarVisita, useCriarVisita, useOcultarVisitante, useVisitantes, useVisitas } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
   BotaoFlutuante,
@@ -19,6 +20,7 @@ import {
   MensagemErro,
   ModalFormulario,
   ModalTela,
+  Selo,
   useEstilosTexto,
 } from "../ui/componentes";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
@@ -194,6 +196,101 @@ const criarStyles = (cores: Paleta) =>
 
 type OpcaoDia = "qualquer" | "hoje" | "amanha" | "data";
 
+/** Quantos visitantes frequentes aparecem antes de a pessoa buscar. */
+const VISITANTES_VISIVEIS = 5;
+
+/**
+ * Visitantes que a unidade autorizou nos últimos 90 dias. Tocar em um preenche o formulário (o morador
+ * ainda pode editar). Também dá para tirar alguém da lista; isso não apaga o histórico.
+ */
+function VisitantesFrequentes({ visivel, onEscolher }: { visivel: boolean; onEscolher: (v: VisitanteFrequente) => void }) {
+  const cores = useCores();
+  const styles = useEstilos(criarStylesFrequentes);
+  const estilosTexto = useEstilosTexto();
+  const mensagens = useMensagens();
+  const { data: visitantes = [] } = useVisitantes(visivel);
+  const ocultar = useOcultarVisitante();
+  const [busca, setBusca] = useState("");
+
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const soDigitos = termo.replace(/\D/g, "");
+    const lista = termo
+      ? visitantes.filter(
+          (v) =>
+            v.nomeVisitante.toLowerCase().includes(termo) ||
+            (soDigitos.length > 0 && v.documento.replace(/\D/g, "").includes(soDigitos)),
+        )
+      : visitantes;
+    return lista.slice(0, termo ? lista.length : VISITANTES_VISIVEIS);
+  }, [visitantes, busca]);
+
+  if (visitantes.length === 0) return null;
+
+  function remover(v: VisitanteFrequente) {
+    mensagens.confirmar({
+      titulo: "Remover da lista",
+      texto: `${v.nomeVisitante} sai da sua lista de visitantes. O histórico de visitas continua. Se você autorizar de novo, ele volta para a lista.`,
+      confirmar: "Remover",
+      perigo: true,
+      aoConfirmar: () => {
+        ocultar.mutateAsync(v.documento).catch((e: Error) => mensagens.erro(e.message));
+      },
+    });
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={estilosTexto.titulo}>Seus visitantes</Text>
+      {visitantes.length > VISITANTES_VISIVEIS && (
+        <Campo rotulo="Buscar" value={busca} onChangeText={setBusca} placeholder="Nome ou documento" />
+      )}
+      {filtrados.map((v) => (
+        <View key={v.documento} style={styles.item}>
+          <Pressable
+            onPress={() => onEscolher(v)}
+            style={({ pressed }) => [styles.dados, pressed && { opacity: 0.6 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Usar ${v.nomeVisitante}`}
+          >
+            <Text style={estilosTexto.corpo} numberOfLines={1}>
+              {v.nomeVisitante}
+            </Text>
+            <Text style={estilosTexto.secundario} numberOfLines={1}>
+              {v.documento}
+              {v.placaVeiculo ? ` · ${v.placaVeiculo}` : ""}
+            </Text>
+            {v.temRosto && (
+              <View style={{ flexDirection: "row", marginTop: 4 }}>
+                <Selo texto="Entra pelo rosto" tom="primario" />
+              </View>
+            )}
+          </Pressable>
+          <Pressable onPress={() => remover(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remover ${v.nomeVisitante} da lista`}>
+            <Ionicons name="close-circle-outline" size={22} color={cores.textoSecundario} />
+          </Pressable>
+        </View>
+      ))}
+      {busca.trim() && filtrados.length === 0 && <Text style={estilosTexto.secundario}>Nenhum visitante encontrado.</Text>}
+    </View>
+  );
+}
+
+const criarStylesFrequentes = (cores: Paleta) =>
+  StyleSheet.create({
+    item: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: cores.borda,
+    },
+    dados: { flex: 1, gap: 2 },
+  });
+
 function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: (visita: Visita) => void }) {
   const estilosTexto = useEstilosTexto();
   const [nome, setNome] = useState("");
@@ -234,6 +331,14 @@ function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean;
 
   return (
     <ModalFormulario visivel={visivel} titulo="Autorizar visitante" onFechar={onFechar}>
+      <VisitantesFrequentes
+        visivel={visivel}
+        onEscolher={(v) => {
+          setNome(v.nomeVisitante);
+          setDocumento(v.documento);
+          setPlaca(v.placaVeiculo ?? "");
+        }}
+      />
       <Campo rotulo="Nome do visitante" value={nome} onChangeText={setNome} placeholder="Nome completo" />
       <Campo rotulo="Documento" value={documento} onChangeText={setDocumento} placeholder="RG ou CPF" />
       <Campo rotulo="Placa do veículo (opcional)" value={placa} onChangeText={setPlaca} autoCapitalize="characters" placeholder="ABC1D23" />
