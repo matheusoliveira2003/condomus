@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { api, type Unidade } from "../api/client";
+import { api, type Unidade, type UnidadeComMoradores } from "../api/client";
 import { Campo, MensagemErro, ModalTela, useEstilosTexto } from "./componentes";
 import { unidadeTexto } from "./formatar";
 import { useCores, useEstilos, type Paleta } from "./tema";
@@ -10,16 +10,23 @@ import { useCores, useEstilos, type Paleta } from "./tema";
  * Campo único para escolher a unidade. Ao tocar, abre uma lista com busca, agrupada por bloco:
  * digitar "101" mostra o 101 de todos os blocos; "A 101" vai direto à unidade.
  */
-export function SeletorUnidade({ valor, onChange }: { valor: string | null; onChange: (id: string | null) => void }) {
+export function SeletorUnidade({
+  valor,
+  onChange,
+}: {
+  valor: string | null;
+  /** Recebe o id e, ao escolher, a unidade inteira (com a contagem de moradores). */
+  onChange: (id: string | null, unidade?: UnidadeComMoradores) => void;
+}) {
   const cores = useCores();
   const estilosTexto = useEstilosTexto();
   const styles = useEstilos(criarStyles);
-  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [unidades, setUnidades] = useState<UnidadeComMoradores[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [aberto, setAberto] = useState(false);
 
   useEffect(() => {
-    api<Unidade[]>("/unidades").then(setUnidades).catch((e: Error) => setErro(e.message));
+    api<UnidadeComMoradores[]>("/unidades").then(setUnidades).catch((e: Error) => setErro(e.message));
   }, []);
 
   const escolhida = unidades.find((u) => u.id === valor);
@@ -46,7 +53,7 @@ export function SeletorUnidade({ valor, onChange }: { valor: string | null; onCh
           unidades={unidades}
           valor={valor}
           onEscolher={(id) => {
-            onChange(id);
+            onChange(id, unidades.find((u) => u.id === id));
             setAberto(false);
           }}
         />
