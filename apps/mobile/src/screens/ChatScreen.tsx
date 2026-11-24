@@ -37,7 +37,7 @@ function ConversasDaPortaria() {
         recarregando={recarregando}
         erro={erro}
         recarregar={recarregar}
-        vazio="Nenhuma conversa ainda. Quando um morador escrever, ela aparece aqui."
+        vazio="Não há mensagens por enquanto"
         renderItem={(c) => <ItemConversa conversa={c} onAbrir={() => setAberta(c)} />}
       />
       <ModalTela visivel={!!aberta} titulo={aberta ? unidadeTexto(aberta.unidade) : ""} onFechar={() => setAberta(null)}>

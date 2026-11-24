@@ -13,6 +13,7 @@ import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
 import {
   BotaoFlutuante,
   Botao,
+  BotoesLado,
   Campo,
   Card,
   Chips,
@@ -66,14 +67,10 @@ export function VisitasMoradorScreen() {
         renderItem={(visita) => (
           <CardVisita visita={visita}>
             {visita.status === "AGENDADA" && (
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo="Cancelar" variante="secundario" pequeno onPress={() => confirmarCancelamento(visita)} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo="Enviar convite" pequeno onPress={() => setConvite(visita)} />
-                </View>
-              </View>
+              <BotoesLado>
+                <Botao titulo="Cancelar" variante="secundario" pequeno onPress={() => confirmarCancelamento(visita)} />
+                <Botao titulo="Enviar convite" pequeno onPress={() => setConvite(visita)} />
+              </BotoesLado>
             )}
           </CardVisita>
         )}

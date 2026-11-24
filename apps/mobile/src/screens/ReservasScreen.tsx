@@ -4,7 +4,7 @@ import { api, type Reserva, type StatusReserva } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useAprovarReserva, useAreas, useCancelarReserva, useCriarReserva, useReservas, useReservasMinhas, useRecusarReserva } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, BotoesLado, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
 import { useMensagens, type PedidoConfirmacao } from "../ui/mensagens";
@@ -115,14 +115,10 @@ function ReservasSindico() {
         renderItem={(r) => (
           <CardReserva reserva={r} mostrarUnidade>
             {r.status === "PENDENTE" ? (
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo="Recusar" variante="secundario" pequeno onPress={() => setRecusando(r)} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo="Aprovar" pequeno onPress={() => aprovar(r)} />
-                </View>
-              </View>
+              <BotoesLado>
+                <Botao titulo="Recusar" variante="secundario" pequeno onPress={() => setRecusando(r)} />
+                <Botao titulo="Aprovar" pequeno onPress={() => aprovar(r)} />
+              </BotoesLado>
             ) : (
               <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))} />
             )}
