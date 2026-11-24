@@ -3,6 +3,7 @@ import { api, aoExpirarSessao, guardarToken, obterToken, sairDoPainel } from "./
 import { Login } from "./Login";
 import { Condominios } from "./Condominios";
 import { DetalheCondominio } from "./DetalheCondominio";
+import { TrocarSenha } from "./TrocarSenha";
 
 interface Admin {
   id: string;
@@ -10,7 +11,7 @@ interface Admin {
   email: string;
 }
 
-type Tela = { nome: "lista" } | { nome: "detalhe"; id: string };
+type Tela = { nome: "lista" } | { nome: "detalhe"; id: string } | { nome: "senha" };
 
 export function App() {
   const [admin, setAdmin] = useState<Admin | null>(null);
@@ -43,14 +44,13 @@ export function App() {
       <header className="topo">
         <h1>Condomus · Administração</h1>
         <span className="secundario" style={{ color: "#fff", opacity: 0.8 }}>{admin.email}</span>
+        <button onClick={() => setTela({ nome: "senha" })}>Trocar senha</button>
         <button onClick={sair}>Sair</button>
       </header>
       <main className="conteudo">
-        {tela.nome === "lista" ? (
-          <Condominios onAbrir={(id) => setTela({ nome: "detalhe", id })} />
-        ) : (
-          <DetalheCondominio id={tela.id} onVoltar={() => setTela({ nome: "lista" })} />
-        )}
+        {tela.nome === "lista" && <Condominios onAbrir={(id) => setTela({ nome: "detalhe", id })} />}
+        {tela.nome === "detalhe" && <DetalheCondominio id={tela.id} onVoltar={() => setTela({ nome: "lista" })} />}
+        {tela.nome === "senha" && <TrocarSenha email={admin.email} onVoltar={() => setTela({ nome: "lista" })} />}
       </main>
     </>
   );
