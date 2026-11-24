@@ -62,6 +62,35 @@ describe("contas e login do administrador", () => {
   });
 });
 
+describe("troca de senha do administrador", () => {
+  const NOVA = "uma-senha-nova-bem-longa";
+  const trocar = (corpo: unknown, t = token) => chamar(app, "PATCH", "/admin/senha", { token: t, corpo });
+
+  it("troca a senha, devolve sessão nova e encerra a antiga", async () => {
+    const r = await trocar({ senhaAtual: SENHA_ADMIN, novaSenha: NOVA });
+    expect(r.status).toBe(200);
+    expect((await chamar(app, "GET", "/admin/eu", { token })).status).toBe(401);
+    expect((await chamar(app, "GET", "/admin/eu", { token: r.corpo.token })).status).toBe(200);
+    const antiga = await chamar(app, "POST", "/admin/auth/login", { corpo: { email: "admin@condomus.dev", senha: SENHA_ADMIN } });
+    expect(antiga.status).toBe(401);
+    const nova = await chamar(app, "POST", "/admin/auth/login", { corpo: { email: "admin@condomus.dev", senha: NOVA } });
+    expect(nova.status).toBe(200);
+  });
+
+  it("recusa senha atual errada, senha curta e senha igual à atual", async () => {
+    expect((await trocar({ senhaAtual: "errada-errada-errada", novaSenha: NOVA })).status).toBe(400);
+    expect((await trocar({ senhaAtual: SENHA_ADMIN, novaSenha: "curta" })).status).toBe(400);
+    expect((await trocar({ senhaAtual: SENHA_ADMIN, novaSenha: SENHA_ADMIN })).status).toBe(400);
+    // Nada mudou: a sessão e a senha antigas continuam valendo.
+    expect((await chamar(app, "GET", "/admin/eu", { token })).status).toBe(200);
+  });
+
+  it("exige a sessão do painel: sem token, com token de usuário ou com a chave, não", async () => {
+    const corpo = { senhaAtual: SENHA_ADMIN, novaSenha: NOVA };
+    for (const t of ["", c.tokens.sindico, ADMIN_SECRET]) expect((await trocar(corpo, t)).status).toBe(401);
+  });
+});
+
 describe("tokens do painel e do app não se misturam", () => {
   it("o token do painel não entra nas rotas do app", async () => {
     expect((await chamar(app, "GET", "/auth/me", { token })).status).toBe(401);
