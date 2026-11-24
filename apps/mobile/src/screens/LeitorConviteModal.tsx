@@ -65,12 +65,14 @@ export function LeitorConviteModal({
     if (!visita) return;
     setRegistrando(true);
     setErro(null);
-    // Visitante com rosto cadastrado só entra depois da verificação do rosto.
+    // Com o convite lido, o código já prova a autorização: entra sem pedir o rosto. Visita antiga sem
+    // convite (nenhum código lido) segue a regra normal, que pede o rosto se houver um cadastrado.
     await entrar({
       nomeVisitante: visita.nomeVisitante,
       documento: visita.documento,
       registrar: (verificacao) => enviar("PATCH", `/visitas/${visita.id}/entrada`, { codigo: codigoLido, verificacao }).then(() => undefined),
       aoRegistrar: onEntrada,
+      modo: codigoLido ? "convite" : "automatico",
     });
     setRegistrando(false);
   }
