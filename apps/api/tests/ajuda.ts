@@ -11,7 +11,7 @@ export async function limparBanco() {
   const [{ current_database: nome }] = await prisma.$queryRawUnsafe<{ current_database: string }[]>("SELECT current_database()");
   if (!nome.endsWith("_teste")) throw new Error(`Recusando limpar o banco "${nome}": os testes só rodam em bancos *_teste`);
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "LeituraChat", "MensagemChat", "VisitanteOculto", "RostoVisitante", "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "ConviteUnidade", "Unidade", "AreaComum", "Condominio" RESTART IDENTITY CASCADE`,
+    `TRUNCATE "Administrador", "LeituraChat", "MensagemChat", "VisitanteOculto", "RostoVisitante", "DispositivoPush", "Reserva", "Visita", "Encomenda", "Aviso", "Usuario", "ConviteUnidade", "Unidade", "AreaComum", "Condominio" RESTART IDENTITY CASCADE`,
   );
 }
 
