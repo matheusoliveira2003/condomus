@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -53,13 +53,36 @@ export function Botao({
       {carregando ? (
         <ActivityIndicator color={variante === "secundario" ? cores.primaria : cores.textoSobreCor} />
       ) : (
-        <Text style={[
-          styles.botaoTexto,
-          variante === "secundario" && { color: cores.primaria },
-          variante === "discreto" && styles.botaoTextoDiscreto,
-        ]}>{titulo}</Text>
+        <Text
+          // Botão pequeno costuma ir lado a lado com outro: numa linha só, para os dois terem a mesma altura.
+          numberOfLines={pequeno ? 1 : undefined}
+          style={[
+            styles.botaoTexto,
+            variante === "secundario" && { color: cores.primaria },
+            variante === "discreto" && styles.botaoTextoDiscreto,
+          ]}
+        >
+          {titulo}
+        </Text>
       )}
     </Pressable>
+  );
+}
+
+/**
+ * Botões lado a lado, dividindo a largura em partes iguais e com a mesma altura. Use no lugar de
+ * montar `View` com `flex: 1` à mão: ali, um botão de texto mais longo ficava mais alto que o vizinho.
+ */
+export function BotoesLado({ children }: { children: ReactNode }) {
+  const filhos = Children.toArray(children);
+  return (
+    <View style={{ flexDirection: "row", gap: 8, alignItems: "stretch" }}>
+      {filhos.map((filho, i) => (
+        <View key={i} style={{ flex: 1 }}>
+          {filho}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -402,8 +425,8 @@ const criarEstilos = (cores: Paleta) =>
     botao_secundario: { backgroundColor: cores.primariaClara },
     botao_perigo: { backgroundColor: cores.perigo },
     botao_discreto: { backgroundColor: "transparent" },
-    botaoTexto: { color: cores.textoSobreCor, fontWeight: "600", fontSize: 15 },
-    botaoTextoDiscreto: { color: cores.textoSecundario, fontWeight: "500", fontSize: 13 },
+    botaoTexto: { color: cores.textoSobreCor, fontWeight: "600", fontSize: 15, textAlign: "center" },
+    botaoTextoDiscreto: { color: cores.textoSecundario, fontWeight: "500", fontSize: 13, textAlign: "center" },
     rotulo: { fontSize: 14, fontWeight: "500", color: cores.texto },
     campoLinha: { justifyContent: "center" },
     olho: { position: "absolute", right: 12, padding: 4 },
@@ -451,7 +474,7 @@ const criarEstilos = (cores: Paleta) =>
     // Mantido para o erro inline da Lista (que não usa MensagemErro)
     erro: { color: cores.perigo, marginBottom: 8 },
     vazio: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 48 },
-    vazioTexto: { color: cores.textoSecundario, fontSize: 15 },
+    vazioTexto: { color: cores.textoSecundario, fontSize: 15, textAlign: "center" },
     modal: { flex: 1, backgroundColor: cores.superficie },
     modalCabecalho: {
       flexDirection: "row",

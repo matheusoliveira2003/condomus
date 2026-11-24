@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, enviar, type AreaComum, type Papel, type UnidadeComMoradores, type UsuarioCadastro } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, BotoesLado, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { emailValido, unidadeTexto } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
@@ -133,14 +133,10 @@ function ListaUsuarios({ aba, cabecalho }: { aba: "moradores" | "funcionarios"; 
               {u.ativo && u.senhaTemporaria && (
                 <Botao titulo="Reenviar senha por e-mail" variante="secundario" pequeno onPress={() => reenviarSenha(u)} />
               )}
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
-                </View>
-              </View>
+              <BotoesLado>
+                <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
+                <Botao titulo={u.ativo ? "Desativar" : "Reativar"} variante="secundario" pequeno onPress={() => alternarAtivo(u)} />
+              </BotoesLado>
             </View>
           )}
         </Card>
@@ -267,14 +263,10 @@ function ListaUnidades({ cabecalho }: { cabecalho: ReactNode }) {
             </Text>
           </View>
           <Botao titulo="Gerar convite" variante="secundario" pequeno onPress={() => gerarConvite(mensagens, u)} />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Botao titulo="Excluir" variante="perigo" pequeno onPress={() => excluir(u)} />
-            </View>
-          </View>
+          <BotoesLado>
+            <Botao titulo="Editar" variante="secundario" pequeno onPress={() => setEditando(u)} />
+            <Botao titulo="Excluir" variante="perigo" pequeno onPress={() => excluir(u)} />
+          </BotoesLado>
         </Card>
       )}
     />

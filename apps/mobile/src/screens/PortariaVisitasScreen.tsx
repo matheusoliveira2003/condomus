@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { type StatusVisita, type Visita } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useTemRosto, useVisitas } from "../hooks/queries";
-import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, BotoesLado, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { Avatar } from "../ui/Avatar";
@@ -169,14 +169,10 @@ function BotoesEntrada({
   }
   if (ehPorteiro && rosto?.cadastrado) {
     return (
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Botao titulo="Entrar com biometria" pequeno onPress={() => onEntrar("rosto")} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Botao titulo="Ler QR code" variante="secundario" pequeno onPress={onLerConvite} />
-        </View>
-      </View>
+      <BotoesLado>
+        <Botao titulo="Biometria" pequeno onPress={() => onEntrar("rosto")} />
+        <Botao titulo="Ler QR code" variante="secundario" pequeno onPress={onLerConvite} />
+      </BotoesLado>
     );
   }
   // Com convite e sem rosto: a entrada é pelo QR code (ou pelo código digitado).
