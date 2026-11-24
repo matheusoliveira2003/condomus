@@ -329,7 +329,7 @@ describe("entrada pelo QR code ou pelo rosto (qualquer um basta)", () => {
     const id = await comConvite();
     const r = await entrar(id, {});
     expect(r.status).toBe(400);
-    expect(r.corpo.erro).toMatch(/QR code do convite ou confira o rosto/);
+    expect(r.corpo.erro).toMatch(/QR code do convite ou confira a biometria/);
   });
 
   it("código errado é recusado mesmo com uma verificação válida junto", async () => {

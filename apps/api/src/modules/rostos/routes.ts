@@ -10,7 +10,7 @@ import { LIMIAR_RECONHECIMENTO, expiraEm, normalizarDocumento, rostoValido } fro
  * Versão do termo de consentimento mostrado ao visitante. O app precisa enviar exatamente esta
  * versão, para que a API grave o termo que de fato foi lido. Ao mudar o texto, mude a versão.
  */
-export const TERMO_ROSTO_VERSAO = "2026-11b";
+export const TERMO_ROSTO_VERSAO = "2026-11c";
 
 /** Mesmo limite da foto de perfil: o app já envia a imagem reduzida. */
 const TAMANHO_MAXIMO = 500 * 1024;
@@ -83,7 +83,7 @@ export async function rostosRoutes(app: FastifyInstance) {
     // Um rosto ainda válido não é sobrescrito: trocar a foto exige apagar antes (e o consentimento
     // do visitante vale para a foto que ele viu ser tirada, não para outra no lugar dela).
     if (await rostoValido(req.user.condominioId, documento)) {
-      throw new HttpError(409, "Este visitante já tem rosto cadastrado: apague o cadastro antes de fazer outro");
+      throw new HttpError(409, "Este visitante já tem biometria cadastrada: apague o cadastro antes de fazer outro");
     }
 
     // Primeiro a foto, depois o registro: o banco só diz que há rosto quando o objeto existe.
@@ -127,7 +127,7 @@ async function visitaDoRosto(params: unknown, condominioId: string) {
   if (!visita) throw naoEncontrado("Visita", "f");
   const documento = visita.documento ? normalizarDocumento(visita.documento) : "";
   if (documento.length < DOCUMENTO_MINIMO) {
-    throw new HttpError(409, "Esta visita não tem documento válido, então o rosto não pode ser cadastrado");
+    throw new HttpError(409, "Esta visita não tem documento válido, então a biometria não pode ser cadastrada");
   }
   return { documento };
 }

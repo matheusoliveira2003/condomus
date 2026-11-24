@@ -101,7 +101,7 @@ export function PortariaVisitasScreen() {
               </View>
             )}
             {ehPorteiro && !!visita.documento && (visita.status === "AGENDADA" || visita.status === "EM_ANDAMENTO") && (
-              <Botao titulo="Rosto do visitante" variante="secundario" pequeno onPress={() => setVerificandoRosto(visita)} />
+              <Botao titulo="Biometria do visitante" variante="secundario" pequeno onPress={() => setVerificandoRosto(visita)} />
             )}
             {visita.status === "AGENDADA" && (
               <BotoesEntrada
@@ -171,7 +171,7 @@ function BotoesEntrada({
     return (
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Botao titulo="Entrar pelo rosto" pequeno onPress={() => onEntrar("rosto")} />
+          <Botao titulo="Entrar com biometria" pequeno onPress={() => onEntrar("rosto")} />
         </View>
         <View style={{ flex: 1 }}>
           <Botao titulo="Ler QR code" variante="secundario" pequeno onPress={onLerConvite} />

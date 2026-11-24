@@ -39,22 +39,19 @@ const INTERVALO_MS = 120;
  * foto sozinho quando o rosto está centralizado, no tamanho certo e parado. A pessoa só segue
  * as orientações. Se o app instalado não tiver os módulos novos, mostra o aviso de atualizar.
  */
-export function CapturaRosto({ onCapturada, camera = "front" }: { onCapturada: (jpegBase64: string) => void; camera?: Camera }) {
+export function CapturaRosto({ onCapturada }: { onCapturada: (jpegBase64: string) => void }) {
   const { usuario } = useAuth();
   // A foto ao vivo é tirada pelo porteiro, de frente para o visitante: sem detecção de
   // vivacidade, é a presença dele que impede alguém de mostrar uma foto para a câmera.
   if (usuario?.papel !== "PORTEIRO") return null;
   if (!moduloVisao || !moduloWorklets) return <MensagemErro texto={AVISO_ATUALIZAR} />;
-  return <Permissao visao={moduloVisao} worklets={moduloWorklets} onCapturada={onCapturada} camera={camera} />;
+  return <Permissao visao={moduloVisao} worklets={moduloWorklets} onCapturada={onCapturada} />;
 }
-
-/** PROVA TÉCNICA: a escolha da câmera existe só para os testes; remover junto com o teste de reconhecimento. */
-export type Camera = "front" | "back";
 
 type Visao = NonNullable<typeof moduloVisao>;
 type Worklets = NonNullable<typeof moduloWorklets>;
 
-function Permissao({ visao, worklets, onCapturada, camera }: { visao: Visao; worklets: Worklets; onCapturada: (jpegBase64: string) => void; camera: Camera }) {
+function Permissao({ visao, worklets, onCapturada }: { visao: Visao; worklets: Worklets; onCapturada: (jpegBase64: string) => void }) {
   const estilosTexto = useEstilosTexto();
   const permissao = visao.useCameraPermission();
   if (!permissao.hasPermission) {
@@ -69,17 +66,17 @@ function Permissao({ visao, worklets, onCapturada, camera }: { visao: Visao; wor
       </View>
     );
   }
-  return <Visor visao={visao} worklets={worklets} onCapturada={onCapturada} camera={camera} />;
+  return <Visor visao={visao} worklets={worklets} onCapturada={onCapturada} />;
 }
 
-function Visor({ visao, worklets, onCapturada, camera }: { visao: Visao; worklets: Worklets; onCapturada: (jpegBase64: string) => void; camera: Camera }) {
+function Visor({ visao, worklets, onCapturada }: { visao: Visao; worklets: Worklets; onCapturada: (jpegBase64: string) => void }) {
   const cores = useCores();
   const estilosTexto = useEstilosTexto();
   const [orientacao, setOrientacao] = useState<Orientacao>("nenhum");
   const [erro, setErro] = useState<string | null>(null);
   const [capturando, setCapturando] = useState(false);
 
-  const dispositivo = visao.useCameraDevice(camera);
+  const dispositivo = visao.useCameraDevice("front");
   // 640×480 basta para o rosto; foto maior deixa a decodificação em JavaScript lenta (~10 s).
   const fotoSaida = visao.usePhotoOutput({
     containerFormat: "jpeg",
@@ -223,7 +220,7 @@ function Visor({ visao, worklets, onCapturada, camera }: { visao: Visao; worklet
   return (
     <View style={{ gap: 12 }}>
       <View style={styles.visor}>
-        <visao.Camera style={StyleSheet.absoluteFill} device={dispositivo} isActive outputs={saidas} mirrorMode={camera === "front" ? "on" : "off"} />
+        <visao.Camera style={StyleSheet.absoluteFill} device={dispositivo} isActive outputs={saidas} mirrorMode="on" />
         <View
           style={[
             styles.mira,

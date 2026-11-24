@@ -50,7 +50,7 @@ export function useEntradaComRosto() {
       const rosto = documento && documento.trim().length >= 5 ? await consultarRostoPorDocumento(documento) : null;
       if (modo === "rosto" && !rosto?.cadastrado) {
         // O rosto venceu ou foi apagado entre a lista e o toque: avisa em vez de registrar sem prova.
-        mensagens.erro("Este visitante não tem mais rosto cadastrado. Use o QR code do convite.");
+        mensagens.erro("Este visitante não tem mais biometria cadastrada. Use o QR code do convite.");
         return;
       }
       if (rosto?.cadastrado && documento) {

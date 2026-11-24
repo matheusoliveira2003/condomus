@@ -145,7 +145,7 @@ export async function visitasRoutes(app: FastifyInstance) {
       throw new HttpError(
         400,
         temRosto
-          ? "Leia o QR code do convite ou confira o rosto do visitante para registrar a entrada"
+          ? "Leia o QR code do convite ou confira a biometria do visitante para registrar a entrada"
           : "Leia o QR code do convite (ou digite o código) para registrar a entrada",
       );
     }
