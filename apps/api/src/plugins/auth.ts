@@ -40,6 +40,8 @@ export default fp(async (app) => {
     } catch {
       throw new HttpError(401, "Token ausente ou inválido");
     }
+    // Token do painel do administrador não vale no app (as assinaturas já diferem; esta é a segunda barreira).
+    if ((req.user as { tipo?: unknown }).tipo !== undefined) throw new HttpError(401, "Token ausente ou inválido");
     // Verifica se a conta ainda está ativa e se a versão do token não foi invalidada.
     // tokenVersion no payload evita um SELECT a cada requisição em condições normais:
     // a query só é necessária quando alguém foi desativado ou trocou a senha, pois

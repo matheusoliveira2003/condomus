@@ -327,3 +327,16 @@ model LeituraChat {
 
   @@id([usuarioId, unidadeId])
 }
+
+/// Administrador do sistema: entra no painel web (/admin) e gerencia todos os condomínios. Não pertence a
+/// nenhum condomínio e não usa o app. A primeira conta é criada com a chave ADMIN_SECRET.
+model Administrador {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  ativo        Boolean  @default(true)
+  /// Incrementado ao desativar ou trocar a senha; invalida as sessões abertas no painel.
+  tokenVersion Int      @default(0)
+  criadoEm     DateTime @default(now())
+}
