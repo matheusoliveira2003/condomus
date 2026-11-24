@@ -73,7 +73,7 @@ No celular físico, defina `EXPO_PUBLIC_API_URL=http://<IP-da-sua-máquina>:3333
 |----------|-------------|-----------|
 | `DATABASE_URL` | ✅ | URL do PostgreSQL |
 | `JWT_SECRET` | ✅ | Segredo para assinar os tokens JWT |
-| `ADMIN_SECRET` | ✅ | Segredo das rotas `/admin/*` (mín. 16 chars) |
+| `ADMIN_SECRET` | ✅ | Chave para criar contas de administrador e para as rotas de administração por chave (mín. 16 chars) |
 | `RESEND_API_KEY` | — | Chave do [Resend](https://resend.com) para envio de e-mails (recuperação de senha, troca de e-mail, boas-vindas) |
 | `EMAIL_REMETENTE` | — | Remetente dos e-mails. Padrão `Condomus <onboarding@resend.dev>`, que só entrega ao e-mail da conta Resend; em produção use um domínio verificado, ex.: `Condomus <nao-responda@condomus.app.br>` |
 | `STORAGE_BUCKET` | — | Bucket S3/R2/MinIO para fotos de perfil |
@@ -93,11 +93,11 @@ A API é um servidor Node comum e a raiz do repositório é um monorepo npm (wor
 
 | Configuração | Valor |
 |--------------|-------|
-| Build command | `npm ci && npm run build -w @condomus/api` |
+| Build command | `npm ci && npm run build:admin && npm run build -w @condomus/api` |
 | Start command | `npm run start -w @condomus/api` |
 | Health check path | `/health` |
 
-- O build gera o cliente do Prisma e compila o TypeScript; o start roda `prisma migrate deploy` (aplica as migrations pendentes) e sobe o servidor. Não há `.env` em produção: todas as variáveis da tabela acima ficam em *Environment* no painel do serviço.
+- O build compila o painel do administrador (`apps/admin`, servido em `/admin`), gera o cliente do Prisma e compila o TypeScript; o start roda `prisma migrate deploy` (aplica as migrations pendentes) e sobe o servidor. Não há `.env` em produção: todas as variáveis da tabela acima ficam em *Environment* no painel do serviço.
 - `PORT` é definida pelo próprio Render.
 - `JWT_SECRET` e `ADMIN_SECRET` de produção devem ser valores novos e longos (por exemplo `openssl rand -hex 32`), nunca os do ambiente local.
 - Variáveis opcionais que não forem usadas devem ser **removidas**, não deixadas vazias: `STORAGE_ENDPOINT=""` não é uma URL válida e a API não sobe.
@@ -117,7 +117,18 @@ read -rs "DATABASE_URL?Cole a URL direta do Neon: "; export DATABASE_URL   # zsh
 
 Para restaurar num banco vazio: `pg_restore --no-owner --dbname="$DATABASE_URL" backups/<arquivo>.dump`. Faça um backup antes de migrations arriscadas e periodicamente enquanto o plano for gratuito.
 
-**Primeiro acesso:** depois do primeiro deploy, crie o condomínio e o síndico com `POST /admin/condominios` (`Authorization: Bearer <ADMIN_SECRET>`). A resposta traz a `senhaGerada` do síndico, que é temporária: o app pede a troca no primeiro login. Essa rota não envia e-mail.
+**Primeiro acesso:** o painel do administrador fica em `/admin` (`https://api.condomus.app.br/admin`). A primeira conta nasce só com o `ADMIN_SECRET`, pelo terminal, sem deixar segredo no histórico:
+
+```bash
+read -rs "CHAVE?ADMIN_SECRET: "; echo
+read -rs "SENHA?Senha do administrador (mín. 12 caracteres): "; echo
+curl -s -X POST https://api.condomus.app.br/admin/administradores \
+  -H "Authorization: Bearer $CHAVE" -H "Content-Type: application/json" \
+  -d "{\"nome\":\"Seu nome\",\"email\":\"seu@email.com\",\"senha\":\"$SENHA\"}"
+unset CHAVE SENHA
+```
+
+Depois é só entrar em `/admin` com esse e-mail e senha (a sessão dura 2 h) e criar o condomínio com o síndico, as unidades, os usuários e as áreas comuns. A senha temporária do síndico aparece uma vez na tela e vai por e-mail se o Resend estiver configurado. A rota antiga `POST /admin/condominios` (por chave) continua existindo.
 
 **Servidor dormindo:** o plano gratuito do Render suspende a API após cerca de 15 minutos sem requisições e leva cerca de 45 s para acordar. O app chama `/health` ao abrir e espera até 60 s no login e ao restaurar a sessão; fora isso o limite é de 15 s.
 
