@@ -86,6 +86,8 @@ model Unidade {
   reservas          Reserva[]
   convites          ConviteUnidade[]
   visitantesOcultos VisitanteOculto[]
+  mensagensChat     MensagemChat[]
+  leiturasChat      LeituraChat[]
 
   condominioId String
   condominio   Condominio @relation(fields: [condominioId], references: [id])
@@ -142,6 +144,8 @@ model Usuario {
   visitasAutorizadas  Visita[]          @relation("VisitaAutorizadaPor")
   visitasRegistradas  Visita[]          @relation("VisitaRegistradaPor")
   rostosRegistrados   RostoVisitante[]
+  mensagensChat       MensagemChat[]
+  leiturasChat        LeituraChat[]
   encomendasRecebidas Encomenda[]
   avisos              Aviso[]
   reservas            Reserva[]
@@ -281,4 +285,42 @@ model Reserva {
   usuario   Usuario   @relation(fields: [usuarioId], references: [id])
 
   @@index([areaId, inicio])
+}
+
+/// De que lado da conversa a mensagem veio. Gravado na mensagem para o histórico não mudar se a pessoa mudar de papel.
+enum LadoChat {
+  MORADOR
+  PORTARIA // porteiro ou síndico
+}
+
+/// Mensagem do chat entre a portaria e uma unidade. A conversa é a unidade: todos os moradores dela e
+/// toda a portaria veem as mesmas mensagens. Apagada (com a foto) após 90 dias.
+model MensagemChat {
+  id       String   @id @default(uuid())
+  lado     LadoChat
+  /// Até 1000 caracteres; nula quando a mensagem é só a foto.
+  texto    String?
+  /// A foto fica no object storage (chave chat/<unidadeId>/<id>.jpg); aqui só se ela existe.
+  temFoto  Boolean  @default(false)
+  criadaEm DateTime @default(now())
+
+  unidadeId String
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
+  autorId   String
+  autor     Usuario @relation(fields: [autorId], references: [id])
+
+  @@index([unidadeId, criadaEm])
+  @@index([criadaEm])
+}
+
+/// Até onde cada pessoa leu a conversa de uma unidade, para o contador de não lidas.
+model LeituraChat {
+  lidaEm DateTime
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  unidadeId String
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
+
+  @@id([usuarioId, unidadeId])
 }

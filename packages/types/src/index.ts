@@ -196,6 +196,8 @@ export interface Contadores {
   visitasEsperadas: number;
   /** Síndico: reservas pendentes de aprovação. */
   reservasPendentes: number;
+  /** Mensagens do chat ainda não lidas (opcional: a API antiga não manda). */
+  chatNaoLidas?: number;
 }
 
 export interface Resumo {
@@ -216,4 +218,27 @@ export interface Resumo {
     area: { nome: string };
   } | null;
   avisos: { id: string; titulo: string; conteudo: string; fixado: boolean; criadoEm: string }[];
+}
+
+// ---------------------------------------------------------------------------
+// Chat entre portaria e unidade
+// ---------------------------------------------------------------------------
+
+/** De que lado veio a mensagem: do morador ou da portaria (porteiro ou síndico). */
+export type LadoChat = "MORADOR" | "PORTARIA";
+
+export interface MensagemChat {
+  id: string;
+  lado: LadoChat;
+  texto: string | null;
+  temFoto: boolean;
+  criadaEm: string;
+  autor: Pessoa;
+}
+
+/** Uma conversa na lista da portaria: a unidade e a última mensagem dela. */
+export interface ConversaChat {
+  unidade: Unidade;
+  ultima: MensagemChat;
+  naoLidas: number;
 }
