@@ -6,8 +6,8 @@
  * garantir que as listas fiquem sincronizadas sem refetch manual.
  */
 import { useQueryClient, useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
-import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, RostoPorDocumento, RostoVisitante, Unidade, Usuario, VerificacaoEntrada, Visita, VisitanteFrequente } from "@condomus/types";
-import { api, enviar } from "../api/client";
+import type { Aviso, AreaComum, Condominio, ConviteInfo, Contadores, Encomenda, Pagina, Reserva, Resumo, RostoPorDocumento, RostoVisitante, Unidade, Usuario, VerificacaoEntrada, Visita, VisitanteFrequente, MensagemChat, ConversaChat } from "@condomus/types";
+import { api, enviar, TEMPO_LIMITE_ACORDAR_MS } from "../api/client";
 
 // ---------------------------------------------------------------------------
 // Query keys — centralizados para invalidação consistente
@@ -27,6 +27,9 @@ export const keys = {
   /** Rosto pelo documento (portaria): o documento vai no corpo, mas a chave do cache precisa dele. */
   rostoPorDocumento: (documento: string) => ["rosto", "documento", documento] as const,
   visitantes: ["visitantes"] as const,
+  /** Conversa do chat: sem unidade, é a do próprio morador. */
+  chat: (unidadeId?: string) => ["chat", unidadeId ?? "minha"] as const,
+  conversas: ["chat", "conversas"] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -414,4 +417,56 @@ export function adaptarQuery(query: any) {
       carregandoMais: query.isFetchingNextPage as boolean,
     }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Chat entre portaria e unidade
+// ---------------------------------------------------------------------------
+/** Caminho da conversa: o morador usa a da própria unidade; a portaria informa qual. */
+const caminhoChat = (unidadeId?: string) => (unidadeId ? `/chat/conversas/${unidadeId}/mensagens` : "/chat/mensagens");
+
+/** Com a conversa aberta, busca as mensagens novas neste intervalo. Não há tempo real (o servidor dorme). */
+export const INTERVALO_CHAT_MS = 4000;
+
+/**
+ * Mensagens da conversa, das mais novas para as mais antigas, em páginas. `ativa` (tela em foco)
+ * liga a busca periódica; fora dela, a conversa só atualiza ao voltar ou por push.
+ */
+export function useConversa(unidadeId: string | undefined, ativa: boolean) {
+  return useInfiniteQuery({
+    queryKey: keys.chat(unidadeId),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) =>
+      api<Pagina<MensagemChat>>(pageParam ? `${caminhoChat(unidadeId)}?antesDe=${pageParam}` : caminhoChat(unidadeId)),
+    getNextPageParam: (ultima) => ultima.proximoCursor,
+    select: (r) => r.pages.flatMap((p) => p.itens),
+    refetchInterval: ativa ? INTERVALO_CHAT_MS : false,
+  });
+}
+
+export function useEnviarMensagem(unidadeId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    // O servidor gratuito dorme e leva ~45 s para acordar: com 30 s, a primeira mensagem falharia.
+    mutationFn: (dados: { texto?: string; foto?: string }) =>
+      enviar<MensagemChat>("POST", caminhoChat(unidadeId), dados, TEMPO_LIMITE_ACORDAR_MS),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.chat(unidadeId) });
+      qc.invalidateQueries({ queryKey: keys.conversas });
+    },
+  });
+}
+
+/** Marca a conversa como lida até agora (zera as não lidas da aba). */
+export function marcarChatLido(unidadeId?: string) {
+  return enviar("POST", "/chat/lida", unidadeId ? { unidadeId } : undefined);
+}
+
+/** Lista de conversas da portaria e do síndico. */
+export function useConversas(ativa: boolean) {
+  return useQuery({
+    queryKey: keys.conversas,
+    queryFn: () => api<ConversaChat[]>("/chat/conversas"),
+    refetchInterval: ativa ? INTERVALO_CHAT_MS * 3 : false,
+  });
 }
