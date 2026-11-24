@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api, obterToken, type Visita, type VisitanteFrequente } from "../api/client";
 import { compartilharConvite, urlQrConvite } from "../convite";
+import { Avatar } from "../ui/Avatar";
 import { Calendario } from "../ui/Calendario";
 import { data } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
@@ -240,55 +241,86 @@ function VisitantesFrequentes({ visivel, onEscolher }: { visivel: boolean; onEsc
   }
 
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={estilosTexto.titulo}>Seus visitantes</Text>
+    <View style={{ gap: 12 }}>
       {visitantes.length > VISITANTES_VISIVEIS && (
         <Campo rotulo="Buscar" value={busca} onChangeText={setBusca} placeholder="Nome ou documento" />
       )}
-      {filtrados.map((v) => (
-        <View key={v.documento} style={styles.item}>
-          <Pressable
-            onPress={() => onEscolher(v)}
-            style={({ pressed }) => [styles.dados, pressed && { opacity: 0.6 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Usar ${v.nomeVisitante}`}
-          >
-            <Text style={estilosTexto.corpo} numberOfLines={1}>
-              {v.nomeVisitante}
-            </Text>
-            <Text style={estilosTexto.secundario} numberOfLines={1}>
-              {v.documento}
-              {v.placaVeiculo ? ` · ${v.placaVeiculo}` : ""}
-            </Text>
-            {v.temRosto && (
-              <View style={{ flexDirection: "row", marginTop: 4 }}>
-                <Selo texto="Entra pelo rosto" tom="primario" />
-              </View>
-            )}
-          </Pressable>
-          <Pressable onPress={() => remover(v)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remover ${v.nomeVisitante} da lista`}>
-            <Ionicons name="close-circle-outline" size={22} color={cores.textoSecundario} />
-          </Pressable>
+      <View style={styles.cartao}>
+        <View style={styles.cabecalho}>
+          <Ionicons name="time-outline" size={26} color={cores.primaria} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.titulo}>Visitantes recentes</Text>
+            <Text style={estilosTexto.secundario}>Acesso rápido para visitantes frequentes</Text>
+          </View>
         </View>
-      ))}
-      {busca.trim() && filtrados.length === 0 && <Text style={estilosTexto.secundario}>Nenhum visitante encontrado.</Text>}
+        {filtrados.map((v, i) => (
+          <View key={v.documento} style={[styles.linha, i > 0 && styles.linhaComDivisoria]}>
+            <Pressable
+              onPress={() => onEscolher(v)}
+              style={({ pressed }) => [styles.toque, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Usar ${v.nomeVisitante}`}
+            >
+              <Avatar pessoa={{ id: v.documento, nome: v.nomeVisitante, fotoAtualizadaEm: null }} tamanho={40} />
+              <View style={styles.dados}>
+                <View style={styles.nomeLinha}>
+                  <Text style={styles.nome} numberOfLines={1}>
+                    {v.nomeVisitante}
+                  </Text>
+                  {v.temRosto && <Selo texto="Biometria cadastrada" tom="primario" />}
+                </View>
+                <Text style={styles.documento} numberOfLines={1}>
+                  {v.documento}
+                  {v.placaVeiculo ? ` · ${v.placaVeiculo}` : ""}
+                </Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => remover(v)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.remover, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Remover ${v.nomeVisitante} da lista`}
+            >
+              <Ionicons name="trash-outline" size={22} color={cores.perigo} />
+            </Pressable>
+          </View>
+        ))}
+        {busca.trim() && filtrados.length === 0 && (
+          <Text style={[estilosTexto.secundario, { padding: 16 }]}>Nenhum visitante encontrado.</Text>
+        )}
+      </View>
     </View>
   );
 }
 
 const criarStylesFrequentes = (cores: Paleta) =>
   StyleSheet.create({
-    item: {
+    cartao: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+      overflow: "hidden",
+    },
+    cabecalho: {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: cores.borda,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: cores.borda,
     },
-    dados: { flex: 1, gap: 2 },
+    titulo: { fontSize: 16, fontWeight: "800", color: cores.texto },
+    linha: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10 },
+    linhaComDivisoria: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: cores.borda },
+    toque: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+    dados: { flex: 1, gap: 4 },
+    nomeLinha: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+    nome: { flexShrink: 1, fontSize: 15, fontWeight: "800", color: cores.texto },
+    documento: { fontSize: 13, color: cores.textoSecundario },
+    remover: { padding: 6 },
   });
 
 function AgendarVisitaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: (visita: Visita) => void }) {
