@@ -225,13 +225,16 @@ model RostoVisitante {
 }
 
 model Encomenda {
-  id          String          @id @default(uuid())
-  descricao   String
-  remetente   String?
-  status      StatusEncomenda @default(AGUARDANDO_RETIRADA)
-  recebidaEm  DateTime        @default(now())
-  retiradaEm  DateTime?
-  retiradaPor String?
+  id                String          @id @default(uuid())
+  descricao         String
+  remetente         String?
+  status            StatusEncomenda @default(AGUARDANDO_RETIRADA)
+  recebidaEm        DateTime        @default(now())
+  retiradaEm        DateTime?
+  retiradaPor       String?
+  /// Lembretes automáticos já enviados no chat porque a encomenda ficou parada na portaria (no máximo 3).
+  lembretesEnviados Int             @default(0)
+  ultimoLembreteEm  DateTime?
 
   unidadeId     String
   unidade       Unidade @relation(fields: [unidadeId], references: [id])
