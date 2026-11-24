@@ -24,8 +24,8 @@ import { VisitasMoradorScreen } from "./src/screens/VisitasMoradorScreen";
 import { PortariaVisitasScreen } from "./src/screens/PortariaVisitasScreen";
 import { EncomendasScreen } from "./src/screens/EncomendasScreen";
 import { ReservasScreen } from "./src/screens/ReservasScreen";
-import { CadastrosScreen } from "./src/screens/CadastrosScreen";
 import { InicioScreen } from "./src/screens/InicioScreen";
+import { ChatScreen } from "./src/screens/ChatScreen";
 import { MinhaContaModal } from "./src/screens/MinhaContaModal";
 import { TemaProvider, useTema } from "./src/ui/tema";
 import { Avatar } from "./src/ui/Avatar";
@@ -68,11 +68,12 @@ const EncomendasLazy = comSpinner(EncomendasScreen);
 const ReservasLazy = comSpinner(ReservasScreen);
 const PortariaLazy = comSpinner(PortariaVisitasScreen);
 const VisitasMoradorLazy = comSpinner(VisitasMoradorScreen);
-const CadastrosLazy = comSpinner(CadastrosScreen);
+const ChatLazy = comSpinner(ChatScreen);
 
 const avisos: Aba = { nome: "Avisos", titulo: "Avisos", icone: "megaphone-outline", tela: AvisosLazy };
 const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasLazy, contador: "encomendas" };
 const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy, contador: "reservasPendentes" };
+const chat: Aba = { nome: "Chat", titulo: "Chat", icone: "chatbubbles-outline", tela: ChatLazy, contador: "chatNaoLidas" };
 const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaLazy, contador: "visitasEsperadas" };
 
 /** Abas disponíveis para cada perfil de acesso. */
@@ -82,15 +83,17 @@ const abasPorPapel: Record<Papel, Aba[]> = {
     { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorLazy },
     encomendas,
     reservas,
+    chat,
     // Sem aba Avisos: os avisos ficam no Início (resumo + "Ver todos").
   ],
-  PORTEIRO: [portaria, encomendas, avisos],
+  PORTEIRO: [portaria, encomendas, chat, avisos],
   SINDICO: [
     avisos,
     portaria,
     encomendas,
     reservas,
-    { nome: "Cadastros", titulo: "Cadastros", icone: "people-outline", tela: CadastrosLazy },
+    chat,
+    // Cadastros fica na Minha conta: é configuração, usada de vez em quando; a barra fica com cinco abas.
   ],
 };
 
@@ -285,6 +288,8 @@ function AreaLogada({ contaAberta, setContaAberta }: { contaAberta: boolean; set
         screenOptions={{
           tabBarActiveTintColor: cores.primaria,
           tabBarInactiveTintColor: cores.textoSecundario,
+          // A barra some com o teclado aberto: assim o campo do chat não fica atrás dela.
+          tabBarHideOnKeyboard: true,
           lazy: true,
           headerRight: () => (
             <Pressable
