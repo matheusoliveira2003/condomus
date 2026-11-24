@@ -98,10 +98,13 @@ export async function dadosDaVerificacao(
   usuario: { papel: string; condominioId: string },
   documento: string | null,
   verificacao: Verificacao | undefined,
+  /** O convite (QR code) já foi conferido: então o rosto é uma alternativa, não uma exigência. */
+  { dispensavel = false }: { dispensavel?: boolean } = {},
 ) {
   const normalizado = documento ? normalizarDocumento(documento) : "";
   if (!normalizado || !(await rostoValido(usuario.condominioId, normalizado))) return {};
   if (!verificacao) {
+    if (dispensavel) return {};
     throw new HttpError(409, "Este visitante tem rosto cadastrado: confira o rosto para registrar a entrada");
   }
   if (verificacao.tipo === "RECONHECIMENTO") {

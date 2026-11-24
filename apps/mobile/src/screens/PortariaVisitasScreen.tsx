@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { type StatusVisita, type Visita } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useVisitas } from "../hooks/queries";
+import { adaptarQuery, useEntradaDireta, useRegistrarEntradaSaida, useTemRosto, useVisitas } from "../hooks/queries";
 import { BotaoFlutuante, Botao, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Selo, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
@@ -10,7 +10,7 @@ import { Avatar } from "../ui/Avatar";
 import { useMensagens } from "../ui/mensagens";
 import { DetalhesVisita, SeloVisita } from "../ui/visita";
 import { RostoVisitanteModal } from "../rosto/RostoVisitanteModal";
-import { useEntradaComRosto } from "../rosto/useEntradaComRosto";
+import { useEntradaComRosto, type ModoEntrada } from "../rosto/useEntradaComRosto";
 import { LeitorConviteModal } from "./LeitorConviteModal";
 
 const abas: { valor: StatusVisita; rotulo: string }[] = [
@@ -48,14 +48,15 @@ export function PortariaVisitasScreen() {
 
   const { entrar, modal: modalRosto } = useEntradaComRosto();
 
-  async function registrar(visita: Visita, acao: "entrada" | "saida") {
+  async function registrar(visita: Visita, acao: "entrada" | "saida", modo: ModoEntrada = "automatico") {
     if (acao === "entrada") {
-      // Visitante com rosto cadastrado só entra depois da verificação do rosto.
+      // Visitante com rosto cadastrado só entra depois da verificação do rosto (ou pelo convite, na outra opção).
       await entrar({
         nomeVisitante: visita.nomeVisitante,
         documento: visita.documento,
         registrar: (verificacao) => registrarAcao.mutateAsync({ id: visita.id, acao, verificacao }).then(() => undefined),
         aoRegistrar: () => setStatus("EM_ANDAMENTO"),
+        modo,
       });
       return;
     }
@@ -103,11 +104,11 @@ export function PortariaVisitasScreen() {
               <Botao titulo="Rosto do visitante" variante="secundario" pequeno onPress={() => setVerificandoRosto(visita)} />
             )}
             {visita.status === "AGENDADA" && (
-              <Botao
-                titulo={visita.temConvite ? "Ler convite e registrar entrada" : "Registrar entrada"}
-                pequeno
-                // Com convite, a entrada só acontece lendo o QR code (ou digitando o código) desta visita.
-                onPress={() => (visita.temConvite ? setConferindo(visita) : registrar(visita, "entrada"))}
+              <BotoesEntrada
+                visita={visita}
+                ehPorteiro={ehPorteiro}
+                onLerConvite={() => setConferindo(visita)}
+                onEntrar={(modo) => registrar(visita, "entrada", modo)}
               />
             )}
             {visita.status === "EM_ANDAMENTO" && (
@@ -143,6 +144,43 @@ export function PortariaVisitasScreen() {
       />
     </View>
   );
+}
+
+/**
+ * Botões para registrar a entrada de uma visita agendada. Com convite e rosto cadastrado, o porteiro
+ * escolhe: entrar pelo reconhecimento facial ou ler o QR code (qualquer um basta). Com só um dos dois,
+ * mostra só o botão daquele. Componente à parte porque consulta o rosto de cada visita.
+ */
+function BotoesEntrada({
+  visita,
+  ehPorteiro,
+  onLerConvite,
+  onEntrar,
+}: {
+  visita: Visita;
+  ehPorteiro: boolean;
+  onLerConvite: () => void;
+  onEntrar: (modo: ModoEntrada) => void;
+}) {
+  // Só o porteiro entra pelo rosto; o síndico não captura rosto e continua pelo convite.
+  const { data: rosto } = useTemRosto(visita.documento, ehPorteiro && !!visita.temConvite);
+  if (!visita.temConvite) {
+    return <Botao titulo="Registrar entrada" pequeno onPress={() => onEntrar("automatico")} />;
+  }
+  if (ehPorteiro && rosto?.cadastrado) {
+    return (
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Botao titulo="Entrar pelo rosto" pequeno onPress={() => onEntrar("rosto")} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Botao titulo="Ler QR code" variante="secundario" pequeno onPress={onLerConvite} />
+        </View>
+      </View>
+    );
+  }
+  // Com convite e sem rosto: a entrada é pelo QR code (ou pelo código digitado).
+  return <Botao titulo="Ler convite e registrar entrada" pequeno onPress={onLerConvite} />;
 }
 
 /** Visitante que chegou sem pré-autorização (a portaria confirmou com o morador). */

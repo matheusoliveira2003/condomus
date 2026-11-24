@@ -77,19 +77,34 @@ model ConviteUnidade {
 
 /// Apartamento/casa do condomínio.
 model Unidade {
-  id         String           @id @default(uuid())
-  bloco      String
-  numero     String
-  moradores  Usuario[]
-  visitas    Visita[]
-  encomendas Encomenda[]
-  reservas   Reserva[]
-  convites   ConviteUnidade[]
+  id                String            @id @default(uuid())
+  bloco             String
+  numero            String
+  moradores         Usuario[]
+  visitas           Visita[]
+  encomendas        Encomenda[]
+  reservas          Reserva[]
+  convites          ConviteUnidade[]
+  visitantesOcultos VisitanteOculto[]
 
   condominioId String
   condominio   Condominio @relation(fields: [condominioId], references: [id])
 
   @@unique([condominioId, bloco, numero])
+}
+
+/// Visitante que o morador tirou da lista de "visitantes frequentes" da unidade. A lista sai do
+/// histórico de visitas; isto só esconde o documento dela. Uma nova autorização volta a mostrá-lo.
+model VisitanteOculto {
+  id        String   @id @default(uuid())
+  /// Documento normalizado (só letras e dígitos, em maiúsculas), como no rosto do visitante.
+  documento String
+  ocultoEm  DateTime @default(now())
+
+  unidadeId String
+  unidade   Unidade @relation(fields: [unidadeId], references: [id])
+
+  @@unique([unidadeId, documento])
 }
 
 model Usuario {

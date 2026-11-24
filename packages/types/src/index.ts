@@ -76,6 +76,16 @@ export interface Visita {
   semSaida?: boolean;
 }
 
+/** Visitante que a unidade autorizou nos últimos 90 dias, para o morador escolher ao autorizar de novo. */
+export interface VisitanteFrequente {
+  nomeVisitante: string;
+  documento: string;
+  placaVeiculo: string | null;
+  ultimaVisitaEm: string;
+  /** Tem rosto cadastrado e válido: na portaria, pode entrar pelo reconhecimento facial. */
+  temRosto: boolean;
+}
+
 /** Rosto de referência do visitante (só a portaria vê). Vale enquanto ele continuar vindo. */
 export type RostoVisitante =
   | { cadastrado: false }

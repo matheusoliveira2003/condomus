@@ -5,7 +5,7 @@ import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { notificarUnidade } from "../../lib/push.js";
 import { gerarCodigo, normalizarCodigo } from "../../lib/codigo.js";
 import { gerarCartaoConvite } from "../../lib/cartaoConvite.js";
-import { dadosDaVerificacao, renovarPrazoRosto, verificacaoSchema } from "../rostos/regras.js";
+import { dadosDaVerificacao, limiteValidade, normalizarDocumento, renovarPrazoRosto, rostoValido, verificacaoSchema } from "../rostos/regras.js";
 import { FUSO, aindaValem, antesDoDia, inicioDoDia, venceEm, venceu } from "../../lib/validadeVisita.js";
 
 const agendarSchema = z.object({
@@ -26,6 +26,9 @@ const SITUACOES = {
 } as const;
 
 const PAGE_SIZE = 20;
+
+/** Visitante entra na lista de "frequentes" da unidade se foi autorizado neste período. */
+const DIAS_VISITANTE_ATIVO = 90;
 
 const filtroSchema = z.object({
   status: z.enum(["AGENDADA", "EM_ANDAMENTO", "FINALIZADA", "CANCELADA"]).optional(),
@@ -100,6 +103,10 @@ export async function visitasRoutes(app: FastifyInstance) {
     const visita = await prisma.visita.create({
       data: { ...dados, unidadeId: req.user.unidadeId!, autorizadoPorId: req.user.sub, codigoAcesso: await codigoLivre() },
     });
+    // Autorizar de novo alguém que o morador tinha tirado da lista o traz de volta para ela.
+    await prisma.visitanteOculto.deleteMany({
+      where: { unidadeId: req.user.unidadeId!, documento: normalizarDocumento(dados.documento) },
+    });
     return reply.status(201).send(visita);
   });
 
@@ -123,14 +130,26 @@ export async function visitasRoutes(app: FastifyInstance) {
     // O convite só vale no dia previsto (sem data, por 30 dias): antes ou depois disso, a entrada é recusada.
     if (venceu(visita)) throw new HttpError(409, `Este convite venceu em ${formatarDia(venceEm(visita))}`);
     if (antesDoDia(visita)) throw new HttpError(409, `Este convite só vale a partir de ${formatarDia(inicioDoDia(visita.dataPrevista!))}`);
-    // Visita com convite só entra com o código dele (lido do QR code ou digitado).
-    // Visitas antigas, criadas antes do convite existir, não têm código e seguem sem exigência.
+    // Duas provas aceitas, e qualquer uma basta: o código do convite (lido do QR code ou digitado) ou o
+    // rosto do visitante, quando ele tem rosto cadastrado. O porteiro escolhe qual usar.
+    // Visitas antigas, criadas antes do convite existir, não têm código e seguem sem exigência de convite.
     const { codigo, verificacao } = entradaSchema.parse(req.body ?? {});
-    if (visita.codigoAcesso) {
-      if (!codigo) throw new HttpError(400, "Leia o QR code do convite (ou digite o código) para registrar a entrada");
-      if (normalizarCodigo(codigo) !== visita.codigoAcesso) throw new HttpError(400, "Este convite não é desta visita");
+    // Código errado é recusado sempre, mesmo que venha junto de uma verificação: não deixa usar o
+    // convite de outra visita como se fosse este.
+    if (codigo !== undefined && visita.codigoAcesso && normalizarCodigo(codigo) !== visita.codigoAcesso) {
+      throw new HttpError(400, "Este convite não é desta visita");
     }
-    const verificada = await dadosDaVerificacao(req.user, visita.documento, verificacao);
+    const conviteLido = !!visita.codigoAcesso && codigo !== undefined;
+    if (visita.codigoAcesso && !conviteLido && !verificacao) {
+      const temRosto = !!visita.documento && !!(await rostoValido(req.user.condominioId, normalizarDocumento(visita.documento)));
+      throw new HttpError(
+        400,
+        temRosto
+          ? "Leia o QR code do convite ou confira o rosto do visitante para registrar a entrada"
+          : "Leia o QR code do convite (ou digite o código) para registrar a entrada",
+      );
+    }
+    const verificada = await dadosDaVerificacao(req.user, visita.documento, verificacao, { dispensavel: conviteLido });
     const atualizada = await prisma.visita.update({
       where: { id: visita.id },
       data: { ...verificada, status: "EM_ANDAMENTO", entradaEm: new Date(), registradoPorId: req.user.sub },
@@ -151,6 +170,53 @@ export async function visitasRoutes(app: FastifyInstance) {
     if (visita.unidadeId !== req.user.unidadeId) throw proibido();
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível cancelar visitas agendadas");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "CANCELADA" } });
+  });
+
+  // Visitantes frequentes da unidade: quem ela autorizou nos últimos 90 dias, um por documento, com os
+  // dados da visita mais recente. Sai do histórico (não é um cadastro à parte); o morador pode esconder alguém.
+  app.get("/visitantes", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+    const unidadeId = req.user.unidadeId!;
+    const desde = new Date(Date.now() - DIAS_VISITANTE_ATIVO * 24 * 60 * 60 * 1000);
+    const [visitas, ocultos] = await Promise.all([
+      prisma.visita.findMany({
+        where: { unidadeId, unidade: { condominioId: req.user.condominioId }, documento: { not: null }, criadoEm: { gte: desde } },
+        select: { nomeVisitante: true, documento: true, placaVeiculo: true, criadoEm: true },
+        orderBy: { criadoEm: "desc" },
+      }),
+      prisma.visitanteOculto.findMany({ where: { unidadeId }, select: { documento: true } }),
+    ]);
+    const escondidos = new Set(ocultos.map((o) => o.documento));
+    const porDocumento = new Map<string, { nomeVisitante: string; documento: string; placaVeiculo: string | null; ultimaVisitaEm: Date }>();
+    for (const v of visitas) {
+      const chave = normalizarDocumento(v.documento!);
+      // A primeira de cada documento é a mais recente (a lista vem em ordem decrescente).
+      if (!chave || escondidos.has(chave) || porDocumento.has(chave)) continue;
+      porDocumento.set(chave, { nomeVisitante: v.nomeVisitante, documento: v.documento!, placaVeiculo: v.placaVeiculo, ultimaVisitaEm: v.criadoEm });
+    }
+    const itens = [...porDocumento.entries()];
+    const comRosto = new Set(
+      (
+        await prisma.rostoVisitante.findMany({
+          where: { condominioId: req.user.condominioId, documento: { in: itens.map(([chave]) => chave) }, ...rostoAindaValido() },
+          select: { documento: true },
+        })
+      ).map((r) => r.documento),
+    );
+    return itens.map(([chave, v]) => ({ ...v, temRosto: comRosto.has(chave) }));
+  });
+
+  // Tira o visitante da lista da própria unidade. Não apaga o histórico nem o rosto cadastrado.
+  // O documento vai no corpo, e não na URL, para não aparecer nos logs de acesso (como em /rostos/consulta).
+  app.post("/visitantes/ocultar", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+    const { documento } = z.object({ documento: z.string().min(1) }).parse(req.body);
+    const chave = normalizarDocumento(documento);
+    if (chave.length < 5) throw new HttpError(400, "Documento inválido");
+    await prisma.visitanteOculto.upsert({
+      where: { unidadeId_documento: { unidadeId: req.user.unidadeId!, documento: chave } },
+      create: { unidadeId: req.user.unidadeId!, documento: chave },
+      update: { ocultoEm: new Date() },
+    });
+    return reply.status(204).send();
   });
 
   // Convite do visitante: código (para digitar) e QR code em PNG (para compartilhar).
@@ -216,3 +282,6 @@ async function buscar(params: unknown, condominioId: string) {
 }
 
 const formatarDia = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: FUSO });
+
+/** Rosto ainda dentro do prazo (mesma regra de rostoValido, para várias consultas de uma vez). */
+const rostoAindaValido = () => ({ ultimaVisitaEm: { gte: limiteValidade() } });
