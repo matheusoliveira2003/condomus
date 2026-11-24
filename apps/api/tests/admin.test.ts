@@ -164,5 +164,14 @@ describe("gerenciamento pelo painel", () => {
 
   it("condomínio inexistente na URL é 404", async () => {
     expect((await painel("GET", "/condominios/00000000-0000-4000-8000-000000000000/unidades")).status).toBe(404);
+    expect((await painel("GET", "/condominios/nao-existe/unidades")).status).toBe(404);
+  });
+
+  it("aceita o condomínio padrão da migration, cujo id é um texto fixo e não um UUID", async () => {
+    const padrao = await prisma.condominio.create({ data: { id: "condominio-padrao", nome: "Condomínio Padrão", planoStatus: "ATIVO" } });
+    const r = await painel("GET", `/condominios/${padrao.id}`);
+    expect(r.status).toBe(200);
+    expect(r.corpo).toMatchObject({ id: "condominio-padrao", nome: "Condomínio Padrão" });
+    expect((await painel("POST", `/condominios/${padrao.id}/unidades`, { bloco: "P", numero: "1" })).status).toBe(201);
   });
 });
