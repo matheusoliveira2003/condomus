@@ -58,7 +58,7 @@ export function TrocarSenha({ email, onVoltar }: { email: string; onVoltar: () =
             </button>
           </>
         ) : (
-          <form onSubmit={salvar} style={{ maxWidth: 380 }}>
+          <form onSubmit={salvar} className="limite">
             {/* Campo de usuário oculto: ajuda o gerenciador de senhas a salvar a nova senha na conta certa. */}
             <input type="email" autoComplete="username" value={email} readOnly hidden />
             <Campo rotulo="Senha atual" type="password" autoComplete="current-password" value={atual} onChange={(e) => setAtual(e.target.value)} required />
