@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { aquecerServidor, type ConversaChat } from "../api/client";
+import { aquecerServidor, type ConversaChat, type UnidadeComMoradores } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Conversa } from "../chat/Conversa";
 import { adaptarQuery, useConversas } from "../hooks/queries";
-import { Lista, ModalTela, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Lista, ModalFormulario, ModalTela, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
+import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
 /**
@@ -24,9 +25,16 @@ export function ChatScreen() {
   return usuario?.papel === "MORADOR" ? <Conversa /> : <ConversasDaPortaria />;
 }
 
+/** A conversa aberta: da lista, ou de uma unidade recém-escolhida que ainda não tem mensagem. */
+interface ConversaAberta {
+  unidadeId: string;
+  titulo: string;
+}
+
 function ConversasDaPortaria() {
   const emFoco = useIsFocused();
-  const [aberta, setAberta] = useState<ConversaChat | null>(null);
+  const [aberta, setAberta] = useState<ConversaAberta | null>(null);
+  const [iniciando, setIniciando] = useState(false);
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useConversas(emFoco && !aberta));
 
   return (
@@ -38,12 +46,70 @@ function ConversasDaPortaria() {
         erro={erro}
         recarregar={recarregar}
         vazio="Não há mensagens por enquanto"
-        renderItem={(c) => <ItemConversa conversa={c} onAbrir={() => setAberta(c)} />}
+        renderItem={(c) => (
+          <ItemConversa conversa={c} onAbrir={() => setAberta({ unidadeId: c.unidade.id, titulo: unidadeTexto(c.unidade) })} />
+        )}
       />
-      <ModalTela visivel={!!aberta} titulo={aberta ? unidadeTexto(aberta.unidade) : ""} onFechar={() => setAberta(null)}>
-        {aberta && <Conversa unidadeId={aberta.unidade.id} />}
+      <BotaoFlutuante icone="create-outline" rotulo="Nova conversa" onPress={() => setIniciando(true)} />
+      <NovaConversaModal
+        visivel={iniciando}
+        onFechar={() => setIniciando(false)}
+        onEscolhida={(u) => {
+          setIniciando(false);
+          setAberta({ unidadeId: u.id, titulo: unidadeTexto(u) });
+        }}
+      />
+      <ModalTela visivel={!!aberta} titulo={aberta?.titulo ?? ""} onFechar={() => setAberta(null)}>
+        {aberta && <Conversa unidadeId={aberta.unidadeId} />}
       </ModalTela>
     </View>
+  );
+}
+
+/**
+ * Escolhe o apartamento para puxar assunto. A conversa só entra na lista depois da primeira mensagem
+ * enviada: abrir e sair sem escrever não cria nada.
+ */
+function NovaConversaModal({
+  visivel,
+  onFechar,
+  onEscolhida,
+}: {
+  visivel: boolean;
+  onFechar: () => void;
+  onEscolhida: (unidade: UnidadeComMoradores) => void;
+}) {
+  const estilosTexto = useEstilosTexto();
+  const cores = useCores();
+  const [semMoradores, setSemMoradores] = useState<UnidadeComMoradores | null>(null);
+  return (
+    <ModalFormulario
+      visivel={visivel}
+      titulo="Nova conversa"
+      onFechar={() => {
+        setSemMoradores(null);
+        onFechar();
+      }}
+    >
+      <Text style={estilosTexto.corpo}>Escolha o apartamento com quem você quer falar.</Text>
+      <SeletorUnidade
+        valor={semMoradores?.id ?? null}
+        onChange={(_id, unidade) => {
+          if (!unidade) return;
+          // Sem morador ativo, ninguém receberia a mensagem: avisa em vez de abrir uma conversa que ninguém lê.
+          if (unidade._count.moradores === 0) setSemMoradores(unidade);
+          else {
+            setSemMoradores(null);
+            onEscolhida(unidade);
+          }
+        }}
+      />
+      {semMoradores && (
+        <Text style={[estilosTexto.corpo, { color: cores.alerta }]}>
+          {unidadeTexto(semMoradores)} não tem moradores cadastrados: ninguém receberia a mensagem.
+        </Text>
+      )}
+    </ModalFormulario>
   );
 }
 
