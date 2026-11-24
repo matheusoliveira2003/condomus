@@ -292,3 +292,63 @@ describe("consulta do rosto por documento", () => {
     expect((await consultar("123")).status).toBe(400);
   });
 });
+
+describe("entrada pelo QR code ou pelo rosto (qualquer um basta)", () => {
+  const CODIGO = "ABC234";
+  const entrar = (id: string, corpo: Record<string, unknown>, token = c.tokens.porteiro) =>
+    chamar(app, "PATCH", `/visitas/${id}/entrada`, { token, corpo });
+  /** Visita com convite, do documento que já tem rosto cadastrado (o rosto vem do beforeEach). */
+  const comConvite = async (documento = "12345678900") =>
+    (await prisma.visita.create({
+      data: { nomeVisitante: "Visitante", documento, unidadeId: c.unidades.a101.id, codigoAcesso: CODIGO },
+    })).id;
+
+  beforeEach(async () => {
+    expect((await cadastrar(await visita())).status).toBe(204);
+  });
+
+  it("com convite e rosto: entra só com o código, sem conferir o rosto", async () => {
+    const id = await comConvite();
+    const r = await entrar(id, { codigo: CODIGO });
+    expect(r.status).toBe(200);
+    expect(await prisma.visita.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "EM_ANDAMENTO", verificacao: null });
+  });
+
+  it("com convite e rosto: entra só pelo reconhecimento, sem o código", async () => {
+    const id = await comConvite();
+    expect((await entrar(id, { verificacao: { tipo: "RECONHECIMENTO", semelhanca: 0.9 } })).status).toBe(200);
+    expect(await prisma.visita.findUniqueOrThrow({ where: { id } })).toMatchObject({ verificacao: "RECONHECIMENTO", semelhanca: 0.9 });
+  });
+
+  it("com convite e rosto: entra pela liberação manual, sem o código", async () => {
+    const id = await comConvite();
+    expect((await entrar(id, { verificacao: { tipo: "MANUAL", motivo: "Rosto não reconhecido, documento conferido" } })).status).toBe(200);
+  });
+
+  it("com convite e rosto, sem nenhum dos dois: pede um ou outro", async () => {
+    const id = await comConvite();
+    const r = await entrar(id, {});
+    expect(r.status).toBe(400);
+    expect(r.corpo.erro).toMatch(/QR code do convite ou confira o rosto/);
+  });
+
+  it("código errado é recusado mesmo com uma verificação válida junto", async () => {
+    const id = await comConvite();
+    const r = await entrar(id, { codigo: "ZZZ999", verificacao: { tipo: "RECONHECIMENTO", semelhanca: 0.95 } });
+    expect(r.status).toBe(400);
+    expect(r.corpo.erro).toMatch(/não é desta visita/);
+  });
+
+  it("reconhecimento abaixo do limiar não vale como alternativa ao código", async () => {
+    const id = await comConvite();
+    expect((await entrar(id, { verificacao: { tipo: "RECONHECIMENTO", semelhanca: 0.2 } })).status).toBe(400);
+  });
+
+  it("com convite e sem rosto: continua exigindo o código", async () => {
+    const id = await comConvite("55566677788");
+    const r = await entrar(id, {});
+    expect(r.status).toBe(400);
+    expect(r.corpo.erro).toMatch(/Leia o QR code do convite \(ou digite o código\)/);
+    expect((await entrar(id, { codigo: CODIGO })).status).toBe(200);
+  });
+});

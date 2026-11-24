@@ -87,6 +87,7 @@ export async function unidadesRoutes(app: FastifyInstance) {
 
     await prisma.$transaction([
       prisma.conviteUnidade.deleteMany({ where: { unidadeId: id } }),
+      prisma.visitanteOculto.deleteMany({ where: { unidadeId: id } }),
       prisma.unidade.delete({ where: { id } }),
     ]);
     return reply.status(204).send();
