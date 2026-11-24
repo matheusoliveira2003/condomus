@@ -19,7 +19,7 @@ import { TERMO_ROSTO_PARAGRAFOS, TERMO_ROSTO_VERSAO } from "./termo";
 export function RostoVisitanteModal({ visita, onFechar }: { visita: Visita | null; onFechar: () => void }) {
   const visitaId = visita?.id ?? null;
   const { data: rosto, isLoading, error, refetch } = useRostoVisitante(visitaId);
-  const titulo = visita ? `Rosto de ${visita.nomeVisitante}` : "Rosto do visitante";
+  const titulo = visita ? `Biometria de ${visita.nomeVisitante}` : "Biometria do visitante";
 
   return (
     <ModalFormulario visivel={!!visita} titulo={titulo} onFechar={onFechar}>
@@ -62,7 +62,7 @@ function Cadastro({ visitaId, onCadastrado }: { visitaId: string; onCadastrado: 
     setErro(null);
     try {
       await cadastrar.mutateAsync({ visitaId, imagem: foto, termoVersao: TERMO_ROSTO_VERSAO });
-      mensagens.sucesso("Rosto cadastrado");
+      mensagens.sucesso("Biometria cadastrada");
       onCadastrado();
     } catch (e) {
       setErro((e as Error).message);
@@ -104,7 +104,7 @@ function Cadastro({ visitaId, onCadastrado }: { visitaId: string; onCadastrado: 
         <View style={[styles.caixa, consentiu && styles.caixaMarcada]}>
           {consentiu && <Ionicons name="checkmark" size={16} color={cores.textoSobreCor} />}
         </View>
-        <Text style={[estilosTexto.corpo, { flex: 1 }]}>O visitante leu ou ouviu o termo e autorizou o cadastro do rosto.</Text>
+        <Text style={[estilosTexto.corpo, { flex: 1 }]}>O visitante leu ou ouviu o termo e autorizou o cadastro da biometria.</Text>
       </Pressable>
 
       {foto && (
@@ -117,11 +117,11 @@ function Cadastro({ visitaId, onCadastrado }: { visitaId: string; onCadastrado: 
 
       {foto ? (
         <>
-          <Botao titulo="Cadastrar rosto" onPress={salvar} carregando={cadastrar.isPending} desabilitado={!consentiu} />
+          <Botao titulo="Cadastrar biometria" onPress={salvar} carregando={cadastrar.isPending} desabilitado={!consentiu} />
           <Botao titulo="Tirar de novo" variante="secundario" onPress={() => setCapturando(true)} desabilitado={cadastrar.isPending} />
         </>
       ) : (
-        <Botao titulo="Tirar foto do rosto" onPress={() => setCapturando(true)} desabilitado={!consentiu} />
+        <Botao titulo="Tirar foto para a biometria" onPress={() => setCapturando(true)} desabilitado={!consentiu} />
       )}
     </>
   );
@@ -135,14 +135,14 @@ function Cadastrado({ visitaId, expiraEm, onApagado }: { visitaId: string; expir
 
   function pedirExclusao() {
     mensagens.confirmar({
-      titulo: "Apagar rosto",
-      texto: "A foto de referência deste visitante será apagada agora. Na próxima visita, o cadastro precisa ser feito de novo.",
+      titulo: "Apagar biometria",
+      texto: "A biometria deste visitante será apagada agora. Na próxima visita, o cadastro precisa ser feito de novo.",
       confirmar: "Apagar",
       perigo: true,
       aoConfirmar: async () => {
         try {
           await apagar.mutateAsync(visitaId);
-          mensagens.sucesso("Rosto apagado");
+          mensagens.sucesso("Biometria apagada");
           onApagado();
         } catch (e) {
           mensagens.erro((e as Error).message);
@@ -154,13 +154,13 @@ function Cadastrado({ visitaId, expiraEm, onApagado }: { visitaId: string; expir
   return (
     <>
       <Card>
-        <Text style={estilosTexto.titulo}>Rosto cadastrado</Text>
+        <Text style={estilosTexto.titulo}>Biometria cadastrada</Text>
         <Text style={estilosTexto.corpo}>
-          Na entrada, o app compara o rosto do visitante com o cadastro e libera sozinho quando reconhece.
+          Na entrada, o app compara a biometria do visitante com a cadastrada e libera sozinho quando reconhece.
         </Text>
         <Text style={estilosTexto.secundario}>Válido até {data(expiraEm)}. Cada nova entrada do visitante renova o prazo.</Text>
       </Card>
-      <Botao titulo="Apagar rosto a pedido do visitante" variante="secundario" onPress={pedirExclusao} desabilitado={apagar.isPending} />
+      <Botao titulo="Apagar biometria a pedido do visitante" variante="secundario" onPress={pedirExclusao} desabilitado={apagar.isPending} />
     </>
   );
 }

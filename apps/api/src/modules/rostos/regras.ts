@@ -105,7 +105,7 @@ export async function dadosDaVerificacao(
   if (!normalizado || !(await rostoValido(usuario.condominioId, normalizado))) return {};
   if (!verificacao) {
     if (dispensavel) return {};
-    throw new HttpError(409, "Este visitante tem rosto cadastrado: confira o rosto para registrar a entrada");
+    throw new HttpError(409, "Este visitante tem biometria cadastrada: confira a biometria para registrar a entrada");
   }
   if (verificacao.tipo === "RECONHECIMENTO") {
     // Só o porteiro captura o rosto ao vivo; o síndico só pode liberar manualmente.

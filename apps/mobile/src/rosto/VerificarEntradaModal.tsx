@@ -120,13 +120,13 @@ export function VerificarEntradaModal({
       {etapa === "comparando" && (
         <>
           <Carregando />
-          <Text style={[estilosTexto.secundario, { textAlign: "center" }]}>{enviando ? "Registrando a entrada…" : "Comparando o rosto…"}</Text>
+          <Text style={[estilosTexto.secundario, { textAlign: "center" }]}>{enviando ? "Registrando a entrada…" : "Comparando a biometria…"}</Text>
         </>
       )}
 
       {etapa === "recusado" && (
         <>
-          <Resultado icone="close-circle" cor="perigo" titulo="Rosto não reconhecido" />
+          <Resultado icone="close-circle" cor="perigo" titulo="Biometria não reconhecida" />
           <MensagemErro texto={erro} />
           <Text style={estilosTexto.corpo}>
             Tente de novo com boa luz, de frente e sem boné. Se o visitante for mesmo quem diz ser, confira o documento e libere manualmente.
