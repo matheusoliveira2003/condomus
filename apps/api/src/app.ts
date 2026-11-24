@@ -18,6 +18,7 @@ import { fotosRoutes } from "./modules/fotos/routes.js";
 import { condominiosRoutes } from "./modules/condominios/routes.js";
 import { convitesRoutes } from "./modules/convites/routes.js";
 import { rostosRoutes } from "./modules/rostos/routes.js";
+import { chatRoutes } from "./modules/chat/routes.js";
 
 // Mensagens de validação em português.
 z.config(z.locales.ptBR());
@@ -73,6 +74,7 @@ export async function buildApp({ logger = true, limites = true }: { logger?: boo
   await app.register(condominiosRoutes);
   await app.register(convitesRoutes);
   await app.register(rostosRoutes);
+  await app.register(chatRoutes);
 
   return app;
 }

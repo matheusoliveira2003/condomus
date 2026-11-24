@@ -107,3 +107,18 @@ export async function downloadRosto(condominioId: string, documento: string): Pr
 export async function deletarRosto(condominioId: string, documento: string): Promise<void> {
   await apagarObjeto(chaveRosto(condominioId, documento));
 }
+
+/** Chave da foto de uma mensagem do chat. A unidade no caminho separa as conversas no bucket. */
+export const chaveFotoChat = (unidadeId: string, mensagemId: string) => `chat/${unidadeId}/${mensagemId}.jpg`;
+
+export async function uploadFotoChat(unidadeId: string, mensagemId: string, bytes: Buffer): Promise<void> {
+  await gravarObjeto(chaveFotoChat(unidadeId, mensagemId), bytes);
+}
+
+export async function downloadFotoChat(unidadeId: string, mensagemId: string): Promise<Buffer | null> {
+  return lerObjeto(chaveFotoChat(unidadeId, mensagemId));
+}
+
+export async function deletarFotoChat(unidadeId: string, mensagemId: string): Promise<void> {
+  await apagarObjeto(chaveFotoChat(unidadeId, mensagemId));
+}

@@ -37,7 +37,7 @@ describe("contadores das abas", () => {
 
     const r = await contadores(c.tokens.morador);
     expect(r.status).toBe(200);
-    expect(r.corpo).toEqual({ encomendas: 1, visitasEsperadas: 0, reservasPendentes: 0 });
+    expect(r.corpo).toEqual({ encomendas: 1, visitasEsperadas: 0, reservasPendentes: 0, chatNaoLidas: 0 });
   });
 
   it("portaria: visitantes de hoje ou sem data, não os de outro dia nem os já finalizados", async () => {
@@ -51,7 +51,7 @@ describe("contadores das abas", () => {
       ],
     });
     const r = await contadores(c.tokens.porteiro);
-    expect(r.corpo).toEqual({ encomendas: 0, visitasEsperadas: 2, reservasPendentes: 0 });
+    expect(r.corpo).toEqual({ encomendas: 0, visitasEsperadas: 2, reservasPendentes: 0, chatNaoLidas: 0 });
   });
 
   it("síndico: soma as reservas pendentes; porteiro nunca vê esse número", async () => {

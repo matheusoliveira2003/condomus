@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { env } from "./lib/env.js";
 import { cancelarVisitasVencidas } from "./lib/validadeVisita.js";
 import { limparRostosVencidos } from "./modules/rostos/regras.js";
+import { limparMensagensAntigas } from "./modules/chat/regras.js";
 
 const app = await buildApp();
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
@@ -25,6 +26,12 @@ async function limpar() {
     if (canceladas) app.log.info({ canceladas }, "Convites vencidos cancelados");
   } catch (e) {
     app.log.error(e, "Falha ao cancelar convites vencidos");
+  }
+  try {
+    const { apagadas, falhas } = await limparMensagensAntigas();
+    if (apagadas || falhas) app.log.info({ apagadas, falhas }, "Mensagens do chat com mais de 90 dias apagadas");
+  } catch (e) {
+    app.log.error(e, "Falha ao apagar mensagens antigas do chat");
   }
 }
 void limpar();

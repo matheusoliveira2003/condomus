@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { semDataValida } from "../../lib/validadeVisita.js";
+import { naoLidas } from "../chat/regras.js";
 
 const consultaSchema = z.object({
   /** Meia-noite no fuso do celular; define o que é "hoje" para o morador. */
@@ -110,7 +111,8 @@ export async function resumoRoutes(app: FastifyInstance) {
       const encomendas = unidadeId
         ? await prisma.encomenda.count({ where: { unidadeId, status: "AGUARDANDO_RETIRADA", unidade: { condominioId } } })
         : 0;
-      return { encomendas, visitasEsperadas: 0, reservasPendentes: 0 };
+      const chatNaoLidas = unidadeId ? await naoLidas(req.user.sub, unidadeId, "MORADOR") : 0;
+      return { encomendas, visitasEsperadas: 0, reservasPendentes: 0, chatNaoLidas };
     }
 
     const [visitasEsperadas, reservasPendentes] = await Promise.all([
@@ -125,6 +127,15 @@ export async function resumoRoutes(app: FastifyInstance) {
         ? prisma.reserva.count({ where: { area: { condominioId }, status: "PENDENTE", fim: { gt: new Date() } } })
         : Promise.resolve(0),
     ]);
-    return { encomendas: 0, visitasEsperadas, reservasPendentes };
+    // Portaria e síndico: soma das não lidas de todas as conversas do condomínio.
+    const unidadesComMensagem = await prisma.mensagemChat.findMany({
+      where: { unidade: { condominioId } },
+      distinct: ["unidadeId"],
+      select: { unidadeId: true },
+    });
+    const chatNaoLidas = (
+      await Promise.all(unidadesComMensagem.map((u) => naoLidas(req.user.sub, u.unidadeId, "PORTARIA")))
+    ).reduce((total, n) => total + n, 0);
+    return { encomendas: 0, visitasEsperadas, reservasPendentes, chatNaoLidas };
   });
 }

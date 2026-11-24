@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { enviar, type Condominio, type PlanoStatus, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
-import { Botao, Campo, Card, MensagemErro, ModalFormulario, Secao, Selecao, Selo, useEstilosTexto } from "../ui/componentes";
+import { Botao, Campo, Card, MensagemErro, ModalFormulario, ModalTela, Secao, Selecao, Selo, useEstilosTexto } from "../ui/componentes";
+import { CadastrosScreen } from "./CadastrosScreen";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
@@ -61,6 +62,7 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
   const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
+  const [vendoCadastros, setVendoCadastros] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const mensagens = useMensagens();
@@ -178,6 +180,23 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Text style={[estilosTexto.secundario, { marginLeft: "auto" }]}>{rotuloAparencia[preferencia]}</Text>
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
       </Pressable>
+
+      {/* Cadastros é configuração do síndico, usada de vez em quando: fica aqui, e não na barra de abas. */}
+      {perfil?.papel === "SINDICO" && (
+        <Pressable
+          onPress={() => setVendoCadastros(true)}
+          style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
+          accessibilityRole="button"
+        >
+          <Ionicons name="people-outline" size={20} color={cores.primaria} />
+          <Text style={styles.linkSenhaTexto}>Cadastros</Text>
+          <Text style={[estilosTexto.secundario, { marginLeft: "auto" }]}>Moradores, unidades e áreas</Text>
+          <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
+        </Pressable>
+      )}
+      <ModalTela visivel={vendoCadastros} titulo="Cadastros" onFechar={() => setVendoCadastros(false)}>
+        <CadastrosScreen />
+      </ModalTela>
 
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />

@@ -26,6 +26,9 @@ export type {
   RostoPorDocumento,
   VerificacaoEntrada,
   VisitanteFrequente,
+  MensagemChat,
+  ConversaChat,
+  LadoChat,
 } from "@condomus/types";
 
 /** Sem resposta nesse tempo, a requisição é abortada (evita telas presas carregando). */
