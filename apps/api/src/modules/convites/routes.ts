@@ -3,11 +3,10 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
-import { gerarCodigoConvite, normalizarCodigo } from "../../lib/codigo.js";
+import { normalizarCodigo } from "../../lib/codigo.js";
+import { gerarConviteDaUnidade } from "./operacoes.js";
 import { emitirSessao } from "../../lib/sessao.js";
 import { limitar } from "../../lib/limites.js";
-
-const VALIDADE_CONVITE_DIAS = 7;
 
 const idParam = z.object({ id: z.uuid() });
 const codigoParam = z.object({ codigo: z.string().trim().min(1).max(32) });
@@ -32,17 +31,7 @@ async function buscarConviteValido(entrada: string) {
 export async function convitesRoutes(app: FastifyInstance) {
   app.post("/unidades/:id/convite", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
     const { id } = idParam.parse(req.params);
-    const unidade = await prisma.unidade.findFirst({ where: { id, condominioId: req.user.condominioId } });
-    if (!unidade) throw naoEncontrado("Unidade", "f");
-
-    const expiraEm = new Date(Date.now() + VALIDADE_CONVITE_DIAS * 24 * 60 * 60 * 1000);
-    const codigo = gerarCodigoConvite();
-    // Só um convite pendente por unidade: o anterior (ainda não usado) é descartado.
-    await prisma.$transaction([
-      prisma.conviteUnidade.deleteMany({ where: { unidadeId: id, usadoEm: null } }),
-      prisma.conviteUnidade.create({ data: { codigo, expiraEm, unidadeId: id } }),
-    ]);
-    return reply.status(201).send({ codigo, expiraEm });
+    return reply.status(201).send(await gerarConviteDaUnidade(req.user.condominioId, id));
   });
 
   // Público: o morador ainda não tem conta. Não expõe ids internos.
