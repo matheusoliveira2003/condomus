@@ -11,9 +11,6 @@ const LADO = 112;
  */
 const ORIENTACOES = [0, 90, 270, 180] as const;
 
-/** Tempos (ms) e tamanho de cada etapa, para a prova técnica. */
-export type Medidas = Record<string, number | string>;
-
 type Imagem = { data: Uint8Array; largura: number; altura: number };
 
 /** Gira uma imagem RGB em múltiplos de 90° no sentido horário. */
@@ -110,25 +107,15 @@ function ajustarSemelhanca(origem: [number, number][]): { a: number; b: number; 
  * MobileFaceNet: RGB 112×112, normalizado como no treinamento: (pixel - 127,5) / 128.
  * O modelo foi treinado com rostos alinhados; só recortar a caixa separa mal as pessoas.
  */
-async function paraTensor(jpegBase64: string, medidas?: Medidas): Promise<ArrayBuffer> {
-  let t = Date.now();
-  const marcar = (nome: string) => {
-    const agora = Date.now();
-    if (medidas) medidas[nome] = agora - t;
-    t = agora;
-  };
+async function paraTensor(jpegBase64: string): Promise<ArrayBuffer> {
   const bytes = base64ParaBytes(jpegBase64);
-  marcar("base64");
   // useTArray: o padrão usa Buffer do Node, que o React Native não tem.
   const decodificada = decodeJpeg(bytes, { useTArray: true, formatAsRGBA: false, maxMemoryUsageInMB: 256 });
-  marcar("jpeg");
-  if (medidas) medidas.tamanho = `${decodificada.width}x${decodificada.height}`;
   const { imagem: { data, largura: width, altura: height }, caixa } = await localizarRosto({
     data: decodificada.data,
     largura: decodificada.width,
     altura: decodificada.height,
   });
-  marcar("deteccao");
 
   // Olhos em ordem da esquerda para a direita da imagem, como na referência.
   const [p0, p1, nariz, boca] = caixa.pontos;
@@ -164,7 +151,6 @@ async function paraTensor(jpegBase64: string, medidas?: Medidas): Promise<ArrayB
       }
     }
   }
-  marcar("alinhamento");
   return entrada.buffer;
 }
 
@@ -172,12 +158,10 @@ async function paraTensor(jpegBase64: string, medidas?: Medidas): Promise<ArrayB
 export type Assinatura = Float32Array;
 
 /** Gera a assinatura facial de uma foto JPEG em base64. */
-export async function gerarAssinatura(jpegBase64: string, medidas?: Medidas): Promise<Assinatura> {
-  const tensor = await paraTensor(jpegBase64, medidas);
-  const inicio = Date.now();
+export async function gerarAssinatura(jpegBase64: string): Promise<Assinatura> {
+  const tensor = await paraTensor(jpegBase64);
   const modelo = await carregarModelo("mobilefacenet");
   const [saida] = await modelo.run([tensor]);
-  if (medidas) medidas.modelo = Date.now() - inicio;
   // A biblioteca reutiliza o mesmo buffer de saída em cada chamada: copiamos antes de guardar.
   return new Float32Array(saida.slice(0));
 }

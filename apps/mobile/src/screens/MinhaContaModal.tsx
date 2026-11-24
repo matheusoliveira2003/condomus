@@ -10,7 +10,6 @@ import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
 import { useMensagens } from "../ui/mensagens";
 import { paletaClara, paletaEscura, useCores, useEstilos, useTema, type Paleta, type Preferencia } from "../ui/tema";
-import { ProvaRostoModal } from "../rosto/ProvaRostoModal"; // PROVA TÉCNICA: remover antes do merge
 import type { Papel } from "../api/client";
 
 const opcoesAparencia: { valor: Preferencia; rotulo: string; icone: keyof typeof Ionicons.glyphMap }[] = [
@@ -61,7 +60,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const { data: condominio } = useCondominio(visivel);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
-  const [provaRosto, setProvaRosto] = useState(false); // PROVA TÉCNICA: remover antes do merge
   const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
@@ -180,22 +178,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Text style={[estilosTexto.secundario, { marginLeft: "auto" }]}>{rotuloAparencia[preferencia]}</Text>
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
       </Pressable>
-
-      {/* PROVA TÉCNICA: remover antes do merge. Só o porteiro faz a captura. */}
-      {usuario?.papel === "PORTEIRO" && (
-        <>
-          <Pressable
-            onPress={() => setProvaRosto(true)}
-            style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="scan-outline" size={20} color={cores.primaria} />
-            <Text style={styles.linkSenhaTexto}>Teste de reconhecimento</Text>
-            <Ionicons name="chevron-forward" size={16} color={cores.primaria} style={{ marginLeft: "auto" }} />
-          </Pressable>
-          <ProvaRostoModal visivel={provaRosto} onFechar={() => setProvaRosto(false)} />
-        </>
-      )}
 
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
