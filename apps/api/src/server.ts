@@ -3,6 +3,7 @@ import { env } from "./lib/env.js";
 import { cancelarVisitasVencidas } from "./lib/validadeVisita.js";
 import { limparRostosVencidos } from "./modules/rostos/regras.js";
 import { limparMensagensAntigas } from "./modules/chat/regras.js";
+import { lembrarEncomendasParadas } from "./modules/encomendas/lembretes.js";
 
 const app = await buildApp();
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
@@ -32,6 +33,12 @@ async function limpar() {
     if (apagadas || falhas) app.log.info({ apagadas, falhas }, "Mensagens do chat com mais de 90 dias apagadas");
   } catch (e) {
     app.log.error(e, "Falha ao apagar mensagens antigas do chat");
+  }
+  try {
+    const lembretes = await lembrarEncomendasParadas();
+    if (lembretes) app.log.info({ lembretes }, "Lembretes de encomenda parada enviados no chat");
+  } catch (e) {
+    app.log.error(e, "Falha ao enviar lembretes de encomenda parada");
   }
 }
 void limpar();
