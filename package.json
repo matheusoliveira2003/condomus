@@ -12,6 +12,8 @@
     "db:migrate": "npm run db:migrate -w @condomus/api",
     "db:seed": "npm run db:seed -w @condomus/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm test -w @condomus/api"
+    "test": "npm test -w @condomus/api",
+    "build:admin": "npm run build -w @condomus/admin",
+    "dev:admin": "npm run dev -w @condomus/admin"
   }
 }

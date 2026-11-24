@@ -5,6 +5,7 @@ import { ZodError, z } from "zod";
 import { Prisma } from "@prisma/client";
 import { HttpError } from "./lib/errors.js";
 import auth from "./plugins/auth.js";
+import admin from "./plugins/admin.js";
 import { authRoutes } from "./modules/auth/routes.js";
 import { visitasRoutes } from "./modules/visitas/routes.js";
 import { encomendasRoutes } from "./modules/encomendas/routes.js";
@@ -19,6 +20,8 @@ import { condominiosRoutes } from "./modules/condominios/routes.js";
 import { convitesRoutes } from "./modules/convites/routes.js";
 import { rostosRoutes } from "./modules/rostos/routes.js";
 import { chatRoutes } from "./modules/chat/routes.js";
+import { adminRoutes } from "./modules/admin/routes.js";
+import { servirPainel } from "./painel.js";
 
 // Mensagens de validação em português.
 z.config(z.locales.ptBR());
@@ -44,6 +47,7 @@ export async function buildApp({ logger = true, limites = true }: { logger?: boo
     });
   }
   await app.register(auth);
+  await app.register(admin);
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ZodError) {
@@ -75,6 +79,8 @@ export async function buildApp({ logger = true, limites = true }: { logger?: boo
   await app.register(convitesRoutes);
   await app.register(rostosRoutes);
   await app.register(chatRoutes);
+  await app.register(adminRoutes);
+  await servirPainel(app);
 
   return app;
 }
