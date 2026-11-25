@@ -54,9 +54,10 @@ export default fp(async (app) => {
     if (usuario.tokenVersion !== req.user.tokenVersion) throw new HttpError(401, "Sessão inválida");
     // Token sem condomínio (emitido antes do multi-tenant) ou de outro condomínio é inválido.
     if (usuario.condominioId !== req.user.condominioId) throw new HttpError(401, "Sessão inválida");
-    // Plano inativo bloqueia o condomínio inteiro. O síndico passa sempre: precisa entrar para ver o status e falar com o suporte.
+    // Plano inativo bloqueia o condomínio inteiro, o síndico inclusive: ele é um morador com avisos, e o plano
+    // só se regulariza com o administrador, pelo painel (/admin).
     // Um teste (TRIAL) que passou da data e da carência conta como expirado, mesmo sem ninguém mudar o status.
-    if (planoBloqueado(situacaoDoPlano(usuario.condominio)) && req.user.papel !== "SINDICO") {
+    if (planoBloqueado(situacaoDoPlano(usuario.condominio))) {
       throw new HttpError(402, "Plano do condomínio inativo");
     }
     if (papeis.length > 0 && !papeis.includes(req.user.papel)) throw proibido();

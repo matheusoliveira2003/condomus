@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { enviarBoasVindas } from "../../lib/email.js";
+import { ehMorador } from "../../lib/papeis.js";
 
 /**
  * Operações de cadastro de usuários, sem saber quem chama. O síndico (app) e o administrador (painel)
@@ -17,8 +18,9 @@ export const usuarioSchema = z
     papel: z.enum(["MORADOR", "PORTEIRO", "SINDICO"]),
     unidadeId: z.uuid().optional(),
   })
-  .refine((u) => (u.papel === "MORADOR") === !!u.unidadeId, {
-    message: "Moradores precisam de uma unidade; funcionários não podem ter unidade",
+  // Morador e síndico moram numa unidade; o porteiro atende todas e não tem a sua.
+  .refine((u) => ehMorador(u.papel) === !!u.unidadeId, {
+    message: "Moradores e síndicos precisam de uma unidade; porteiros não podem ter unidade",
     path: ["unidadeId"],
   });
 
@@ -68,7 +70,7 @@ export async function editarUsuario(condominioId: string, id: string, { nome, un
   const usuario = await prisma.usuario.findFirst({ where: { id, condominioId } });
   if (!usuario) throw naoEncontrado("Usuário");
   if (unidadeId !== undefined) {
-    if (usuario.papel !== "MORADOR") throw new HttpError(409, "Só moradores têm unidade");
+    if (!ehMorador(usuario.papel)) throw new HttpError(409, "Só moradores e síndicos têm unidade");
     if (!(await prisma.unidade.findFirst({ where: { id: unidadeId, condominioId } }))) throw naoEncontrado("Unidade", "f");
   }
   const mudouUnidade = unidadeId !== undefined && unidadeId !== usuario.unidadeId;

@@ -7,6 +7,7 @@ import { gerarCodigo, normalizarCodigo } from "../../lib/codigo.js";
 import { gerarCartaoConvite } from "../../lib/cartaoConvite.js";
 import { dadosDaVerificacao, limiteValidade, normalizarDocumento, renovarPrazoRosto, rostoValido, verificacaoSchema } from "../rostos/regras.js";
 import { FUSO, aindaValem, antesDoDia, inicioDoDia, venceEm, venceu } from "../../lib/validadeVisita.js";
+import { ehMorador, PAPEIS_MORADOR } from "../../lib/papeis.js";
 
 const agendarSchema = z.object({
   nomeVisitante: z.string().min(2),
@@ -65,7 +66,7 @@ export async function visitasRoutes(app: FastifyInstance) {
         ...(status === "AGENDADA" || situacao === "ativas"
           ? { AND: [{ OR: [{ status: { not: "AGENDADA" as const } }, aindaValem(agora)] }] }
           : {}),
-        ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
+        ...(ehMorador(papel) ? { unidadeId: unidadeId! } : {}),
         // Cursor: registros mais antigos que o último recebido (mesma data → desambigua pelo id).
         ...(ancoraCursor && { OR: [
           { criadoEm: { lt: ancoraCursor.criadoEm } },
@@ -87,14 +88,14 @@ export async function visitasRoutes(app: FastifyInstance) {
       ...v,
       semSaida: v.status === "EM_ANDAMENTO" && !!v.entradaEm && v.entradaEm.getTime() < limiteSemSaida,
     }));
-    const resultado = papel === "MORADOR"
+    const resultado = ehMorador(papel)
       ? comAviso
       : comAviso.map(({ codigoAcesso, ...visita }) => ({ ...visita, temConvite: codigoAcesso !== null }));
 
     return { itens: resultado, proximoCursor };
   });
 
-  app.post("/visitas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+  app.post("/visitas", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req, reply) => {
     const dados = agendarSchema.parse(req.body);
     // O dia previsto não pode ter passado (hoje vale, mesmo que a hora já tenha passado).
     if (dados.dataPrevista && dados.dataPrevista < inicioDoDia(new Date())) {
@@ -110,7 +111,7 @@ export async function visitasRoutes(app: FastifyInstance) {
     return reply.status(201).send(visita);
   });
 
-  app.post("/visitas/entrada-direta", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
+  app.post("/visitas/entrada-direta", { preHandler: app.autorizar("PORTEIRO") }, async (req, reply) => {
     const { verificacao, ...dados } = entradaDiretaSchema.parse(req.body);
     if (!(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId: req.user.condominioId } }))) {
       throw naoEncontrado("Unidade");
@@ -124,7 +125,7 @@ export async function visitasRoutes(app: FastifyInstance) {
     return reply.status(201).send(visita);
   });
 
-  app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.patch("/visitas/:id/entrada", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const visita = await buscar(req.params, req.user.condominioId);
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível registrar entrada de visitas agendadas");
     // O convite só vale no dia previsto (sem data, por 30 dias): antes ou depois disso, a entrada é recusada.
@@ -159,13 +160,13 @@ export async function visitasRoutes(app: FastifyInstance) {
     return atualizada;
   });
 
-  app.patch("/visitas/:id/saida", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.patch("/visitas/:id/saida", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const visita = await buscar(req.params, req.user.condominioId);
     if (visita.status !== "EM_ANDAMENTO") throw new HttpError(409, "Visitante não está no condomínio");
     return prisma.visita.update({ where: { id: visita.id }, data: { status: "FINALIZADA", saidaEm: new Date() } });
   });
 
-  app.patch("/visitas/:id/cancelar", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+  app.patch("/visitas/:id/cancelar", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const visita = await buscar(req.params, req.user.condominioId);
     if (visita.unidadeId !== req.user.unidadeId) throw proibido();
     if (visita.status !== "AGENDADA") throw new HttpError(409, "Só é possível cancelar visitas agendadas");
@@ -174,7 +175,7 @@ export async function visitasRoutes(app: FastifyInstance) {
 
   // Visitantes frequentes da unidade: quem ela autorizou nos últimos 90 dias, um por documento, com os
   // dados da visita mais recente. Sai do histórico (não é um cadastro à parte); o morador pode esconder alguém.
-  app.get("/visitantes", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+  app.get("/visitantes", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const unidadeId = req.user.unidadeId!;
     const desde = new Date(Date.now() - DIAS_VISITANTE_ATIVO * 24 * 60 * 60 * 1000);
     const [visitas, ocultos] = await Promise.all([
@@ -207,7 +208,7 @@ export async function visitasRoutes(app: FastifyInstance) {
 
   // Tira o visitante da lista da própria unidade. Não apaga o histórico nem o rosto cadastrado.
   // O documento vai no corpo, e não na URL, para não aparecer nos logs de acesso (como em /rostos/consulta).
-  app.post("/visitantes/ocultar", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+  app.post("/visitantes/ocultar", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req, reply) => {
     const { documento } = z.object({ documento: z.string().min(1) }).parse(req.body);
     const chave = normalizarDocumento(documento);
     if (chave.length < 5) throw new HttpError(400, "Documento inválido");
@@ -220,12 +221,12 @@ export async function visitasRoutes(app: FastifyInstance) {
   });
 
   // Convite do visitante: código (para digitar) e QR code em PNG (para compartilhar).
-  app.get("/visitas/:id/convite", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+  app.get("/visitas/:id/convite", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const visita = await conviteDoMorador(req.params, req.user.unidadeId, req.user.condominioId);
     return { codigo: visita.codigoAcesso, nomeVisitante: visita.nomeVisitante };
   });
 
-  app.get("/visitas/:id/convite.png", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+  app.get("/visitas/:id/convite.png", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req, reply) => {
     const visita = await conviteDoMorador(req.params, req.user.unidadeId, req.user.condominioId);
     const png = await gerarCartaoConvite({
       codigo: visita.codigoAcesso!,
@@ -236,7 +237,7 @@ export async function visitasRoutes(app: FastifyInstance) {
   });
 
   // Portaria lê o QR code (ou digita o código) e vê os dados da visita antes de liberar.
-  app.get("/visitas/codigo/:codigo", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.get("/visitas/codigo/:codigo", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const { codigo } = z.object({ codigo: z.string().min(1) }).parse(req.params);
     const visita = await prisma.visita.findFirst({
       where: { codigoAcesso: normalizarCodigo(codigo), unidade: { condominioId: req.user.condominioId } },

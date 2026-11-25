@@ -155,7 +155,7 @@ Mudanças só de JavaScript chegam ao celular por `eas update`. Mudanças nativa
 3. Só faça merge com os testes passando.
 4. Para mudanças no app, publique a atualização com `eas update` no canal correspondente (`production` na `main`, `preview` nos testes).
 
-Uma branch `staging` pode ser criada antes da apresentação do TCC ou quando houver moradores reais, com um segundo serviço no Render e um segundo banco (ou *branch*) no Neon.
+Uma branch `staging` pode ser criada antes da apresentação no Tech Day 2026 ou quando houver moradores reais, com um segundo serviço no Render e um segundo banco (ou *branch*) no Neon.
 
 ---
 

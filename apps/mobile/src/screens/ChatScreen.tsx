@@ -11,6 +11,7 @@ import { BotaoFlutuante, Lista, ModalFormulario, ModalTela, useEstilosTexto } fr
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
+import { ehMorador } from "@condomus/types";
 
 /**
  * Aba Chat. O morador vê um cartão da conversa com a portaria e a abre numa janela, como a portaria
@@ -23,7 +24,8 @@ export function ChatScreen() {
   useEffect(() => {
     if (emFoco) aquecerServidor();
   }, [emFoco]);
-  return usuario?.papel === "MORADOR" ? <ChatDoMorador /> : <ConversasDaPortaria />;
+  // O síndico é um morador: tem a conversa da própria unidade com a portaria. Só o porteiro vê a lista de todas as unidades.
+  return usuario && ehMorador(usuario.papel) ? <ChatDoMorador /> : <ConversasDaPortaria />;
 }
 
 /** O morador tem uma conversa só (a da unidade): um cartão "Portaria" que abre a conversa numa janela. */

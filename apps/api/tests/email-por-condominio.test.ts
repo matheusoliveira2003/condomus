@@ -43,8 +43,11 @@ describe("o mesmo e-mail em dois condomínios", () => {
     const { condominio } = await criarSegundoCondominio();
     expect(await prisma.usuario.count({ where: { email: "morador@teste.dev" } })).toBe(2);
     // Dentro do mesmo condomínio continua sendo 409.
-    const repetido = await chamar(app, "POST", "/usuarios", {
-      token: c.tokens.sindico,
+    // O cadastro é do painel do administrador (o app não cadastra mais usuários).
+    await prisma.administrador.create({ data: { nome: "Admin", email: "admin@condomus.dev", senhaHash: await bcrypt.hash("senha-forte-do-admin", 4) } });
+    const admin = (await chamar(app, "POST", "/admin/auth/login", { corpo: { email: "admin@condomus.dev", senha: "senha-forte-do-admin" } })).corpo.token;
+    const repetido = await chamar(app, "POST", `/admin/painel/condominios/${c.condominio.id}/usuarios`, {
+      token: admin,
       corpo: { nome: "Outro", email: "morador@teste.dev", papel: "MORADOR", unidadeId: c.unidades.b201.id },
     });
     expect(repetido.status).toBe(409);

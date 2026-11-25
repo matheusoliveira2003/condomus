@@ -12,7 +12,6 @@ import { encomendasRoutes } from "./modules/encomendas/routes.js";
 import { avisosRoutes } from "./modules/avisos/routes.js";
 import { reservasRoutes } from "./modules/reservas/routes.js";
 import { unidadesRoutes } from "./modules/unidades/routes.js";
-import { usuariosRoutes } from "./modules/usuarios/routes.js";
 import { dispositivosRoutes } from "./modules/dispositivos/routes.js";
 import { resumoRoutes } from "./modules/resumo/routes.js";
 import { fotosRoutes } from "./modules/fotos/routes.js";
@@ -71,7 +70,6 @@ export async function buildApp({ logger = true, limites = true }: { logger?: boo
   await app.register(avisosRoutes);
   await app.register(reservasRoutes);
   await app.register(unidadesRoutes);
-  await app.register(usuariosRoutes);
   await app.register(dispositivosRoutes);
   await app.register(resumoRoutes);
   await app.register(fotosRoutes);

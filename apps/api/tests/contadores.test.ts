@@ -54,19 +54,21 @@ describe("contadores das abas", () => {
     expect(r.corpo).toEqual({ encomendas: 0, visitasEsperadas: 2, reservasPendentes: 0, chatNaoLidas: 0 });
   });
 
-  it("síndico: soma as reservas pendentes; porteiro nunca vê esse número", async () => {
+  it("o síndico tem os números de morador: as encomendas da própria unidade, e nada de reservas pendentes", async () => {
+    // Uma encomenda para a unidade do síndico e outra para a de um vizinho: ele conta só a dele.
+    await prisma.encomenda.createMany({
+      data: [
+        { descricao: "Do síndico", unidadeId: c.unidades.s100.id, recebidaPorId: c.usuarios.porteiro.id },
+        { descricao: "Do vizinho", unidadeId: c.unidades.b201.id, recebidaPorId: c.usuarios.porteiro.id },
+      ],
+    });
+    // Uma reserva antiga ainda PENDENTE não vira número: ninguém aprova mais.
     const inicio = new Date(Date.now() + 48 * 60 * 60 * 1000);
     await prisma.reserva.create({
-      data: {
-        areaId: c.area.id,
-        unidadeId: c.unidades.a101.id,
-        usuarioId: c.usuarios.morador.id,
-        inicio,
-        fim: new Date(inicio.getTime() + 60 * 60 * 1000),
-        status: "PENDENTE",
-      },
+      data: { areaId: c.area.id, unidadeId: c.unidades.a101.id, usuarioId: c.usuarios.morador.id, inicio, fim: new Date(inicio.getTime() + 60 * 60 * 1000), status: "PENDENTE" },
     });
-    expect((await contadores(c.tokens.sindico)).corpo.reservasPendentes).toBe(1);
+    const r = await contadores(c.tokens.sindico);
+    expect(r.corpo).toEqual({ encomendas: 1, visitasEsperadas: 0, reservasPendentes: 0, chatNaoLidas: 0 });
     expect((await contadores(c.tokens.porteiro)).corpo.reservasPendentes).toBe(0);
   });
 

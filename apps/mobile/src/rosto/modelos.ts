@@ -5,7 +5,7 @@ import { Asset } from "expo-asset";
  * Modelos TensorFlow Lite do reconhecimento facial, carregados uma vez por sessão.
  * - blazeface: detecção de rosto (MediaPipe BlazeFace short range, Apache-2.0).
  * - mobilefacenet: assinatura facial. Arquitetura e código do sirius-ai/MobileFaceNet_TF
- *   (Apache-2.0); os pesos foram treinados no MS1M-refine-v2, que é só para pesquisa. Projeto de TCC.
+ *   (Apache-2.0); os pesos foram treinados no MS1M-refine-v2, que é só para pesquisa. Projeto acadêmico apresentado no Tech Day 2026 2° Semestre | Unimax - Centro Universitario Max Planck, sem uso comercial.
  */
 const FONTES = {
   blazeface: () => require("../../assets/modelos/blazeface.tflite"),

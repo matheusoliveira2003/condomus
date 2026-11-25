@@ -31,7 +31,8 @@ const LIMITE_HISTORICO = 50;
 
 export function EncomendasScreen() {
   const { usuario } = useAuth();
-  const ehPortaria = usuario?.papel !== "MORADOR";
+  // Só o porteiro registra e entrega encomendas; o síndico, como morador, vê as da própria unidade.
+  const ehPortaria = usuario?.papel === "PORTEIRO";
   const [filtro, setFiltro] = useState<Filtro>("AGUARDANDO_RETIRADA");
   const [registrando, setRegistrando] = useState(false);
   const [retirando, setRetirando] = useState<Encomenda | null>(null);

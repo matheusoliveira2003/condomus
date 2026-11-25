@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { ADMIN_SECRET, type Cenario, chamar, criarApp, criarCenario, limparBanco, prisma } from "./ajuda.js";
+import { ADMIN_SECRET, type Cenario, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -113,7 +113,7 @@ describe("gerenciamento pelo painel", () => {
   it("lista e edita condomínios, com a situação do plano", async () => {
     const lista = await painel("GET", "/condominios");
     expect(lista.status).toBe(200);
-    expect(lista.corpo[0]).toMatchObject({ nome: "Condomínio Teste", _count: { unidades: 2 }, situacao: { status: "ATIVO" } });
+    expect(lista.corpo[0]).toMatchObject({ nome: "Condomínio Teste", _count: { unidades: 3 }, situacao: { status: "ATIVO" } });
     const r = await painel("PATCH", `/condominios/${c.condominio.id}`, { nome: "Renomeado", planoStatus: "SUSPENSO" });
     expect(r.corpo).toMatchObject({ nome: "Renomeado", planoStatus: "SUSPENSO" });
   });
@@ -142,6 +142,51 @@ describe("gerenciamento pelo painel", () => {
     expect((await painel("PATCH", `${base}/${novo.id}`, { nome: "Nome Corrigido" })).corpo.nome).toBe("Nome Corrigido");
     expect((await painel("POST", `${base}/${novo.id}/reenviar-senha`)).status).toBe(204);
     expect((await painel("PATCH", `${base}/${novo.id}/ativo`, { ativo: false })).corpo.ativo).toBe(false);
+  });
+
+  it("reenviar senha só vale para conta ativa que ainda não fez o primeiro acesso", async () => {
+    const base = `/condominios/${c.condominio.id}/usuarios`;
+    // O morador do cenário já tem senha própria: o painel não pode trocá-la.
+    expect((await painel("POST", `${base}/${c.usuarios.morador.id}/reenviar-senha`)).status).toBe(409);
+    await expect(entrar(app, "morador@teste.dev")).resolves.toEqual(expect.any(String));
+
+    const novo = (await painel("POST", base, { nome: "Nova Moradora", email: "nova@teste.dev", papel: "MORADOR", unidadeId: c.unidades.b201.id })).corpo;
+    await painel("PATCH", `${base}/${novo.id}/ativo`, { ativo: false });
+    expect((await painel("POST", `${base}/${novo.id}/reenviar-senha`)).status).toBe(409);
+  });
+
+  it("desativar corta o acesso na hora, mesmo com token válido", async () => {
+    const base = `/condominios/${c.condominio.id}/usuarios`;
+    expect((await painel("PATCH", `${base}/${c.usuarios.morador.id}/ativo`, { ativo: false })).corpo.ativo).toBe(false);
+    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.morador })).status).toBe(401);
+    await expect(entrar(app, "morador@teste.dev")).rejects.toThrow();
+  });
+
+  it("mudar o morador de unidade encerra a sessão antiga, pois a unidade vai no token", async () => {
+    const base = `/condominios/${c.condominio.id}/usuarios`;
+    const r = await painel("PATCH", `${base}/${c.usuarios.morador.id}`, { unidadeId: c.unidades.b201.id });
+    expect(r.corpo.unidade).toMatchObject({ numero: "201" });
+    expect((await chamar(app, "GET", "/auth/me", { token: c.tokens.morador })).status).toBe(401);
+    const novoToken = await entrar(app, "morador@teste.dev");
+    expect((await chamar(app, "GET", "/auth/me", { token: novoToken })).corpo.unidade).toMatchObject({ numero: "201" });
+  });
+
+  it("o painel dá uma unidade ao síndico e o porteiro não ganha unidade", async () => {
+    const base = `/condominios/${c.condominio.id}/usuarios`;
+    // O síndico de um condomínio recém-criado nasce sem unidade; o administrador vincula depois.
+    const r = await painel("PATCH", `${base}/${c.usuarios.sindico.id}`, { unidadeId: c.unidades.a101.id });
+    expect(r.status).toBe(200);
+    expect(r.corpo.unidade).toMatchObject({ numero: "101" });
+    expect((await painel("PATCH", `${base}/${c.usuarios.porteiro.id}`, { unidadeId: c.unidades.a101.id })).status).toBe(409);
+  });
+
+  it("a lista de usuários nunca traz a senha nem os bytes da foto", async () => {
+    const r = await painel("GET", `/condominios/${c.condominio.id}/usuarios`);
+    expect(r.corpo).toHaveLength(4);
+    for (const u of r.corpo) {
+      expect(u).not.toHaveProperty("senhaHash");
+      expect(u).not.toHaveProperty("foto");
+    }
   });
 
   it("áreas: cria, edita e desativa; a lista do painel mostra as inativas", async () => {
