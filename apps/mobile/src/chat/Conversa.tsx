@@ -12,6 +12,7 @@ import { MensagemErro, useEstilosTexto } from "../ui/componentes";
 import { data, hora } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
+import { ehMorador } from "@condomus/types";
 
 /** Lado maior da foto enviada no chat: legível (etiqueta de encomenda, por exemplo) e abaixo de 500 KB. */
 const LADO_FOTO_CHAT = 1024;
@@ -30,7 +31,7 @@ export function Conversa({ unidadeId }: { unidadeId?: string }) {
   const qc = useQueryClient();
   const { usuario } = useAuth();
   const emFoco = useIsFocused();
-  const meuLado: LadoChat = usuario?.papel === "MORADOR" ? "MORADOR" : "PORTARIA";
+  const meuLado: LadoChat = usuario && ehMorador(usuario.papel) ? "MORADOR" : "PORTARIA";
 
   const conversa = useConversa(unidadeId, emFoco);
   const enviarMensagem = useEnviarMensagem(unidadeId);
