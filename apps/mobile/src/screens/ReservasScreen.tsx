@@ -7,6 +7,7 @@ import { BotaoFlutuante, Botao, Card, Chips, Lista, MensagemErro, ModalFormulari
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
 import { useMensagens, type PedidoConfirmacao } from "../ui/mensagens";
+import { AgendaReservas } from "../agenda/AgendaReservas";
 
 type OpcaoDia = "hoje" | "amanha" | "data";
 
@@ -23,7 +24,14 @@ const rotuloStatus: Record<StatusReserva, { texto: string; tom: "neutro" | "suce
 };
 
 /** Reservas são automáticas e de quem mora numa unidade: o síndico reserva como morador e não aprova nada. */
+type Aba = "agenda" | "minhas";
+
+/**
+ * Reservas das áreas comuns. A agenda (dia, mês e ano) mostra o que está ocupado e é a primeira coisa que o morador vê;
+ * "Minhas reservas" lista as da própria unidade, para cancelar. A reserva nasce confirmada: não há aprovação.
+ */
 export function ReservasScreen() {
+  const [aba, setAba] = useState<Aba>("agenda");
   const [reservando, setReservando] = useState(false);
   useAbrirPorParametro("novo", useCallback(() => setReservando(true), []));
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
@@ -32,34 +40,43 @@ export function ReservasScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Lista
-        dados={dados}
-        carregando={carregando}
-        recarregando={recarregando}
-        erro={erro}
-        recarregar={recarregar}
-        vazio="Você não tem reservas futuras"
-        cabecalho={<Secao titulo="Minhas reservas" />}
-        renderItem={(r) => (
-          <CardReserva reserva={r}>
-            {(r.status === "PENDENTE" || r.status === "CONFIRMADA") && (
-              <Botao
-                titulo={r.status === "PENDENTE" ? "Cancelar solicitação" : "Cancelar reserva"}
-                variante="secundario"
-                pequeno
-                onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))}
-              />
-            )}
-          </CardReserva>
-        )}
-      />
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <Chips<Aba>
+          opcoes={[
+            { valor: "agenda", rotulo: "Agenda" },
+            { valor: "minhas", rotulo: "Minhas reservas" },
+          ]}
+          valor={aba}
+          onChange={setAba}
+        />
+      </View>
+      {aba === "agenda" ? (
+        <AgendaReservas />
+      ) : (
+        <Lista
+          dados={dados}
+          carregando={carregando}
+          recarregando={recarregando}
+          erro={erro}
+          recarregar={recarregar}
+          vazio="Você não tem reservas futuras"
+          cabecalho={<Secao titulo="Minhas reservas" />}
+          renderItem={(r) => (
+            <CardReserva reserva={r}>
+              {(r.status === "PENDENTE" || r.status === "CONFIRMADA") && (
+                <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))} />
+              )}
+            </CardReserva>
+          )}
+        />
+      )}
       <BotaoFlutuante icone="calendar" onPress={() => setReservando(true)} />
       <NovaReservaModal
         visivel={reservando}
         onFechar={() => setReservando(false)}
         onCriada={() => {
           setReservando(false);
-          mensagens.sucesso("Solicitação enviada. O síndico vai analisar e você será avisado quando for aprovada.");
+          mensagens.sucesso("Reserva confirmada.");
         }}
       />
     </View>
