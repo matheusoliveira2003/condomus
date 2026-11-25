@@ -89,11 +89,11 @@ const abasDeMorador: Aba[] = [
 
 /** Abas disponíveis para cada perfil de acesso. */
 const abasPorPapel: Record<Papel, Aba[]> = {
-  // Sem aba Avisos para o morador: os avisos ficam no Início (resumo + "Ver todos").
+  // Sem aba Avisos para quem mora numa unidade: os avisos ficam no Início (resumo + "Ver todos").
   MORADOR: abasDeMorador,
   PORTEIRO: [portaria, encomendas, chat, avisos],
-  // O síndico é um morador com uma função a mais: publicar avisos. Por isso ele é o único morador com a aba Avisos.
-  SINDICO: [...abasDeMorador, avisos],
+  // O síndico tem as mesmas abas do morador; publica avisos pelo atalho "Publicar aviso" do Início.
+  SINDICO: abasDeMorador,
 };
 
 /** Cabeçalho, barra de abas e fundo das telas seguem a paleta do tema ativo. */

@@ -29,7 +29,10 @@ export function InicioScreen() {
   const recarregar = query.refetch;
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
+  // O atalho "Publicar aviso" abre a mesma janela de avisos, já com o formulário de novo aviso aberto.
+  const [publicando, setPublicando] = useState(false);
   const [contaAberta, setContaAberta] = useState(false);
+  const ehSindico = usuario?.papel === "SINDICO";
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
   useAbrirPorParametro("verAvisos", useCallback(() => setVendoAvisos(true), []));
 
@@ -62,6 +65,16 @@ export function InicioScreen() {
       <View style={styles.atalhos}>
         <Atalho icone="person-add" texto="Autorizar visitante" onPress={() => navegacao.navigate("Visitas", { novo: true })} />
         <Atalho icone="calendar" texto="Reservar área" onPress={() => navegacao.navigate("Reservas", { novo: true })} />
+        {ehSindico && (
+          <Atalho
+            icone="megaphone"
+            texto="Publicar aviso"
+            onPress={() => {
+              setPublicando(true);
+              setVendoAvisos(true);
+            }}
+          />
+        )}
       </View>
 
       <MensagemErro texto={erro} />
@@ -160,8 +173,17 @@ export function InicioScreen() {
           </Cartao>
         </>
       )}
-      <ModalTela visivel={vendoAvisos} titulo="Avisos" onFechar={() => setVendoAvisos(false)}>
-        <AvisosScreen />
+      <ModalTela
+        visivel={vendoAvisos}
+        titulo="Avisos"
+        onFechar={() => {
+          setVendoAvisos(false);
+          // Zera o atalho: abrir pelo cartão depois mostra só a lista, sem reabrir o formulário.
+          setPublicando(false);
+        }}
+      >
+        {/* A key troca quando o atalho é usado: a tela monta de novo e o formulário abre na hora. */}
+        <AvisosScreen key={publicando ? "publicar" : "lista"} abrirNovo={publicando} />
       </ModalTela>
       <MinhaContaModal visivel={contaAberta} onFechar={() => setContaAberta(false)} />
     </ScrollView>
