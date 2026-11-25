@@ -23,9 +23,9 @@ export function DetalheCondominio({ id, onVoltar }: { id: string; onVoltar: () =
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="cabecalho-detalhe">
         <button className="botao secundario pequeno" onClick={onVoltar}>← Condomínios</button>
-        <h2 style={{ margin: 0, flex: 1 }}>{condominio?.nome ?? "…"}</h2>
+        <h2>{condominio?.nome ?? "…"}</h2>
         {condominio && <PlanoSelo plano={condominio.planoStatus} situacao={condominio.situacao} />}
       </div>
       <Mensagem tipo="erro" texto={erro} />

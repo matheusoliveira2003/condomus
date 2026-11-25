@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { BotaoConfirmar, Cartao, Campo, Mensagem } from "./componentes";
+import { BotaoConfirmar, Cartao, Campo, Mensagem, Tabela } from "./componentes";
 import { unidadeTexto, type Unidade } from "./tipos";
 
 /** Unidades do condomínio: criar uma, criar em lote, editar, gerar convite e excluir. */
@@ -48,7 +48,7 @@ export function Unidades({ condominioId }: { condominioId: string }) {
         >
           <Campo rotulo="Bloco" value={bloco} onChange={(e) => setBloco(e.target.value)} required />
           <Campo rotulo="Número" value={numero} onChange={(e) => setNumero(e.target.value)} required />
-          <div className="campo" style={{ alignSelf: "end" }}><button className="botao" disabled={!bloco || !numero}>Criar</button></div>
+          <div className="campo fim"><button className="botao" disabled={!bloco || !numero}>Criar</button></div>
         </form>
       </Cartao>
 
@@ -72,7 +72,7 @@ export function Unidades({ condominioId }: { condominioId: string }) {
           <Campo rotulo="Andar inicial" type="number" min={0} value={lote.andarInicial} onChange={(e) => setLote({ ...lote, andarInicial: e.target.value })} />
           <Campo rotulo="Andar final" type="number" min={0} value={lote.andarFinal} onChange={(e) => setLote({ ...lote, andarFinal: e.target.value })} />
           <Campo rotulo="Apartamentos por andar" type="number" min={1} value={lote.porAndar} onChange={(e) => setLote({ ...lote, porAndar: e.target.value })} />
-          <div className="campo" style={{ alignSelf: "end" }}><button className="botao" disabled={!lote.blocos.trim()}>Criar lote</button></div>
+          <div className="campo fim"><button className="botao" disabled={!lote.blocos.trim()}>Criar lote</button></div>
         </form>
       </Cartao>
 
@@ -87,27 +87,37 @@ export function Unidades({ condominioId }: { condominioId: string }) {
 
       <Cartao titulo={`Unidades${lista ? ` (${lista.length})` : ""}`}>
         {lista === null && !erro && <p className="secundario">Carregando…</p>}
-        {lista?.length === 0 && <p className="vazio">Nenhuma unidade cadastrada.</p>}
-        {lista?.map((u) => (
-          <LinhaUnidade
-            key={u.id}
-            unidade={u}
-            onSalvar={(dados) => acao(() => api(`${base}/${u.id}`, { metodo: "PATCH", corpo: dados }), "Unidade alterada.")}
-            onConvite={() =>
-              acao(async () => {
-                const r = await api<{ codigo: string; expiraEm: string }>(`${base}/${u.id}/convite`, { metodo: "POST" });
-                setConvite({ unidade: unidadeTexto(u), ...r });
-              })
-            }
-            onExcluir={() => acao(() => api(`${base}/${u.id}`, { metodo: "DELETE" }), "Unidade excluída.")}
+        {lista && (
+          <Tabela
+            linhas={lista}
+            vazio="Nenhuma unidade cadastrada."
+            busca={(u) => `${u.bloco} ${u.numero}`}
+            colunas={[
+              { rotulo: "Unidade", principal: true, ordem: (u) => `${u.bloco} ${u.numero}`, celula: (u) => unidadeTexto(u) },
+              { rotulo: "Moradores ativos", ordem: (u) => u._count?.moradores ?? 0, celula: (u) => u._count?.moradores ?? 0 },
+            ]}
+            acoes={(u) => (
+              <AcoesUnidade
+                unidade={u}
+                onSalvar={(dados) => acao(() => api(`${base}/${u.id}`, { metodo: "PATCH", corpo: dados }), "Unidade alterada.")}
+                onConvite={() =>
+                  acao(async () => {
+                    const r = await api<{ codigo: string; expiraEm: string }>(`${base}/${u.id}/convite`, { metodo: "POST" });
+                    setConvite({ unidade: unidadeTexto(u), ...r });
+                  })
+                }
+                onExcluir={() => acao(() => api(`${base}/${u.id}`, { metodo: "DELETE" }), "Unidade excluída.")}
+              />
+            )}
           />
-        ))}
+        )}
       </Cartao>
     </>
   );
 }
 
-function LinhaUnidade({
+/** Ações de uma unidade. Editar troca os botões por dois campos, no lugar, na própria linha da tabela. */
+function AcoesUnidade({
   unidade,
   onSalvar,
   onConvite,
@@ -123,24 +133,19 @@ function LinhaUnidade({
   const [numero, setNumero] = useState(unidade.numero);
   if (editando) {
     return (
-      <div className="linha">
-        <input value={bloco} onChange={(e) => setBloco(e.target.value)} style={{ width: 80 }} aria-label="Bloco" />
-        <input value={numero} onChange={(e) => setNumero(e.target.value)} style={{ width: 100 }} aria-label="Número" />
-        <span className="grow" />
-        <button className="botao pequeno" onClick={async () => { await onSalvar({ bloco, numero }); setEditando(false); }}>Salvar</button>
+      <>
+        <input value={bloco} onChange={(e) => setBloco(e.target.value)} size={4} aria-label="Bloco" />
+        <input value={numero} onChange={(e) => setNumero(e.target.value)} size={6} aria-label="Número" />
+        <button className="botao pequeno" disabled={!bloco.trim() || !numero.trim()} onClick={async () => { await onSalvar({ bloco, numero }); setEditando(false); }}>Salvar</button>
         <button className="botao pequeno secundario" onClick={() => setEditando(false)}>Cancelar</button>
-      </div>
+      </>
     );
   }
   return (
-    <div className="linha">
-      <div className="grow">
-        <div className="titulo">{unidadeTexto(unidade)}</div>
-        <div className="secundario">{unidade._count?.moradores ?? 0} moradores ativos</div>
-      </div>
+    <>
       <button className="botao pequeno secundario" onClick={() => void onConvite()}>Gerar convite</button>
       <button className="botao pequeno secundario" onClick={() => setEditando(true)}>Editar</button>
       <BotaoConfirmar titulo="Excluir" pergunta="Excluir a unidade?" perigo onConfirmar={onExcluir} />
-    </div>
+    </>
   );
 }

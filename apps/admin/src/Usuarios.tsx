@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import { BotaoConfirmar, Cartao, Campo, Mensagem, Selecao } from "./componentes";
+import { BotaoConfirmar, Cartao, Campo, Mensagem, Selecao, Tabela } from "./componentes";
 import { rotuloPapel, unidadeTexto, type Papel, type Unidade, type Usuario } from "./tipos";
 
 /** Moradores, porteiros e síndicos do condomínio: criar, editar nome e unidade, reenviar senha e desativar. */
@@ -71,17 +71,32 @@ export function Usuarios({ condominioId }: { condominioId: string }) {
         }
       >
         {lista === null && !erro && <p className="secundario">Carregando…</p>}
-        {lista && visiveis.length === 0 && <p className="vazio">Nenhum usuário.</p>}
-        {visiveis.map((u) => (
-          <LinhaUsuario
-            key={u.id}
-            usuario={u}
-            unidades={unidades}
-            onSalvar={(dados) => acao(() => api(`${base}/usuarios/${u.id}`, { metodo: "PATCH", corpo: dados }), "Usuário alterado.")}
-            onReenviar={() => acao(() => api(`${base}/usuarios/${u.id}/reenviar-senha`, { metodo: "POST" }), `Nova senha enviada para ${u.email}.`)}
-            onAtivo={(ativo) => acao(() => api(`${base}/usuarios/${u.id}/ativo`, { metodo: "PATCH", corpo: { ativo } }), ativo ? "Conta reativada." : "Conta desativada.")}
+        {lista && (
+          <Tabela
+            linhas={visiveis}
+            vazio="Nenhum usuário."
+            busca={(u) => `${u.nome} ${u.email}`}
+            inativa={(u) => !u.ativo}
+            colunas={[
+              { rotulo: "Nome", principal: true, ordem: (u) => u.nome, celula: (u) => <>{u.nome}<span className="secundario sub">{u.email}</span></> },
+              { rotulo: "Papel", ordem: (u) => rotuloPapel[u.papel], celula: (u) => rotuloPapel[u.papel] },
+              { rotulo: "Unidade", ordem: (u) => (u.papel === "MORADOR" ? unidadeTexto(u.unidade) : ""), celula: (u) => (u.papel === "MORADOR" ? unidadeTexto(u.unidade) : "—") },
+              {
+                rotulo: "Situação",
+                celula: (u) => (!u.ativo ? <span className="selo">Desativado</span> : u.senhaTemporaria ? <span className="selo alerta">Aguardando acesso</span> : <span className="selo sucesso">Ativo</span>),
+              },
+            ]}
+            acoes={(u) => (
+              <AcoesUsuario
+                usuario={u}
+                unidades={unidades}
+                onSalvar={(dados) => acao(() => api(`${base}/usuarios/${u.id}`, { metodo: "PATCH", corpo: dados }), "Usuário alterado.")}
+                onReenviar={() => acao(() => api(`${base}/usuarios/${u.id}/reenviar-senha`, { metodo: "POST" }), `Nova senha enviada para ${u.email}.`)}
+                onAtivo={(ativo) => acao(() => api(`${base}/usuarios/${u.id}/ativo`, { metodo: "PATCH", corpo: { ativo } }), ativo ? "Conta reativada." : "Conta desativada.")}
+              />
+            )}
           />
-        ))}
+        )}
       </Cartao>
     </>
   );
@@ -120,7 +135,7 @@ function NovoUsuario({ unidades, onCriar }: { unidades: Unidade[]; onCriar: (dad
             opcoes={[{ valor: "", rotulo: "Escolha a unidade" }, ...unidades.map((u) => ({ valor: u.id, rotulo: unidadeTexto(u) }))]}
           />
         )}
-        <div className="campo" style={{ alignSelf: "end" }}>
+        <div className="campo fim">
           <button className="botao" disabled={!nome || !email || (precisaUnidade && !unidadeId)}>Criar</button>
         </div>
       </form>
@@ -128,7 +143,8 @@ function NovoUsuario({ unidades, onCriar }: { unidades: Unidade[]; onCriar: (dad
   );
 }
 
-function LinhaUsuario({
+/** Ações de um usuário. Editar troca os botões por campos, no lugar, na própria linha da tabela. */
+function AcoesUsuario({
   usuario: u,
   unidades,
   onSalvar,
@@ -146,16 +162,16 @@ function LinhaUsuario({
   const [unidadeId, setUnidadeId] = useState(u.unidade?.id ?? "");
   if (editando) {
     return (
-      <div className="linha" style={{ flexWrap: "wrap" }}>
+      <>
         <input value={nome} onChange={(e) => setNome(e.target.value)} aria-label="Nome" />
         {u.papel === "MORADOR" && (
           <select value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)} aria-label="Unidade">
             {unidades.map((un) => <option key={un.id} value={un.id}>{unidadeTexto(un)}</option>)}
           </select>
         )}
-        <span className="grow" />
         <button
           className="botao pequeno"
+          disabled={nome.trim().length < 2}
           onClick={async () => {
             await onSalvar({
               ...(nome !== u.nome && { nome }),
@@ -167,19 +183,11 @@ function LinhaUsuario({
           Salvar
         </button>
         <button className="botao pequeno secundario" onClick={() => setEditando(false)}>Cancelar</button>
-      </div>
+      </>
     );
   }
   return (
-    <div className="linha" style={{ opacity: u.ativo ? 1 : 0.55 }}>
-      <div className="grow">
-        <div className="titulo">{u.nome}</div>
-        <div className="secundario">
-          {u.email} · {rotuloPapel[u.papel]}
-          {u.papel === "MORADOR" ? ` · ${unidadeTexto(u.unidade)}` : ""}
-        </div>
-      </div>
-      {!u.ativo ? <span className="selo">Desativado</span> : u.senhaTemporaria ? <span className="selo alerta">Aguardando acesso</span> : null}
+    <>
       {u.ativo && u.senhaTemporaria && <button className="botao pequeno secundario" onClick={() => void onReenviar()}>Reenviar senha</button>}
       <button className="botao pequeno secundario" onClick={() => setEditando(true)}>Editar</button>
       {u.ativo ? (
@@ -187,6 +195,6 @@ function LinhaUsuario({
       ) : (
         <button className="botao pequeno secundario" onClick={() => void onAtivo(true)}>Reativar</button>
       )}
-    </div>
+    </>
   );
 }

@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api";
-import { Cartao, Campo, Mensagem } from "./componentes";
+import { Cartao, Campo, Mensagem, Tabela } from "./componentes";
 import { rotuloPlano, type Condominio, type PlanoStatus } from "./tipos";
 
 /** Lista de todos os condomínios, com busca e a situação do plano. Criar um condomínio já cria o síndico. */
 export function Condominios({ onAbrir }: { onAbrir: (id: string) => void }) {
   const [lista, setLista] = useState<Condominio[] | null>(null);
-  const [busca, setBusca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
   const [recarregar, setRecarregar] = useState(0);
@@ -17,43 +16,46 @@ export function Condominios({ onAbrir }: { onAbrir: (id: string) => void }) {
       .catch((e: Error) => setErro(e.message));
   }, [recarregar]);
 
-  const filtrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    return (lista ?? []).filter((c) => !termo || c.nome.toLowerCase().includes(termo));
-  }, [lista, busca]);
-
   return (
-    <>
-      <Cartao
-        titulo="Condomínios"
-        acao={<button className="botao" onClick={() => setCriando((v) => !v)}>{criando ? "Fechar" : "Novo condomínio"}</button>}
-      >
-        {criando && (
-          <NovoCondominio
-            onCriado={() => {
-              setCriando(false);
-              setRecarregar((n) => n + 1);
-            }}
-          />
-        )}
-        <Campo rotulo="Buscar por nome" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome do condomínio" />
-        <Mensagem tipo="erro" texto={erro} />
-        {lista === null && !erro && <p className="secundario">Carregando…</p>}
-        {lista && filtrados.length === 0 && <p className="vazio">Nenhum condomínio encontrado.</p>}
-        {filtrados.map((c) => (
-          <div key={c.id} className="linha" style={{ cursor: "pointer" }} onClick={() => onAbrir(c.id)}>
-            <div className="grow">
-              <div className="titulo">{c.nome}</div>
-              <div className="secundario">
-                {c._count.unidades} unidades · {c._count.usuarios} usuários
-                {c.endereco ? ` · ${c.endereco}` : ""}
-              </div>
-            </div>
-            <PlanoSelo plano={c.planoStatus} situacao={c.situacao} />
-          </div>
-        ))}
-      </Cartao>
-    </>
+    <Cartao
+      titulo={`Condomínios${lista ? ` (${lista.length})` : ""}`}
+      acao={<button className="botao" onClick={() => setCriando((v) => !v)}>{criando ? "Fechar" : "Novo condomínio"}</button>}
+    >
+      {criando && (
+        <NovoCondominio
+          onCriado={() => {
+            setCriando(false);
+            setRecarregar((n) => n + 1);
+          }}
+        />
+      )}
+      <Mensagem tipo="erro" texto={erro} />
+      {lista === null && !erro && <p className="secundario">Carregando…</p>}
+      {lista && (
+        <Tabela
+          linhas={lista}
+          vazio="Nenhum condomínio cadastrado."
+          busca={(c) => `${c.nome} ${c.endereco ?? ""}`}
+          onAbrir={(c) => onAbrir(c.id)}
+          colunas={[
+            {
+              rotulo: "Nome",
+              principal: true,
+              ordem: (c) => c.nome,
+              celula: (c) => (
+                <>
+                  <button className="link" onClick={() => onAbrir(c.id)}>{c.nome}</button>
+                  {c.endereco && <span className="secundario sub">{c.endereco}</span>}
+                </>
+              ),
+            },
+            { rotulo: "Unidades", ordem: (c) => c._count.unidades, celula: (c) => c._count.unidades },
+            { rotulo: "Usuários", ordem: (c) => c._count.usuarios, celula: (c) => c._count.usuarios },
+            { rotulo: "Plano", ordem: (c) => rotuloPlano[c.planoStatus], celula: (c) => <PlanoSelo plano={c.planoStatus} situacao={c.situacao} /> },
+          ]}
+        />
+      )}
+    </Cartao>
   );
 }
 
@@ -63,7 +65,7 @@ export function PlanoSelo({ plano, situacao }: { plano: PlanoStatus; situacao: C
   const aviso =
     situacao.emCarencia ? `em carência (${situacao.diasDeCarencia} dias)` : plano === "TRIAL" && situacao.diasParaExpirar !== null ? `termina em ${Math.max(situacao.diasParaExpirar, 0)} dias` : null;
   return (
-    <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <span className="grupo">
       <span className={`selo ${tom}`}>{rotuloPlano[plano]}</span>
       {aviso && <span className="selo alerta">{aviso}</span>}
     </span>
@@ -104,7 +106,7 @@ function NovoCondominio({ onCriado }: { onCriado: () => void }) {
 
   if (senhaGerada) {
     return (
-      <div style={{ marginBottom: 16 }}>
+      <div className="mb16">
         <Mensagem tipo="sucesso" texto="Condomínio criado. O síndico recebeu um e-mail com a senha temporária." />
         <p className="secundario">Se o e-mail não chegar, esta é a senha temporária (copie agora; ela não aparece de novo):</p>
         <p className="senha-gerada">{senhaGerada}</p>
@@ -114,7 +116,7 @@ function NovoCondominio({ onCriado }: { onCriado: () => void }) {
   }
 
   return (
-    <form onSubmit={criar} style={{ marginBottom: 16 }}>
+    <form onSubmit={criar} className="mb16">
       <div className="grade">
         <Campo rotulo="Nome do condomínio" value={nome} onChange={(e) => setNome(e.target.value)} required />
         <Campo rotulo="CNPJ (opcional)" value={cnpj} onChange={(e) => setCnpj(e.target.value)} />

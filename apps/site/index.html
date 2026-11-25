@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="pt-BR" data-type="software" data-radius="round" data-ground="sky" data-buttons="arrow" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Condomus: app de portaria e moradores para condomínios</title>
+<meta name="description" content="Visitantes com QR code, encomendas com aviso no celular, avisos do síndico e reservas das áreas comuns, num app Android para moradores e portaria.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Condomus: app de portaria e moradores para condomínios">
+<meta property="og:description" content="Portaria, moradores e síndico no mesmo app Android, com o chat da unidade e reservas sem conflito de horário.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f5f7fa">
+<link rel="canonical" href="https://condomus.app.br/">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..700&family=Figtree:wght@400..600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #f5f7fa; --p-surface: #ffffff; --p-ink: #0f1b2d; --p-muted: #5b6472;
+  --p-accent: #1e3a5f; --p-accent-ink: #f5f7fa; --p-action: #1e3a5f; --p-action-ink: #f5f7fa;
+  --p-inv-bg: #0f1b2d; --p-inv-surface: #1c283a; --p-inv-ink: #f5f7fa; --p-inv-muted: #949ca6;
+  --p-inv-accent: #f5f7fa; --p-inv-accent-ink: #0f1b2d; --p-inv-action: #f5f7fa; --p-inv-action-ink: #0f1b2d;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-text: "Figtree", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --display-stretch: 96%;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<link rel="stylesheet" href="assets/ui/window/fragment.css">
+<link rel="stylesheet" href="assets/ui/chat/fragment.css">
+<link rel="stylesheet" href="assets/ui/notify/fragment.css">
+<link rel="stylesheet" href="assets/ui/checklist/fragment.css">
+<link rel="stylesheet" href="assets/ui/calendar/fragment.css">
+<link rel="stylesheet" href="assets/diagrams/diagram.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/word-highlight/moment.js">
+<style>
+  /* the logo: the client's own SVG beside the name */
+  .nav__logo img, .closing .nav__logo img { width: 28px; height: 28px; border-radius: 7px; display: block; }
+  .nav__logo { display: inline-flex; align-items: center; gap: 10px; }
+
+  /* hero window: the porter's screen of the app, the unit list beside the open chat (inside the visual) */
+  .cw { background: #fff; color: #0f1b2d; border-radius: 14px; overflow: hidden; font: 400 14px/1.45 var(--font-text);
+        box-shadow: 0 0 0 1px rgb(15 27 45 / .08), 0 30px 60px -30px rgb(15 27 45 / .45); }
+  .cw__bar { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #5b6472; }
+  .cw__logo { border-radius: 5px; flex: none; }
+  .cw__bar b { color: #0f1b2d; font-weight: 500; } .cw__bar .sp { flex: 1; }
+  .cw__dots { display: flex; gap: 6px; } .cw__dots i { width: 10px; height: 10px; border-radius: 50%; background: #dfe4ea; }
+  .cw__body { display: grid; grid-template-columns: 250px 1fr; min-height: 380px; }
+  .cw__list { border-right: 1px solid #e2e8f0; padding: 10px; display: grid; align-content: start; gap: 2px; }
+  .cw__u { display: grid; grid-template-columns: 32px 1fr auto; gap: 1px 10px; padding: 9px 8px; border-radius: 10px; font-size: 13px; }
+  .cw__u.is-on { background: #e3ecf7; }
+  .cw__u i { grid-row: 1 / span 2; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #e3ecf7; color: #1e3a5f; font: 500 12px/1 var(--font-text); font-style: normal; }
+  .cw__u.is-on i { background: #1e3a5f; color: #fff; }
+  .cw__u b { font-weight: 500; } .cw__u time { color: #5b6472; font-size: 13px; }
+  .cw__u span { grid-column: 2 / -1; color: #5b6472; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cw__chat { display: grid; gap: 10px; align-content: start; padding: 16px 18px; }
+  .cw__day { justify-self: center; font-size: 13px; color: #5b6472; }
+  .cw__m { max-width: 82%; padding: 9px 13px; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0; border-bottom-left-radius: 5px; }
+  .cw__m small { display: block; margin-top: 3px; font-size: 13px; color: #5b6472; }
+  .cw__m--me { justify-self: end; background: #1e3a5f; color: #fff; border-color: #1e3a5f; border-bottom-left-radius: 16px; border-bottom-right-radius: 5px; }
+  .cw__m--me small { color: rgb(255 255 255 / .75); }
+  .cw__m b.who { display: block; font-weight: 500; color: #1e3a5f; font-size: 13px; }
+  @media (max-width: 1023px) { .cw__body { grid-template-columns: 1fr; } .cw__list { display: none; } }
+  @media (max-width: 639px) { .cw__bar .sp ~ span { display: none; } .cw__day { display: none; } }
+
+  /* the feature cards share one panel height */
+  #funcoes .panel { --p-h: 300px; }
+  @media (max-width: 639px) { #funcoes .panel { --p-h: 188px; } #funcoes .ui-chat__day { display: none; } }
+
+  /* app-frame: the porter's conversations beside the open thread (sections-library.md, app-frame) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app .ui-win__side { display: none; }
+    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+
+  /* the four roles, as rows */
+  @media (max-width: 639px) { .nav__actions { display: none; } }
+  #papeis .panel { --p-h: 700px; }
+  @media (min-width: 1024px) { #perguntas .faq > .faq__item { padding-block: var(--s-6); } #perguntas .faq > .faq__item:first-child { padding-top: 0; } }
+  #faq-visual { --p-h: 440px; }
+  @media (min-width: 640px) and (max-width: 1023px) { #faq-visual { --p-h: 300px; } }
+  @media (max-width: 639px) { #faq-visual { --p-h: 180px; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #papeis .panel { --p-h: 520px; } }
+  @media (max-width: 639px) { #papeis .panel { --p-h: 360px; } }
+  .papel { display: grid; gap: var(--s-3); padding-block: var(--s-5); border-bottom: 1px solid var(--line); }
+  .papel h3 { margin: 0; }
+  .papel p { margin: 0; }
+</style>
+</head>
+<body>
+<!-- type: software
+     deal: hero centred, nav nav-centre, close close-word, footer footer-dark, rhythm surface-pairs, buttons arrow, mark initial (replaced by the client's own logo, docs/marca/logo.svg), grounds: the lit ground sky
+     palette: the client's own colours through start.mjs brand (the app's blue #1E3A5F as the one accent, its #F5F7FA ground and #0F1B2D ink); type bricolage
+     moments: word-highlight (its own statement section, #sobre) -->
+
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Pular para o conteúdo</a>
+    <a class="nav__logo" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28">Condomus</a>
+    <nav class="nav__links" aria-label="Principal">
+      <div class="nav__item"><a class="nav__link" href="#portaria">Portaria</a></div>
+      <div class="nav__item"><a class="nav__link" href="#funcoes">Funções</a></div>
+      <div class="nav__item"><a class="nav__link" href="#papeis">Papéis</a></div>
+      <div class="nav__item"><a class="nav__link" href="#perguntas">Perguntas</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#baixar">Baixar para Android</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <a class="pill" href="#perguntas"><span>Versão de teste para Android</span><span class="muted">Veja como instalar</span></a>
+        <h1 id="hero-h">App de portaria para condomínios</h1>
+        <p class="hero__lead" style="color:var(--p-ink)">A portaria lê o QR code do visitante, registra a encomenda e avisa a unidade pelo chat. O morador recebe tudo no celular e reserva o salão sem conflito de horário.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#baixar">Baixar para Android<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#portaria">Ver a portaria</a></div>
+      </div>
+      <div class="hero__window" role="img" aria-label="O chat da portaria do Condomus: a lista de unidades e a conversa com o apartamento 101 do bloco A, com um lembrete automático de encomenda">
+        <div class="ly-piece cw" aria-hidden="true">
+          <div class="cw__bar"><span class="cw__dots"><i></i><i></i><i></i></span><svg class="cw__logo" width="18" height="18" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#1E3A5F"/><path d="M 362 150 A 150 150 0 1 0 362 362" fill="none" stroke="#FFFFFF" stroke-width="52" stroke-linecap="round"/><polyline points="186,258 256,200 326,258" fill="none" stroke="#F5B544" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/><rect x="208" y="252" width="96" height="76" rx="10" fill="#F5B544"/><rect x="241" y="282" width="30" height="46" rx="5" fill="#1E3A5F"/></svg><span><b>Chat</b> · Portaria</span><span class="sp"></span><span>Bloco A · 101</span></div>
+          <div class="cw__body">
+            <div class="cw__list">
+              <div class="cw__u is-on"><i>A101</i><b>Bloco A · 101</b><time>14:32</time><span>Pode deixar, desço às 18h.</span></div>
+              <div class="cw__u"><i>A102</i><b>Bloco A · 102</b><time>13:05</time><span>Você: o técnico da internet chegou.</span></div>
+              <div class="cw__u"><i>B201</i><b>Bloco B · 201</b><time>ontem</time><span>Obrigada pelo aviso.</span></div>
+              <div class="cw__u"><i>B304</i><b>Bloco B · 304</b><time>ontem</time><span>📷 Foto</span></div>
+            </div>
+            <div class="cw__chat">
+              <span class="cw__day">Hoje</span>
+              <div class="cw__m"><b class="who">Portaria</b>📦 Lembrete automático: você tem 1 encomenda aguardando retirada na portaria:<br>• Caixa dos Correios (há 3 dias)<small>09:00</small></div>
+              <div class="cw__m cw__m--me">Pode deixar, desço às 18h.<small>14:32</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="portaria" aria-labelledby="portaria-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 id="portaria-h" class="span-5">Portaria: uma conversa por unidade</h2>
+        <p class="span-6 start-7">A portaria vê as unidades com mensagem nova no topo e responde com texto ou foto. Uma encomenda parada há 3 dias gera o lembrete sozinha.<br><a class="link" href="#funcoes">Ver as outras funções</a></p>
+      </div>
+      <div class="ui app fill" role="img" aria-label="A lista de conversas da portaria ao lado da conversa aberta com o apartamento 101 do bloco A" data-ui-pause-host>
+        <div class="app__pane app__pane--list">
+          <div class="ui ui-panel ui-win" data-ui="window" data-open="Nova" data-work="Lendo" data-done="Respondida">
+            <div class="ui-win__bar">
+              <span class="ui-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="ui-win__crumb"><img src="assets/logo.svg" alt="" width="16" height="16" style="border-radius:4px">Portaria <i>/</i> <b>Chat</b></span>
+              <span class="ui-spacer"></span>
+              <span class="ui-win__search" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><span class="ui-win__ph">Buscar</span></span>
+            </div>
+            <div class="ui-win__body">
+              <nav class="ui-win__side" aria-hidden="true">
+                <span class="ui-win__nav is-on">Chat<em>3</em></span>
+                <span class="ui-win__nav">Visitas<em>2</em></span>
+                <span class="ui-win__nav">Encomendas<em>5</em></span>
+                <span class="ui-win__nav">Avisos</span>
+              </nav>
+              <div class="ui-win__main">
+                <div class="ui-win__cols" aria-hidden="true"><span>Unidade</span><span>Última mensagem</span><span>Situação</span><span>Hora</span></div>
+                <ul class="ui-win__rows">
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">A1</span><span class="ui-win__who">Bloco A · 101</span><span class="ui-win__sub">Pode deixar, desço às 18h.</span><span class="ui-win__st" data-st>Nova</span><span class="ui-win__age">14:32</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">A1</span><span class="ui-win__who">Bloco A · 102</span><span class="ui-win__sub">O técnico pode subir?</span><span class="ui-win__st" data-st>Nova</span><span class="ui-win__age">13:05</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">A2</span><span class="ui-win__who">Bloco A · 201</span><span class="ui-win__sub">📷 Foto</span><span class="ui-win__st" data-st>Nova</span><span class="ui-win__age">11:48</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">B2</span><span class="ui-win__who">Bloco B · 201</span><span class="ui-win__sub">Obrigada pelo aviso.</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">ontem</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="5">B3</span><span class="ui-win__who">Bloco B · 304</span><span class="ui-win__sub">Chegou a caixa do mercado?</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">ontem</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="3">C1</span><span class="ui-win__who">Bloco C · 104</span><span class="ui-win__sub">O carro da mudança chega às 9h.</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">seg</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="1">C2</span><span class="ui-win__who">Bloco C · 202</span><span class="ui-win__sub">Pode liberar minha mãe?</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">seg</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="4">C3</span><span class="ui-win__who">Bloco C · 303</span><span class="ui-win__sub">Você: encomenda entregue.</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">dom</span></li>
+                  <li class="ui-win__row" data-row><span class="ui-avatar" data-tone="2">D1</span><span class="ui-win__who">Bloco D · 101</span><span class="ui-win__sub">Esqueci a chave do salão.</span><span class="ui-win__st is-done" data-st>Respondida</span><span class="ui-win__age">sáb</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open" data-ui-loop>
+          <div class="ui ui-panel ui-chat" data-ui="chat">
+            <div class="ui-head">
+              <span class="ui-avatar" data-tone="1" aria-hidden="true">A1</span>
+              <div class="ui-title">Bloco A · 101</div>
+              <span class="ui-chat__online">2 moradores</span>
+              <span class="ui-spacer"></span>
+            </div>
+            <div class="ui-chat__body">
+              <div class="ui-chat__day">Hoje, 09:00</div>
+              <div class="ui-msg ui-msg--me" data-chat-q>
+                <span class="ui-msg__text">📦 Lembrete automático: você tem 1 encomenda aguardando retirada na portaria: Caixa dos Correios (há 3 dias).</span>
+              </div>
+              <div class="ui-msg ui-msg--bot" data-chat-a>
+                <span class="ui-avatar ui-msg__av" data-tone="1" aria-hidden="true">A1</span>
+                <span class="ui-msg__col">
+                  <span class="ui-chat__answer">Pode deixar, desço às <b>18h</b> para buscar.</span>
+                </span>
+              </div>
+              <div class="ui-msg ui-msg--me">
+                <span class="ui-msg__text">Combinado. Ela fica no armário da portaria.</span>
+              </div>
+              <div class="ui-msg ui-msg--bot">
+                <span class="ui-avatar ui-msg__av" data-tone="1" aria-hidden="true">A1</span>
+                <span class="ui-msg__col"><span class="ui-chat__answer">Obrigada!</span></span>
+              </div>
+              <div class="ui-msg ui-msg--me">
+                <span class="ui-msg__text">📷 Foto da etiqueta, para conferir.</span>
+              </div>
+            </div>
+            <div class="ui-chat__input">
+              <span class="ui-chat__ph">Mensagem</span>
+              <span class="ui-chat__send" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2" id="funcoes" aria-labelledby="funcoes-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="funcoes-h">O que o app faz no dia a dia. <span class="muted">Visitantes, encomendas, avisos e reservas.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row card--open span-6">
+            <h3>Portaria: visitantes com QR code</h3>
+            <p>O morador autoriza e manda o convite. A portaria lê o QR code e confere a foto de quem autorizou.</p>
+            <div class="panel">
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:340px;--ax:max(24px, 50% - 170px);--ay:40px;--ay-sm:24px" data-ui-loop>
+                <div class="ui ui-panel ui-checks" data-ui="checklist">
+                  <div class="ui-checks__head">
+                    <div class="ui-title">Visita de Ana Souza</div>
+                    <span class="ui-spacer"></span>
+                    <div class="ui-meta" data-checks-count>2 de 4</div>
+                  </div>
+                  <div class="ui-checks__bar"><i data-checks-bar style="--k:0.5"></i></div>
+                  <ul class="ui-checks__list">
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Autorizada pelo Bloco A · 101</span></li>
+                    <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Convite enviado com o QR code</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">QR code lido na portaria</span></li>
+                    <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Entrada registrada às 15:10</span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+          <article class="card card--row card--open span-6">
+            <h3>Portaria: encomendas com aviso</h3>
+            <p>A portaria registra a encomenda e o morador recebe a notificação. Depois de 3 dias parada, o chat lembra.</p>
+            <div class="panel">
+              <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:32px;--ay:calc(100% - 180px);--ay-sm:calc(100% - 180px)">
+                <div class="ui ui-notify" data-ui="notify">
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M2.5 5.5 8 2.5l5.5 3v6L8 14.5l-5.5-3z"/><path d="M2.5 5.5 8 8.5l5.5-3M8 8.5v6"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Encomenda na portaria<time>agora</time></span><span class="ui-note__body">Caixa dos Correios para o Bloco A · 101</span></span></li>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="2">B2</span><span class="ui-note__text"><span class="ui-note__title">Retirada por Carla<time>2h</time></span><span class="ui-note__body">Pacote do mercado, Bloco B · 201</span></span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">4 encomendas retiradas hoje<time>5h</time></span><span class="ui-note__body">Nenhuma parada há mais de 3 dias</span></span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6">
+          <h3>Portaria e síndico: mural de avisos</h3>
+          <p>O síndico escreve o aviso e fixa no topo do mural. Todos recebem a notificação no celular.</p>
+          <div class="panel">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px;--ay-sm:24px">
+              <div class="ui ui-panel ui-chat" data-ui="chat">
+                <div class="ui-head"><img src="assets/logo.svg" alt="" width="22" height="22" style="border-radius:6px"><div class="ui-title">Mural de avisos</div><span class="ui-spacer"></span></div>
+                <div class="ui-chat__body">
+                  <div class="ui-chat__day">Fixado pelo síndico</div>
+                  <div class="ui-msg ui-msg--bot">
+                    <span class="ui-avatar ui-msg__av" data-tone="3" aria-hidden="true">S</span>
+                    <span class="ui-msg__col"><span class="ui-chat__answer"><b>Manutenção da caixa d'água</b>: sem água no sábado, das 8h às 12h.</span></span>
+                  </div>
+                  <div class="ui-msg ui-msg--bot">
+                    <span class="ui-avatar ui-msg__av" data-tone="3" aria-hidden="true">S</span>
+                    <span class="ui-msg__col"><span class="ui-chat__answer"><b>Assembleia</b>: dia 10, às 19h, no salão de festas.</span></span>
+                  </div>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6">
+          <h3>Condomínio: reserva de áreas comuns</h3>
+          <p>O morador escolhe o dia e o horário. Um horário ocupado não aceita uma segunda reserva.</p>
+          <div class="panel">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:440px;--ax:max(24px, 50% - 220px);--ay:32px;--ay-sm:16px">
+              <div class="ui ui-panel ui-calendar" data-ui="calendar" data-start="14" data-end="14" data-month="dez">
+                <div class="ui-cal__head">
+                  <div class="ui-cal__month">Salão de festas <span>dezembro</span></div>
+                  <span class="ui-spacer"></span>
+                </div>
+                <div class="ui-cal__dow" aria-hidden="true"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
+                <div class="ui-cal__days">
+                  <span class="ui-cal__d" data-d="1"><b>1</b></span><span class="ui-cal__d" data-d="2"><b>2</b></span><span class="ui-cal__d" data-d="3"><b>3</b></span><span class="ui-cal__d" data-d="4"><b>4</b></span><span class="ui-cal__d" data-d="5"><b>5</b></span><span class="ui-cal__d" data-d="6"><b>6</b></span><span class="ui-cal__d" data-d="7"><b>7</b></span>
+                  <span class="ui-cal__d" data-d="8"><b>8</b></span><span class="ui-cal__d" data-d="9"><b>9</b></span><span class="ui-cal__d is-today" data-d="10"><b>10</b></span><span class="ui-cal__d" data-d="11"><b>11</b></span><span class="ui-cal__d" data-d="12"><b>12</b></span><span class="ui-cal__d" data-d="13"><b>13</b></span><span class="ui-cal__d is-start" data-d="14"><b>14</b></span>
+                  <span class="ui-cal__d" data-d="15"><b>15</b></span><span class="ui-cal__d" data-d="16"><b>16</b></span><span class="ui-cal__d" data-d="17"><b>17</b></span><span class="ui-cal__d" data-d="18"><b>18</b></span><span class="ui-cal__d" data-d="19"><b>19</b></span><span class="ui-cal__d" data-d="20"><b>20</b></span><span class="ui-cal__d" data-d="21"><b>21</b></span>
+                </div>
+                <div class="ui-cal__events">
+                  <div class="ui-cal__ev" data-ev="14">
+                    <span class="ui-cal__evtext"><span class="ui-cal__evtitle">14 dez, Bloco A · 101, das 14h às 20h</span><span class="ui-cal__evsub">Confirmada, horário livre</span></span>
+                  </div>
+                  <div class="ui-cal__ev" data-ev="20">
+                    <span class="ui-cal__evtext"><span class="ui-cal__evtitle">20 dez, Bloco C · 202, das 18h às 23h</span><span class="ui-cal__evsub">Confirmada</span></span>
+                  </div>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section statement" id="sobre" data-moment="word-highlight" aria-label="Sobre o projeto">
+    <div class="wrap">
+      <p class="t-label">Sobre o projeto</p>
+      <p class="mo-wh__text">O Condomus é um trabalho de conclusão de curso: um app Android, uma API e um painel web, feitos para testar <strong>a portaria e os moradores</strong> no mesmo app, num condomínio real.</p>
+    </div>
+  </section>
+
+  <section class="section" id="papeis" aria-labelledby="papeis-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5">
+          <h2 id="papeis-h">Quatro papéis no app</h2>
+          <p>Cada pessoa entra com o próprio e-mail e vê só o que é da sua função. O administrador cadastra; o app não cria conta sozinho.</p>
+        </div>
+        <div class="span-6 start-7">
+          <div class="panel"><div class="dg" data-diagram><script type="application/json">{"layout":"hub","shape":"radial","alt":"O Condomus conecta quatro papéis: morador, portaria, síndico e administrador.","center":{"label":"Condomus"},"spokes":[{"label":"Morador","children":[{"label":"Visitas e encomendas"},{"label":"Reservas e chat"}]},{"label":"Portaria","children":[{"label":"QR code e entradas"},{"label":"Encomendas e chat"}]},{"label":"Síndico","children":[{"label":"Avisos no mural"}]},{"label":"Administrador","children":[{"label":"Condomínios e unidades"},{"label":"Moradores e áreas"}]}]}</script></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="perguntas" aria-labelledby="perguntas-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5">
+          <h2 id="perguntas-h">Perguntas sobre o app de teste</h2>
+          <p>O app está em teste e roda só em Android por enquanto.</p>
+          <div class="panel" id="faq-visual" style="margin-top:var(--s-6)"><div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:48px">
+            <div class="ui ui-notify" data-ui="notify"><ul class="ui-notify__list" data-notify-list>
+              <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="M2.5 5.5 8 2.5l5.5 3v6L8 14.5l-5.5-3z"/><path d="M2.5 5.5 8 8.5l5.5-3M8 8.5v6"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Senha enviada por e-mail<time>agora</time></span><span class="ui-note__body">Use a senha temporária no primeiro acesso</span></span></li>
+              <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Conta criada pelo condomínio<time>1d</time></span><span class="ui-note__body">Cadastro feito pelo administrador</span></span></li>
+            </ul></div>
+          </div></div></div>
+
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Como instalo o app?</h3><p>Toque em Baixar para Android, abra a página do Expo no celular e instale o arquivo. O Android pede para permitir a instalação fora da Play Store.</p></div>
+          <div class="faq__item"><h3>O app deixa criar a conta sozinho?</h3><p>Não. O administrador cadastra o condomínio e os moradores, e cada pessoa recebe a senha temporária por e-mail.</p></div>
+          <div class="faq__item"><h3>Esqueci a senha do app. O que faço?</h3><p>Peça o código de 6 dígitos pelo e-mail na tela de entrada. Ele vale por 15 minutos e serve uma vez só.</p></div>
+          <div class="faq__item"><h3>O app funciona no iPhone?</h3><p>Ainda não. A versão de teste é só para Android.</p></div>
+          <div class="faq__item"><h3>Quanto custa o app?</h3><p>Nada. O Condomus é um trabalho de conclusão de curso, sem uso comercial.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word" id="baixar">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Baixe o Condomus no Android</h2><p class="t-lead">Versão de teste. A conta é criada pelo condomínio.</p></div>
+        <a class="btn btn--primary" href="https://expo.dev/accounts/matheuspo/projects/condomus/builds/57247939-68b1-41f4-9ff9-f347a1043d73" rel="noopener">Baixar para Android<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">Condomus</p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img src="assets/logo.svg" alt="" width="28" height="28">Condomus</a>
+          <p class="footer__lede">Portaria e moradores no mesmo app.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Portaria</h3><ul><li><a href="#portaria">Chat da unidade</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Funções</h3><ul><li><a href="#funcoes">Visitantes e encomendas</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Papéis</h3><ul><li><a href="#papeis">Quem usa o app</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Perguntas</h3><ul><li><a href="#perguntas">Instalação</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Condomus · Trabalho de conclusão de curso, sem uso comercial</span>
+        <div class="socials"></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<nav class="actionbar" aria-label="Ações rápidas">
+  <a class="btn btn--primary" href="#baixar">Baixar para Android</a>
+</nav>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="assets/diagrams/mount.js"></script>
+</body>
+</html>

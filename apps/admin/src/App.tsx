@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import logo from "./assets/logo.png";
 import { api, aoExpirarSessao, guardarToken, obterToken, sairDoPainel } from "./api";
 import { Login } from "./Login";
 import { Condominios } from "./Condominios";
@@ -42,8 +43,13 @@ export function App() {
   return (
     <>
       <header className="topo">
-        <h1>Condomus · Administração</h1>
-        <span className="secundario" style={{ color: "#fff", opacity: 0.8 }}>{admin.email}</span>
+        <div className="marca">
+          <img src={logo} alt="" />
+          <h1>
+            Condomus <span>· Administração</span>
+          </h1>
+        </div>
+        <span className="conta">{admin.email}</span>
         <button onClick={() => setTela({ nome: "senha" })}>Trocar senha</button>
         <button onClick={sair}>Sair</button>
       </header>

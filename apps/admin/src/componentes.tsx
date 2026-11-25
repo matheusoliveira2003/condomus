@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 export function Cartao({ titulo, acao, children }: { titulo?: string; acao?: ReactNode; children: ReactNode }) {
   return (
     <section className="cartao">
       {(titulo || acao) && (
-        <header style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          {titulo && <h2 style={{ flex: 1, margin: 0 }}>{titulo}</h2>}
+        <header className="cartao-topo">
+          {titulo && <h2>{titulo}</h2>}
           {acao}
         </header>
       )}
@@ -50,7 +50,7 @@ export function BotaoConfirmar({ titulo, pergunta, perigo, onConfirmar }: { titu
     );
   }
   return (
-    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+    <span className="grupo">
       <span className="secundario">{pergunta}</span>
       <button
         className={`botao pequeno ${perigo ? "perigo" : ""}`}
@@ -77,4 +77,105 @@ export function BotaoConfirmar({ titulo, pergunta, perigo, onConfirmar }: { titu
 export function Mensagem({ tipo, texto }: { tipo: "erro" | "aviso" | "sucesso"; texto: string | null }) {
   if (!texto) return null;
   return <div className={tipo}>{texto}</div>;
+}
+
+/** Uma coluna da tabela: o texto de cabeçalho, como mostrar a célula e, se houver `ordem`, o valor usado para ordenar. */
+export interface Coluna<T> {
+  rotulo: string;
+  celula: (linha: T) => ReactNode;
+  ordem?: (linha: T) => string | number;
+  principal?: boolean;
+}
+
+/**
+ * Tabela do painel: ordenação por coluna, busca opcional e estado vazio. Abaixo de 720 px cada linha vira um
+ * cartão, e o rótulo da coluna aparece ao lado do valor (`data-rotulo`). A coluna de ações fica por último.
+ */
+export function Tabela<T extends { id: string }>({
+  linhas,
+  colunas,
+  acoes,
+  vazio,
+  busca,
+  inativa,
+  onAbrir,
+}: {
+  linhas: T[];
+  colunas: Coluna<T>[];
+  acoes?: (linha: T) => ReactNode;
+  vazio: string;
+  /** Texto de cada linha usado pela busca; sem isso a tabela não mostra o campo. */
+  busca?: (linha: T) => string;
+  inativa?: (linha: T) => boolean;
+  onAbrir?: (linha: T) => void;
+}) {
+  const [termo, setTermo] = useState("");
+  const [ordenar, setOrdenar] = useState<{ indice: number; desc: boolean } | null>(null);
+
+  const visiveis = useMemo(() => {
+    const t = termo.trim().toLowerCase();
+    let r = busca && t ? linhas.filter((l) => busca(l).toLowerCase().includes(t)) : linhas;
+    const col = ordenar ? colunas[ordenar.indice] : undefined;
+    if (ordenar && col?.ordem) {
+      const valor = col.ordem;
+      r = [...r].sort((a, b) => {
+        const x = valor(a);
+        const y = valor(b);
+        const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "pt-BR", { numeric: true });
+        return ordenar.desc ? -c : c;
+      });
+    }
+    return r;
+  }, [linhas, colunas, termo, ordenar, busca]);
+
+  return (
+    <>
+      {busca && (
+        <div className="campo tabela-busca">
+          <input type="search" value={termo} onChange={(e) => setTermo(e.target.value)} placeholder="Buscar" aria-label="Buscar" />
+        </div>
+      )}
+      {visiveis.length === 0 ? (
+        <p className="vazio">{termo.trim() ? "Nada encontrado para essa busca." : vazio}</p>
+      ) : (
+        <div className="tabela-rolagem">
+          <table className="tabela">
+            <thead>
+              <tr>
+                {colunas.map((c, i) => (
+                  <th key={c.rotulo} aria-sort={ordenar?.indice === i ? (ordenar.desc ? "descending" : "ascending") : undefined}>
+                    {c.ordem ? (
+                      <button onClick={() => setOrdenar(ordenar?.indice === i ? { indice: i, desc: !ordenar.desc } : { indice: i, desc: false })}>
+                        {c.rotulo}
+                        {ordenar?.indice === i ? (ordenar.desc ? " ↓" : " ↑") : ""}
+                      </button>
+                    ) : (
+                      c.rotulo
+                    )}
+                  </th>
+                ))}
+                {acoes && <th aria-label="Ações" />}
+              </tr>
+            </thead>
+            <tbody>
+              {visiveis.map((l) => (
+                <tr key={l.id} className={`${onAbrir ? "clicavel" : ""} ${inativa?.(l) ? "inativa" : ""}`} onClick={onAbrir ? () => onAbrir(l) : undefined}>
+                  {colunas.map((c) => (
+                    <td key={c.rotulo} data-rotulo={c.rotulo} className={c.principal ? "principal" : undefined}>
+                      {c.celula(l)}
+                    </td>
+                  ))}
+                  {acoes && (
+                    <td className="acoes" onClick={(e) => e.stopPropagation()}>
+                      <span className="grupo">{acoes(l)}</span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
 }

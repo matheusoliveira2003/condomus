@@ -29,8 +29,10 @@ import {
  */
 
 const planoStatusSchema = z.enum(["TRIAL", "ATIVO", "EXPIRADO", "SUSPENSO"]);
-const idCondominio = z.object({ condominioId: z.uuid() });
-const idRecurso = z.object({ condominioId: z.uuid(), id: z.uuid() });
+// O id do condomínio não é validado como UUID: o condomínio padrão criado pela migration multi_tenant tem o id
+// de texto fixo "condominio-padrao". Id que não existe cai no 404 de condominioDaUrl.
+const idCondominio = z.object({ condominioId: z.string().min(1).max(100) });
+const idRecurso = z.object({ condominioId: z.string().min(1).max(100), id: z.uuid() });
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),

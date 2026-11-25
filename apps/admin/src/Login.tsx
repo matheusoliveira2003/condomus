@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logo from "./assets/logo.png";
 import { api, ErroApi } from "./api";
 import { Campo, Mensagem } from "./componentes";
 
@@ -32,11 +33,12 @@ export function Login({ onEntrar }: { onEntrar: (token: string, admin: Admin) =>
   return (
     <div className="centro">
       <form className="cartao login" onSubmit={entrar}>
-        <h2 style={{ marginTop: 0 }}>Entrar como administrador</h2>
+        <img className="logo" src={logo} alt="Condomus" />
+        <h2 className="mt0">Entrar como administrador</h2>
         <Campo rotulo="E-mail" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <Campo rotulo="Senha" type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
         <Mensagem tipo="erro" texto={erro} />
-        <button className="botao" style={{ width: "100%" }} disabled={ocupado || !email || !senha}>
+        <button className="botao cheio" disabled={ocupado || !email || !senha}>
           {ocupado ? "Entrando…" : "Entrar"}
         </button>
       </form>
