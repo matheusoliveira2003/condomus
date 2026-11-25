@@ -66,12 +66,13 @@ describe("notificações push", () => {
     expect(enviadas.map((m) => m.to).sort()).toEqual([TOKEN_MORADOR, TOKEN_VIZINHO].sort());
   });
 
-  it("pedido de reserva avisa o síndico", async () => {
+  it("a reserva confirma na hora e avisa a unidade; o síndico não recebe pedido para aprovar", async () => {
     await registrarCelulares();
     const { inicio, fim } = reservaEm(1, 10, 11);
     await chamar(app, "POST", "/reservas", { token: c.tokens.morador, corpo: { areaId: c.area.id, inicio, fim } });
     await aguardarEnvio(1);
-    expect(enviadas[0]).toMatchObject({ to: TOKEN_SINDICO, data: { aba: "Reservas" } });
+    expect(enviadas).toHaveLength(1);
+    expect(enviadas[0]).toMatchObject({ to: TOKEN_MORADOR, title: "✅ Reserva confirmada", data: { aba: "Reservas" } });
   });
 
   it("celular que deixou de existir é removido automaticamente", async () => {

@@ -16,8 +16,8 @@ export function PlanoInativoScreen() {
         <Ionicons name="lock-closed-outline" size={56} color={cores.textoSecundario} />
         <Text style={styles.titulo}>Plano inativo</Text>
         <Text style={styles.texto}>
-          O plano do seu condomínio está expirado ou suspenso, por isso o acesso ao app está temporariamente bloqueado. Fale com o síndico para
-          regularizar.
+          O plano do seu condomínio está expirado ou suspenso, por isso o acesso ao app está temporariamente bloqueado. Fale com a
+          administração do condomínio para regularizar.
         </Text>
       </View>
       <View style={styles.rodape}>

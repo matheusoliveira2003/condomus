@@ -82,14 +82,12 @@ describe("período de teste, pela API", () => {
     expect((await meu(c.tokens.sindico)).corpo).toMatchObject({ emCarencia: true, avisarVencimento: true, planoStatus: "TRIAL" });
   });
 
-  it("depois da carência morador e porteiro recebem 402, e o síndico continua entrando vendo EXPIRADO", async () => {
+  it("depois da carência todos recebem 402, o síndico inclusive", async () => {
     await definir("TRIAL", 4);
     expect((await meu(c.tokens.morador)).status).toBe(402);
     expect((await meu(c.tokens.porteiro)).status).toBe(402);
+    expect((await meu(c.tokens.sindico)).status).toBe(402);
     expect((await chamar(app, "GET", "/visitas", { token: c.tokens.porteiro })).status).toBe(402);
-    const r = await meu(c.tokens.sindico);
-    expect(r.status).toBe(200);
-    expect(r.corpo.planoStatus).toBe("EXPIRADO");
   });
 
   it("converter para ATIVO desbloqueia, e teste sem data nunca expira", async () => {

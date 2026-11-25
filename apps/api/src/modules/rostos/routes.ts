@@ -55,7 +55,7 @@ export async function rostosRoutes(app: FastifyInstance) {
   // Entrada direta: a visita ainda não existe, então a consulta é pelo documento. Ele vai no corpo,
   // e não na URL, para não aparecer nos logs de acesso.
   // O síndico também consulta (sem ver a foto): se há rosto, ele só pode liberar a entrada manualmente.
-  app.post("/rostos/consulta", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.post("/rostos/consulta", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const documento = documentoDoCorpo(req.body);
     const rosto = await rostoValido(req.user.condominioId, documento);
     return rosto ? { cadastrado: true, limiar: LIMIAR_RECONHECIMENTO } : { cadastrado: false };

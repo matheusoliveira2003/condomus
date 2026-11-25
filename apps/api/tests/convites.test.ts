@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { type Cenario, SENHA, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
+import { type Cenario, SENHA, chamar, criarApp, criarCenario, entrar, gerarConvite as gerarConviteDoPainel, limparBanco, prisma } from "./ajuda.js";
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -17,10 +17,11 @@ beforeEach(async () => {
   c = await criarCenario(app);
 });
 
+// O convite nasce pela função que o painel do administrador usa; o app do síndico não gera mais convites.
 const gerarConvite = async (unidadeId: string) => {
-  const r = await chamar(app, "POST", `/unidades/${unidadeId}/convite`, { token: c.tokens.sindico });
-  expect(r.status).toBe(201);
-  return r.corpo as { codigo: string; expiraEm: string };
+  const { codigo, expiraEm } = await gerarConviteDoPainel(c.condominio.id, unidadeId);
+  // A rota devolve a data como texto (JSON); aqui ela vem como Date da função, então converte para o mesmo formato.
+  return { codigo, expiraEm: expiraEm.toISOString() };
 };
 
 const dadosCadastro = (codigo: string, email = "novo@teste.dev") => ({ codigo, nome: "Novo Morador", email, senha: SENHA });
@@ -42,19 +43,16 @@ describe("gerar convite", () => {
     expect((await chamar(app, "GET", `/convite/${segundo.codigo}`)).status).toBe(200);
   });
 
-  it("só o síndico gera convites", async () => {
-    for (const perfil of ["morador", "porteiro"] as const) {
-      const r = await chamar(app, "POST", `/unidades/${c.unidades.a101.id}/convite`, { token: c.tokens[perfil] });
-      expect(r.status).toBe(403);
+  it("nenhum perfil do app gera convite: a rota saiu da API do condomínio", async () => {
+    for (const token of [c.tokens.sindico, c.tokens.morador, c.tokens.porteiro]) {
+      expect((await chamar(app, "POST", `/unidades/${c.unidades.a101.id}/convite`, { token })).status).toBe(404);
     }
-    expect((await chamar(app, "POST", `/unidades/${c.unidades.a101.id}/convite`)).status).toBe(401);
   });
 
-  it("síndico não gera convite para unidade de outro condomínio", async () => {
+  it("o painel não gera convite para unidade de outro condomínio", async () => {
     const outro = await prisma.condominio.create({ data: { nome: "Outro", planoStatus: "ATIVO" } });
     const unidade = await prisma.unidade.create({ data: { bloco: "Z", numero: "1", condominioId: outro.id } });
-    const r = await chamar(app, "POST", `/unidades/${unidade.id}/convite`, { token: c.tokens.sindico });
-    expect(r.status).toBe(404);
+    await expect(gerarConviteDoPainel(c.condominio.id, unidade.id)).rejects.toMatchObject({ statusCode: 404 });
   });
 });
 

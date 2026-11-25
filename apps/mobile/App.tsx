@@ -72,29 +72,26 @@ const ChatLazy = comSpinner(ChatScreen);
 
 const avisos: Aba = { nome: "Avisos", titulo: "Avisos", icone: "megaphone-outline", tela: AvisosLazy };
 const encomendas: Aba = { nome: "Encomendas", titulo: "Encomendas", icone: "cube-outline", tela: EncomendasLazy, contador: "encomendas" };
-const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy, contador: "reservasPendentes" };
+const reservas: Aba = { nome: "Reservas", titulo: "Reservas", icone: "calendar-outline", tela: ReservasLazy };
 const chat: Aba = { nome: "Chat", titulo: "Chat", icone: "chatbubbles-outline", tela: ChatLazy, contador: "chatNaoLidas" };
 const portaria: Aba = { nome: "Portaria", titulo: "Visitantes", icone: "shield-checkmark-outline", tela: PortariaLazy, contador: "visitasEsperadas" };
 
+/** Abas de quem mora numa unidade: início, visitantes, encomendas, reservas e a conversa com a portaria. */
+const abasDeMorador: Aba[] = [
+  { nome: "Início", titulo: "Início", icone: "home-outline", tela: InicioScreen },
+  { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorLazy },
+  encomendas,
+  reservas,
+  chat,
+];
+
 /** Abas disponíveis para cada perfil de acesso. */
 const abasPorPapel: Record<Papel, Aba[]> = {
-  MORADOR: [
-    { nome: "Início", titulo: "Início", icone: "home-outline", tela: InicioScreen },
-    { nome: "Visitas", titulo: "Meus visitantes", icone: "people-outline", tela: VisitasMoradorLazy },
-    encomendas,
-    reservas,
-    chat,
-    // Sem aba Avisos: os avisos ficam no Início (resumo + "Ver todos").
-  ],
+  // Sem aba Avisos para o morador: os avisos ficam no Início (resumo + "Ver todos").
+  MORADOR: abasDeMorador,
   PORTEIRO: [portaria, encomendas, chat, avisos],
-  SINDICO: [
-    avisos,
-    portaria,
-    encomendas,
-    reservas,
-    chat,
-    // Cadastros fica na Minha conta: é configuração, usada de vez em quando; a barra fica com cinco abas.
-  ],
+  // O síndico é um morador com uma função a mais: publicar avisos. Por isso ele é o único morador com a aba Avisos.
+  SINDICO: [...abasDeMorador, avisos],
 };
 
 /** Cabeçalho, barra de abas e fundo das telas seguem a paleta do tema ativo. */
@@ -205,7 +202,7 @@ function Navegacao() {
             voltarDeRecuperar();
           }}
         />
-      ) : planoInativo && usuario.papel !== "SINDICO" ? (
+      ) : planoInativo ? (
         <PlanoInativoScreen />
       ) : usuario.senhaTemporaria ? (
         <TrocarSenhaObrigatorioModal />

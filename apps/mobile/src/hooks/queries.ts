@@ -359,23 +359,6 @@ export function useCancelarReserva() {
   });
 }
 
-export function useAprovarReserva() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => enviar("PATCH", `/reservas/${id}/aprovar`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reservas"] }),
-  });
-}
-
-export function useRecusarReserva() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, motivo }: { id: string; motivo?: string }) =>
-      enviar("PATCH", `/reservas/${id}/recusar`, { motivo }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reservas"] }),
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Helpers para uso nas telas — mapeiam para a interface esperada pelo componente Lista
 // ---------------------------------------------------------------------------

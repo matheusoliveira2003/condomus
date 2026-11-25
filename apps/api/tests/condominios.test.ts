@@ -106,16 +106,14 @@ describe("GET /condominios/meu", () => {
 });
 
 describe("enforcement do plano", () => {
-  it.each(["EXPIRADO", "SUSPENSO"] as const)("plano %s: morador e porteiro recebem 402, síndico continua entrando", async (planoStatus) => {
+  it.each(["EXPIRADO", "SUSPENSO"] as const)("plano %s: todos recebem 402, o síndico inclusive", async (planoStatus) => {
     await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus } });
 
-    for (const perfil of ["morador", "porteiro"] as const) {
+    for (const perfil of ["morador", "porteiro", "sindico"] as const) {
       const r = await chamar("GET", "/avisos", { auth: c.tokens[perfil] });
       expect(r.status).toBe(402);
       expect(r.corpo!.erro).toBe("Plano do condomínio inativo");
     }
-    expect((await chamar("GET", "/avisos", { auth: c.tokens.sindico })).status).toBe(200);
-    expect((await chamar("GET", "/condominios/meu", { auth: c.tokens.sindico })).corpo).toMatchObject({ planoStatus });
   });
 
   it("TRIAL e ATIVO funcionam normalmente", async () => {
@@ -138,8 +136,9 @@ describe("isolamento entre condomínios", () => {
     const condominio = await prisma.condominio.create({ data: { nome: "Outro Condomínio", planoStatus: "ATIVO" } });
     const condominioId = condominio.id;
     const unidade = await prisma.unidade.create({ data: { bloco: "A", numero: "101", condominioId } }); // mesmo bloco/número do cenário
+    const unidadeSindico = await prisma.unidade.create({ data: { bloco: "S", numero: "100", condominioId } });
     const sindico = await prisma.usuario.create({
-      data: { nome: "Síndico Outro", email: "sindico2@teste.dev", papel: "SINDICO", senhaHash, condominioId },
+      data: { nome: "Síndico Outro", email: "sindico2@teste.dev", papel: "SINDICO", senhaHash, condominioId, unidadeId: unidadeSindico.id },
     });
     const morador = await prisma.usuario.create({
       data: { nome: "Morador Outro", email: "morador2@teste.dev", papel: "MORADOR", senhaHash, condominioId, unidadeId: unidade.id },
@@ -166,12 +165,13 @@ describe("isolamento entre condomínios", () => {
     const avisos = await chamar("GET", "/avisos", { auth: c.tokens.sindico });
     expect(avisos.corpo!.itens.map((a: { titulo: string }) => a.titulo)).toEqual(["Aviso daqui"]);
 
-    const unidades = await chamar("GET", "/unidades", { auth: c.tokens.sindico });
-    expect(unidades.corpo).toHaveLength(2);
+    // Só a portaria escolhe unidades; o síndico, como morador, não tem a lista.
+    const unidades = await chamar("GET", "/unidades", { auth: c.tokens.porteiro });
+    expect(unidades.corpo).toHaveLength(3);
     expect(unidades.corpo!.map((u: { id: string }) => u.id)).not.toContain(o.unidade.id);
 
-    const usuarios = await chamar("GET", "/usuarios", { auth: c.tokens.sindico });
-    expect(usuarios.corpo!.map((u: { email: string }) => u.email)).not.toContain("morador2@teste.dev");
+    // A foto de um usuário de outro condomínio não existe para este: 404, como se o usuário não existisse.
+    expect((await chamar("GET", `/usuarios/${o.morador.id}/foto`, { auth: c.tokens.porteiro })).status).toBe(404);
 
     const areas = await chamar("GET", "/areas", { auth: c.tokens.morador });
     expect(areas.corpo!.map((a: { id: string }) => a.id)).toEqual([c.area.id]);

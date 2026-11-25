@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { semDataValida } from "../../lib/validadeVisita.js";
 import { naoLidas } from "../chat/regras.js";
+import { ehMorador, PAPEIS_MORADOR } from "../../lib/papeis.js";
 
 const consultaSchema = z.object({
   /** Meia-noite no fuso do celular; define o que é "hoje" para o morador. */
@@ -16,7 +17,7 @@ const MAX_AVISOS = 3;
 
 export async function resumoRoutes(app: FastifyInstance) {
   // Tudo o que a tela inicial do morador mostra, numa única chamada.
-  app.get("/resumo", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+  app.get("/resumo", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const { inicioDoDia } = consultaSchema.parse(req.query);
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
     const { condominioId } = req.user;
@@ -95,15 +96,14 @@ export async function resumoRoutes(app: FastifyInstance) {
   });
 
   // Números do emblema das abas: só o que pede uma ação de quem está logado.
-  //  - morador: encomendas aguardando retirada na sua unidade;
-  //  - portaria e síndico: visitantes esperados hoje ou sem data;
-  //  - síndico: reservas pendentes de aprovação.
-  app.get("/contadores", { preHandler: app.autorizar("MORADOR", "PORTEIRO", "SINDICO") }, async (req) => {
+  //  - morador e síndico (que mora numa unidade): encomendas aguardando retirada na sua unidade e o chat dela;
+  //  - portaria: visitantes esperados hoje ou sem data e o chat de todas as unidades.
+  app.get("/contadores", { preHandler: app.autorizar("MORADOR", "SINDICO", "PORTEIRO") }, async (req) => {
     const { inicioDoDia } = consultaSchema.parse(req.query);
     const fimDoDia = new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000);
     const { condominioId, papel } = req.user;
 
-    if (papel === "MORADOR") {
+    if (ehMorador(papel)) {
       const { unidadeId } = (await prisma.usuario.findUnique({
         where: { id: req.user.sub },
         select: { unidadeId: true },
@@ -115,19 +115,14 @@ export async function resumoRoutes(app: FastifyInstance) {
       return { encomendas, visitasEsperadas: 0, reservasPendentes: 0, chatNaoLidas };
     }
 
-    const [visitasEsperadas, reservasPendentes] = await Promise.all([
-      prisma.visita.count({
-        where: {
-          unidade: { condominioId },
-          status: "AGENDADA",
-          OR: [semDataValida(), { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
-        },
-      }),
-      papel === "SINDICO"
-        ? prisma.reserva.count({ where: { area: { condominioId }, status: "PENDENTE", fim: { gt: new Date() } } })
-        : Promise.resolve(0),
-    ]);
-    // Portaria e síndico: soma das não lidas de todas as conversas do condomínio.
+    const visitasEsperadas = await prisma.visita.count({
+      where: {
+        unidade: { condominioId },
+        status: "AGENDADA",
+        OR: [semDataValida(), { dataPrevista: { gte: inicioDoDia, lt: fimDoDia } }],
+      },
+    });
+    // Portaria: soma das não lidas de todas as conversas do condomínio.
     const unidadesComMensagem = await prisma.mensagemChat.findMany({
       where: { unidade: { condominioId } },
       distinct: ["unidadeId"],
@@ -136,6 +131,6 @@ export async function resumoRoutes(app: FastifyInstance) {
     const chatNaoLidas = (
       await Promise.all(unidadesComMensagem.map((u) => naoLidas(req.user.sub, u.unidadeId, "PORTARIA")))
     ).reduce((total, n) => total + n, 0);
-    return { encomendas: 0, visitasEsperadas, reservasPendentes, chatNaoLidas };
+    return { encomendas: 0, visitasEsperadas, reservasPendentes: 0, chatNaoLidas };
   });
 }

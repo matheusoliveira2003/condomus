@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { enviar, type Condominio, type PlanoStatus, type Usuario } from "../api/client";
+import { enviar, type Usuario } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useCondominio, usePerfil } from "../hooks/queries";
-import { Botao, Campo, Card, MensagemErro, ModalFormulario, ModalTela, Secao, Selecao, Selo, useEstilosTexto } from "../ui/componentes";
-import { CadastrosScreen } from "./CadastrosScreen";
+import { Botao, Campo, Card, MensagemErro, ModalFormulario, Selecao, useEstilosTexto } from "../ui/componentes";
 import { unidadeTexto } from "../ui/formatar";
 import { Avatar } from "../ui/Avatar";
 import { escolherFoto, type OrigemFoto } from "../foto";
@@ -33,24 +32,6 @@ const rotuloAparencia: Record<Preferencia, string> = {
 
 const rotuloPapel: Record<Papel, string> = { MORADOR: "Morador", PORTEIRO: "Porteiro", SINDICO: "Síndico" };
 
-const rotuloPlano: Record<PlanoStatus, { texto: string; tom: "sucesso" | "primario" | "alerta" | "neutro" }> = {
-  TRIAL: { texto: "Período de teste", tom: "primario" },
-  ATIVO: { texto: "Ativo", tom: "sucesso" },
-  EXPIRADO: { texto: "Expirado", tom: "alerta" },
-  SUSPENSO: { texto: "Suspenso", tom: "neutro" },
-};
-
-/** Texto do aviso do período de teste: perto do fim, ou já na carência, quando ainda funciona por poucos dias. */
-function avisoDoTeste(c: Condominio): string {
-  if (c.emCarencia) {
-    const dias = c.diasDeCarencia ?? 0;
-    return `O período de teste terminou. O app continua funcionando por mais ${dias} ${dias === 1 ? "dia" : "dias"}; depois, moradores e funcionários ficam sem acesso. Fale com o suporte para ativar o plano.`;
-  }
-  const dias = Math.max(c.diasParaExpirar ?? 0, 0);
-  if (dias === 0) return "O período de teste termina hoje. Fale com o suporte para ativar o plano.";
-  return `O período de teste termina em ${dias} ${dias === 1 ? "dia" : "dias"}. Fale com o suporte para ativar o plano.`;
-}
-
 export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFechar: () => void }) {
   const cores = useCores();
   const styles = useEstilos(criarStyles);
@@ -62,7 +43,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [trocandoEmail, setTrocandoEmail] = useState(false);
   const [escolhendoAparencia, setEscolhendoAparencia] = useState(false);
-  const [vendoCadastros, setVendoCadastros] = useState(false);
   const [sheetAberto, setSheetAberto] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const mensagens = useMensagens();
@@ -147,9 +127,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         </View>
       )}
 
-      {/* Plano (síndico) */}
-      {perfil?.papel === "SINDICO" && <PlanoDoCondominio />}
-
       {/* Links de conta */}
       <Pressable
         onPress={() => setTrocandoSenha(true)}
@@ -181,23 +158,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
         <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
       </Pressable>
 
-      {/* Cadastros é configuração do síndico, usada de vez em quando: fica aqui, e não na barra de abas. */}
-      {perfil?.papel === "SINDICO" && (
-        <Pressable
-          onPress={() => setVendoCadastros(true)}
-          style={({ pressed }) => [styles.linkSenha, pressed && { opacity: 0.6 }]}
-          accessibilityRole="button"
-        >
-          <Ionicons name="people-outline" size={20} color={cores.primaria} />
-          <Text style={styles.linkSenhaTexto}>Cadastros</Text>
-          <Text style={[estilosTexto.secundario, { marginLeft: "auto" }]}>Moradores, unidades e áreas</Text>
-          <Ionicons name="chevron-forward" size={16} color={cores.primaria} />
-        </Pressable>
-      )}
-      <ModalTela visivel={vendoCadastros} titulo="Cadastros" onFechar={() => setVendoCadastros(false)}>
-        <CadastrosScreen />
-      </ModalTela>
-
       {/* Separador antes do botão de sair */}
       <View style={styles.separador} />
 
@@ -208,31 +168,6 @@ export function MinhaContaModal({ visivel, onFechar }: { visivel: boolean; onFec
       <TrocarEmailModal visivel={trocandoEmail} onFechar={() => setTrocandoEmail(false)} />
       <AparenciaModal visivel={escolhendoAparencia} onFechar={() => setEscolhendoAparencia(false)} />
     </ModalFormulario>
-  );
-}
-
-/** Situação do plano do condomínio (visível só ao síndico). */
-function PlanoDoCondominio() {
-  const styles = useEstilos(criarStyles);
-  const estilosTexto = useEstilosTexto();
-  const { data: condominio } = useCondominio();
-  if (!condominio) return null;
-  const { texto, tom } = rotuloPlano[condominio.planoStatus];
-  return (
-    <Card>
-      <Secao titulo="Plano do condomínio" />
-      <Text style={estilosTexto.corpo}>{condominio.nome}</Text>
-      <View style={styles.planoLinha}>
-        <Selo texto={texto} tom={tom} />
-        {condominio.planoExpiraEm && (
-          <Text style={estilosTexto.secundario}>
-            {condominio.planoStatus === "EXPIRADO" ? "Expirou em " : "Válido até "}
-            {new Date(condominio.planoExpiraEm).toLocaleDateString("pt-BR")}
-          </Text>
-        )}
-      </View>
-      {condominio.avisarVencimento && <Text style={estilosTexto.corpo}>{avisoDoTeste(condominio)}</Text>}
-    </Card>
   );
 }
 
@@ -638,7 +573,6 @@ const criarStyles = (cores: Paleta) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    planoLinha: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
     linkSenha: {
       flexDirection: "row",
       alignItems: "center",

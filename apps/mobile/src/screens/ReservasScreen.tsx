@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { api, type Reserva, type StatusReserva } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
-import { adaptarQuery, useAprovarReserva, useAreas, useCancelarReserva, useCriarReserva, useReservas, useReservasMinhas, useRecusarReserva } from "../hooks/queries";
+import { adaptarQuery, useAreas, useCancelarReserva, useCriarReserva, useReservasMinhas } from "../hooks/queries";
 import { useAbrirPorParametro } from "../hooks/useAbrirPorParametro";
-import { BotaoFlutuante, Botao, BotoesLado, Campo, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
+import { BotaoFlutuante, Botao, Card, Chips, Lista, MensagemErro, ModalFormulario, Secao, Selo, useEstilosTexto } from "../ui/componentes";
 import { data, hora, unidadeTexto } from "../ui/formatar";
 import { Calendario } from "../ui/Calendario";
 import { useMensagens, type PedidoConfirmacao } from "../ui/mensagens";
@@ -16,18 +15,15 @@ const ABERTURA = 8;
 const FECHAMENTO = 23;
 
 const rotuloStatus: Record<StatusReserva, { texto: string; tom: "neutro" | "sucesso" | "alerta" | "primario" }> = {
-  PENDENTE: { texto: "Aguardando aprovação", tom: "alerta" },
+  // Reservas pendentes só existem até a migração rodar; para o morador elas valem como confirmadas.
+  PENDENTE: { texto: "Confirmada", tom: "sucesso" },
   CONFIRMADA: { texto: "Confirmada", tom: "sucesso" },
   RECUSADA: { texto: "Recusada", tom: "neutro" },
   CANCELADA: { texto: "Cancelada", tom: "neutro" },
 };
 
+/** Reservas são automáticas e de quem mora numa unidade: o síndico reserva como morador e não aprova nada. */
 export function ReservasScreen() {
-  const { usuario } = useAuth();
-  return usuario?.papel === "MORADOR" ? <ReservasMorador /> : <ReservasSindico />;
-}
-
-function ReservasMorador() {
   const [reservando, setReservando] = useState(false);
   useAbrirPorParametro("novo", useCallback(() => setReservando(true), []));
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservasMinhas());
@@ -70,73 +66,6 @@ function ReservasMorador() {
   );
 }
 
-type FiltroSindico = "PENDENTE" | "CONFIRMADA";
-
-function ReservasSindico() {
-  const [filtro, setFiltro] = useState<FiltroSindico>("PENDENTE");
-  const [recusando, setRecusando] = useState<Reserva | null>(null);
-  // Referência estável para "agora": evita nova query key a cada re-render.
-  const agora = useRef(new Date().toISOString()).current;
-  const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useReservas(`status=${filtro}&de=${agora}`));
-  const aprovarMut = useAprovarReserva();
-  const cancelar = useCancelarReserva();
-  const mensagens = useMensagens();
-
-  async function aprovar(r: Reserva) {
-    try {
-      await aprovarMut.mutateAsync(r.id);
-      mensagens.sucesso("Reserva aprovada.");
-    } catch (e) {
-      mensagens.erro((e as Error).message);
-    }
-  }
-
-  return (
-    <View style={{ flex: 1 }}>
-      <Lista
-        dados={dados}
-        carregando={carregando}
-        recarregando={recarregando}
-        erro={erro}
-        recarregar={recarregar}
-        vazio={filtro === "PENDENTE" ? "Nenhuma reserva aguardando aprovação" : "Nenhuma reserva confirmada"}
-        cabecalho={
-          <View style={{ marginBottom: 4 }}>
-            <Chips
-              opcoes={[
-                { valor: "PENDENTE" as const, rotulo: "Aguardando aprovação" },
-                { valor: "CONFIRMADA" as const, rotulo: "Confirmadas" },
-              ]}
-              valor={filtro}
-              onChange={setFiltro}
-            />
-          </View>
-        }
-        renderItem={(r) => (
-          <CardReserva reserva={r} mostrarUnidade>
-            {r.status === "PENDENTE" ? (
-              <BotoesLado>
-                <Botao titulo="Recusar" variante="secundario" pequeno onPress={() => setRecusando(r)} />
-                <Botao titulo="Aprovar" pequeno onPress={() => aprovar(r)} />
-              </BotoesLado>
-            ) : (
-              <Botao titulo="Cancelar reserva" variante="secundario" pequeno onPress={() => confirmarCancelamento(mensagens, r, () => cancelar.mutateAsync(r.id))} />
-            )}
-          </CardReserva>
-        )}
-      />
-      <RecusaModal
-        reserva={recusando}
-        onFechar={() => setRecusando(null)}
-        onRecusada={() => {
-          setRecusando(null);
-          void recarregar();
-        }}
-      />
-    </View>
-  );
-}
-
 function CardReserva({ reserva: r, mostrarUnidade, children }: { reserva: Reserva; mostrarUnidade?: boolean; children?: ReactNode }) {
   const estilosTexto = useEstilosTexto();
   return (
@@ -173,46 +102,6 @@ function confirmarCancelamento(
       );
     },
   });
-}
-
-function RecusaModal({ reserva, onFechar, onRecusada }: { reserva: Reserva | null; onFechar: () => void; onRecusada: () => void }) {
-  const estilosTexto = useEstilosTexto();
-  const [motivo, setMotivo] = useState("");
-  const recusar = useRecusarReserva();
-  const mensagens = useMensagens();
-
-  async function confirmarRecusa() {
-    if (!reserva) return;
-    try {
-      await recusar.mutateAsync({ id: reserva.id, motivo: motivo.trim() || undefined });
-      setMotivo("");
-      onRecusada();
-      mensagens.sucesso("Reserva recusada.");
-    } catch (e) {
-      mensagens.erro((e as Error).message);
-    }
-  }
-
-  return (
-    <ModalFormulario visivel={!!reserva} titulo="Recusar reserva" onFechar={onFechar}>
-      {reserva && (
-        <Text style={estilosTexto.corpo}>
-          {reserva.area.nome} · {data(reserva.inicio)} · {hora(reserva.inicio)} às {hora(reserva.fim)} — {unidadeTexto(reserva.unidade)}
-        </Text>
-      )}
-      <Campo
-        rotulo="Motivo (opcional)"
-        value={motivo}
-        onChangeText={setMotivo}
-        multiline
-        maxLength={300}
-        style={{ minHeight: 90, textAlignVertical: "top" }}
-        placeholder="Ex.: área em manutenção nesta data"
-      />
-      <Text style={estilosTexto.secundario}>O morador será avisado da recusa e do motivo.</Text>
-      <Botao titulo="Recusar reserva" variante="perigo" onPress={confirmarRecusa} carregando={recusar.isPending} />
-    </ModalFormulario>
-  );
 }
 
 function NovaReservaModal({ visivel, onFechar, onCriada }: { visivel: boolean; onFechar: () => void; onCriada: () => void }) {

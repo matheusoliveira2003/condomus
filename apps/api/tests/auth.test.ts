@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { type Cenario, SENHA, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
+import { type Cenario, gerarConvite, SENHA, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
 
 let app: FastifyInstance;
 let c: Cenario;
@@ -68,9 +68,9 @@ describe("token", () => {
 
 describe("token do condomínio", () => {
   it("o token carrega o condomínio e morador cadastrado por convite já entra autenticado", async () => {
-    const convite = await chamar(app, "POST", `/unidades/${c.unidades.a101.id}/convite`, { token: c.tokens.sindico });
+    const convite = await gerarConvite(c.condominio.id, c.unidades.a101.id);
     const cadastro = await chamar(app, "POST", "/cadastro", {
-      corpo: { codigo: convite.corpo.codigo, nome: "Morador Novo", email: "novo@teste.dev", senha: SENHA },
+      corpo: { codigo: convite.codigo, nome: "Morador Novo", email: "novo@teste.dev", senha: SENHA },
     });
     expect(cadastro.status).toBe(201);
     const payload = JSON.parse(Buffer.from(cadastro.corpo.token.split(".")[1], "base64url").toString());
@@ -259,15 +259,27 @@ describe("recuperação de senha", () => {
 });
 
 describe("permissões por perfil", () => {
+  it("o síndico é um morador com avisos: usa as rotas de morador e publica avisos", async () => {
+    const resumo = await chamar(app, "GET", `/resumo?inicioDoDia=${new Date().toISOString()}`, { token: c.tokens.sindico });
+    expect(resumo.status).toBe(200);
+    expect(resumo.corpo.unidade).toMatchObject({ bloco: "S", numero: "100" });
+    expect((await chamar(app, "GET", "/chat/mensagens", { token: c.tokens.sindico })).status).toBe(200);
+    expect((await chamar(app, "GET", "/reservas/minhas", { token: c.tokens.sindico })).status).toBe(200);
+    expect((await chamar(app, "POST", "/avisos", { token: c.tokens.sindico, corpo: { titulo: "Reunião", conteudo: "Sábado, às 10h" } })).status).toBe(201);
+  });
+
   it.each([
     ["morador", "POST", "/avisos"],
     ["porteiro", "POST", "/avisos"],
-    ["morador", "GET", "/usuarios"],
-    ["porteiro", "GET", "/usuarios"],
     ["morador", "GET", "/unidades"],
+    ["sindico", "GET", "/unidades"],
     ["morador", "POST", "/encomendas"],
+    ["sindico", "POST", "/encomendas"],
     ["porteiro", "POST", "/visitas"],
-    ["sindico", "POST", "/reservas"],
+    ["porteiro", "POST", "/reservas"],
+    ["sindico", "POST", "/visitas/entrada-direta"],
+    ["sindico", "POST", "/rostos/consulta"],
+    ["sindico", "GET", "/chat/conversas"],
   ] as const)("%s não pode %s %s", async (perfil, metodo, url) => {
     const r = await chamar(app, metodo, url, { token: c.tokens[perfil], corpo: {} });
     expect(r.status).toBe(403);
@@ -282,10 +294,11 @@ describe("plano inativo", () => {
     expect((await chamar(app, "PATCH", "/auth/senha", { token: c.tokens.morador, corpo: { senhaAtual: SENHA, novaSenha: "nova123" } })).status).toBe(402);
   });
 
-  it("plano expirado: síndico continua com acesso total", async () => {
+  it("plano expirado: o síndico é bloqueado como os demais, e só o administrador regulariza", async () => {
     await prisma.condominio.update({ where: { id: c.condominio.id }, data: { planoStatus: "EXPIRADO" } });
-    expect((await chamar(app, "GET", "/avisos", { token: c.tokens.sindico })).status).toBe(200);
-    expect((await chamar(app, "GET", "/condominios/meu", { token: c.tokens.sindico })).corpo).toMatchObject({ planoStatus: "EXPIRADO" });
+    for (const perfil of ["sindico", "morador", "porteiro"] as const) {
+      expect((await chamar(app, "GET", "/avisos", { token: c.tokens[perfil] })).status).toBe(402);
+    }
   });
 
   it("reativar o plano restaura o acesso sem novo login", async () => {

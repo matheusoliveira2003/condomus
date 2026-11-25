@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { type Cenario, chamar, criarApp, criarCenario, entrar, limparBanco, prisma } from "./ajuda.js";
 import { DIAS_RETENCAO_CHAT, limparMensagensAntigas } from "../src/modules/chat/regras.js";
+import { apagarMensagensDoSindico, contarMensagensDoSindico } from "../src/modules/chat/limpezaSindico.js";
+import { PREFIXO_LEMBRETE } from "../src/modules/encomendas/lembretes.js";
 
 // Storage simulado: fotos do chat em memória, pela chave unidade/mensagem.
 const fotos = new Map<string, Buffer>();
@@ -68,9 +70,18 @@ describe("chat entre portaria e unidade", () => {
     expect(r.corpo.itens[0].autor).toMatchObject({ nome: "Porteiro" });
   });
 
-  it("o síndico também responde como portaria", async () => {
-    const r = await daPortaria(c.unidades.a101.id, { texto: "Aviso do síndico" }, c.tokens.sindico);
-    expect(r.corpo.lado).toBe("PORTARIA");
+  it("o síndico não responde como portaria: tem a conversa da própria unidade, como morador", async () => {
+    // As rotas da portaria são só do porteiro.
+    expect((await daPortaria(c.unidades.a101.id, { texto: "Aviso do síndico" }, c.tokens.sindico)).status).toBe(403);
+    expect((await chamar(app, "GET", "/chat/conversas", { token: c.tokens.sindico })).status).toBe(403);
+    expect((await chamar(app, "GET", `/chat/conversas/${c.unidades.a101.id}/mensagens`, { token: c.tokens.sindico })).status).toBe(403);
+    // Pela conversa da própria unidade (S 100), ele escreve do lado do morador.
+    const r = await doMorador({ texto: "Oi, portaria" }, c.tokens.sindico);
+    expect(r.status).toBe(201);
+    expect(r.corpo.lado).toBe("MORADOR");
+    expect((await conversaDoMorador(c.tokens.sindico)).corpo.itens).toHaveLength(1);
+    // A conversa do síndico é a dele: o morador da 101 não a vê.
+    expect((await conversaDoMorador(c.tokens.morador)).corpo.itens).toHaveLength(0);
   });
 
   it("todos os moradores da unidade veem a mesma conversa; o vizinho não", async () => {
@@ -105,12 +116,14 @@ describe("chat entre portaria e unidade", () => {
     expect(r.status).toBe(201);
     expect(r.corpo).toMatchObject({ temFoto: true, texto: null });
     const url = `/chat/mensagens/${r.corpo.id}/foto`;
-    for (const token of [c.tokens.morador, c.tokens.porteiro, c.tokens.sindico]) {
+    for (const token of [c.tokens.morador, c.tokens.porteiro]) {
       const foto = await chamar(app, "GET", url, { token });
       expect(foto.status).toBe(200);
       expect(foto.bytes.toString("base64")).toBe(JPEG);
     }
+    // Quem não participa da conversa não vê: o vizinho e o síndico (que é morador de outra unidade).
     expect((await chamar(app, "GET", url, { token: c.tokens.vizinho })).status).toBe(403);
+    expect((await chamar(app, "GET", url, { token: c.tokens.sindico })).status).toBe(403);
   });
 
   it("polling com depoisDe traz só as mensagens novas", async () => {
@@ -126,11 +139,17 @@ describe("chat entre portaria e unidade", () => {
     await daPortaria(c.unidades.a101.id, { texto: "Resposta 1" });
     await daPortaria(c.unidades.a101.id, { texto: "Resposta 2" });
     expect((await contadores(c.tokens.morador)).corpo.chatNaoLidas).toBe(2);
+    // Quem responde leu o que veio antes: a portaria respondeu, então a pergunta do morador não conta para ela.
     expect((await contadores(c.tokens.porteiro)).corpo.chatNaoLidas).toBe(0);
     expect((await chamar(app, "POST", "/chat/lida", { token: c.tokens.morador })).status).toBe(204);
     expect((await contadores(c.tokens.morador)).corpo.chatNaoLidas).toBe(0);
-    // O síndico ainda não leu a pergunta do morador.
-    expect((await contadores(c.tokens.sindico)).corpo.chatNaoLidas).toBe(1);
+    // Uma pergunta nova do morador conta para a portaria até ela marcar a conversa como lida.
+    await doMorador({ texto: "Outra pergunta" });
+    expect((await contadores(c.tokens.porteiro)).corpo.chatNaoLidas).toBe(1);
+    expect((await chamar(app, "POST", "/chat/lida", { token: c.tokens.porteiro, corpo: { unidadeId: c.unidades.a101.id } })).status).toBe(204);
+    expect((await contadores(c.tokens.porteiro)).corpo.chatNaoLidas).toBe(0);
+    // O síndico é outra unidade e não vê nada da conversa da 101.
+    expect((await contadores(c.tokens.sindico)).corpo.chatNaoLidas).toBe(0);
   });
 
   it("a lista de conversas da portaria traz a última mensagem de cada unidade, mais recente primeiro", async () => {
@@ -143,10 +162,11 @@ describe("chat entre portaria e unidade", () => {
     ]);
   });
 
-  it("avisa por push o outro lado: a mensagem do morador vai para porteiro e síndico, a da portaria para a unidade", async () => {
+  it("avisa por push o outro lado: a mensagem do morador vai para o porteiro, a da portaria para a unidade", async () => {
     await doMorador({ texto: "Oi" });
     await esperarPush();
-    expect(pushes.map((p) => p.to).sort()).toEqual(["ExponentPushToken[porteiro]", "ExponentPushToken[sindico]"]);
+    // Só a portaria recebe: o síndico é um morador de outra unidade e não participa dessa conversa.
+    expect(pushes.map((p) => p.to)).toEqual(["ExponentPushToken[porteiro]"]);
     expect(pushes[0]).toMatchObject({ body: "Oi", data: { aba: "Chat" } });
 
     pushes = [];
@@ -163,5 +183,50 @@ describe("chat entre portaria e unidade", () => {
     expect(await limparMensagensAntigas()).toEqual({ apagadas: 1, falhas: 0 });
     expect((await conversaDoMorador()).corpo.itens.map((m: { texto: string }) => m.texto)).toEqual(["recente"]);
     expect(fotos.size).toBe(0);
+  });
+});
+
+describe("limpeza das mensagens do síndico na portaria (uma vez)", () => {
+  const msg = (autorId: string, unidadeId: string, lado: "MORADOR" | "PORTARIA", texto: string, temFoto = false) =>
+    prisma.mensagemChat.create({ data: { autorId, unidadeId, lado, texto, temFoto } });
+
+  /** Cenário: o que deve sumir (síndico como portaria) misturado com o que deve ficar. */
+  async function montar() {
+    const { sindico, porteiro, morador } = c.usuarios;
+    const a101 = c.unidades.a101.id;
+    const s100 = c.unidades.s100.id;
+    const alvo1 = await msg(sindico.id, a101, "PORTARIA", "Aviso do síndico à unidade");
+    const alvo2 = await msg(sindico.id, a101, "PORTARIA", "Com foto", true);
+    fotos.set(chave(a101, alvo2.id), Buffer.from("foto"));
+    const ficam = [
+      await msg(porteiro.id, a101, "PORTARIA", "Resposta do porteiro"),
+      await msg(morador.id, a101, "MORADOR", "Pergunta do morador"),
+      await msg(sindico.id, s100, "MORADOR", "O síndico como morador da própria unidade"),
+      await msg(sindico.id, a101, "PORTARIA", `${PREFIXO_LEMBRETE} você tem 1 encomenda aguardando retirada`),
+    ];
+    return { alvo: [alvo1.id, alvo2.id], ficam: ficam.map((m) => m.id) };
+  }
+
+  it("só conta, sem apagar nada, no modo de conferência", async () => {
+    const { ficam, alvo } = await montar();
+    expect(await contarMensagensDoSindico()).toBe(2);
+    expect(await prisma.mensagemChat.count({ where: { id: { in: [...alvo, ...ficam] } } })).toBe(6);
+  });
+
+  it("apaga só o que o síndico mandou como portaria, com a foto, e preserva todo o resto", async () => {
+    const { alvo, ficam } = await montar();
+    expect(await apagarMensagensDoSindico()).toEqual({ apagadas: 2, falhas: 0 });
+    expect(await prisma.mensagemChat.count({ where: { id: { in: alvo } } })).toBe(0);
+    // Porteiro, morador, o síndico como morador e o lembrete automático de encomenda continuam.
+    expect(await prisma.mensagemChat.count({ where: { id: { in: ficam } } })).toBe(4);
+    expect(fotos.size).toBe(0);
+  });
+
+  it("é idempotente: rodar de novo não apaga mais nada", async () => {
+    const { ficam } = await montar();
+    await apagarMensagensDoSindico();
+    expect(await apagarMensagensDoSindico()).toEqual({ apagadas: 0, falhas: 0 });
+    expect(await contarMensagensDoSindico()).toBe(0);
+    expect(await prisma.mensagemChat.count({ where: { id: { in: ficam } } })).toBe(4);
   });
 });
