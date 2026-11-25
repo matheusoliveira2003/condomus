@@ -4,9 +4,10 @@
 
 | Perfil       | Descrição |
 |--------------|-----------|
-| **Morador**  | Vinculado a uma unidade. Autoriza visitantes, acompanha encomendas, lê avisos e reserva áreas comuns. |
-| **Porteiro** | Funcionário da portaria. Registra entrada/saída de visitantes e recebimento/retirada de encomendas. |
-| **Síndico**  | Administração. Publica avisos, cancela reservas e tem as permissões da portaria. |
+| **Morador**  | Vinculado a uma unidade. Autoriza visitantes, acompanha encomendas, lê avisos, reserva áreas comuns e fala com a portaria pelo chat da unidade. |
+| **Porteiro** | Funcionário da portaria. Registra entrada/saída de visitantes e recebimento/retirada de encomendas, e conversa com cada unidade pelo chat. |
+| **Síndico**  | Mora numa unidade e usa o app como morador, com uma função a mais: publica e remove avisos. Não atende a portaria, não cadastra e não aprova nada. |
+| **Administrador** | Gerencia todos os condomínios pelo painel web (`/admin`): condomínios e plano, unidades, usuários e áreas comuns. Não usa o app. |
 
 ## Requisitos funcionais (MVP)
 
@@ -33,23 +34,25 @@ Ciclo de vida: `AGENDADA → EM_ANDAMENTO → FINALIZADA` (ou `AGENDADA → CANC
 
 ### Reservas de áreas comuns
 - **RF12** — Todos visualizam as áreas e as reservas confirmadas (disponibilidade).
-- **RF13** — O morador solicita a reserva de uma área em um intervalo de horário futuro, sem conflito com outra reserva pendente ou confirmada. O síndico é notificado.
-- **RF13a** — O síndico aprova ou recusa (com motivo opcional) as solicitações; o morador é notificado da decisão. Uma solicitação pendente já ocupa o horário; se recusada, o horário é liberado.
-- **RF14** — O morador cancela reservas pendentes ou confirmadas da sua unidade; o síndico cancela qualquer reserva, e o morador é notificado.
+- **RF13** — O morador (ou o síndico, que mora numa unidade) reserva uma área em um intervalo de horário futuro, sem conflito com outra reserva. Se o horário está livre, a reserva já nasce **confirmada**, sem aprovação, e a unidade recebe a confirmação por notificação.
+- **RF14** — Quem mora na unidade cancela as reservas confirmadas da própria unidade. Ninguém cancela a reserva de outra unidade.
+- **RF14a** — A aba Reservas abre numa **agenda** com três visões: Dia (um cartão por área, com a linha do tempo das 8h às 23h e o que está livre), Mês (calendário com um ponto colorido por área com reserva) e Ano (barras por mês). "Minhas reservas" lista as da própria unidade.
 
-Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e confirmadas podem ir para `CANCELADA`.
+Ciclo de vida: `CONFIRMADA → CANCELADA`. O status `PENDENTE` existe só nas reservas pedidas antes da aprovação sair; elas foram resolvidas por uma migração (confirmadas ou canceladas).
 
 ### Tela inicial do morador
 - **RF19** — Ao abrir o app, o morador vê um resumo da unidade: encomendas aguardando retirada, visitantes no condomínio e esperados hoje, a próxima reserva (com a situação) e os 3 avisos mais recentes, com acesso à lista completa. Atalhos abrem direto os formulários de autorizar visitante e de reservar área.
 
-### Cadastros
-- **RF15** — O síndico cadastra unidades (bloco e número, sem duplicidade).
-- **RF16** — O síndico cadastra moradores (vinculados a uma unidade) e funcionários (porteiro ou síndico), definindo a senha inicial.
-- **RF17** — O síndico desativa e reativa contas; uma conta desativada perde o acesso imediatamente. Não há exclusão, para preservar o histórico.
+### Cadastros (painel do administrador)
+- **RF15** — O administrador cadastra unidades (bloco e número, sem duplicidade), uma a uma ou em lote.
+- **RF16** — O administrador cadastra moradores e síndicos (vinculados a uma unidade) e porteiros (sem unidade). A senha inicial é temporária e vai por e-mail.
+- **RF17** — O administrador desativa e reativa contas; uma conta desativada perde o acesso imediatamente. Unidades e usuários não se excluem com histórico, para preservar os dados.
+- **RF22** — O administrador cadastra os condomínios (com o primeiro síndico), controla o plano e as áreas comuns. Um plano vencido bloqueia o condomínio inteiro, o síndico inclusive.
+- **RF23** — Quem mora numa unidade e ainda não tem uma vinculada vê, no lugar das abas, um aviso pedindo para falar com a administração.
 
 ### Conta
 - **RF18** — Todo usuário consulta seus dados e troca a própria senha, informando a senha atual.
-- **RF20** — Todo usuário pode definir uma foto de perfil (galeria ou câmera, recortada em quadrado e reduzida para 400×400 no app) e removê-la. A foto aparece no cabeçalho, no Início e nos Cadastros; a portaria vê a foto de quem autorizou cada visita e dos moradores da unidade ao registrar a retirada de uma encomenda. Só a própria pessoa, a portaria e o síndico podem ver a foto.
+- **RF20** — Todo usuário pode definir uma foto de perfil (galeria ou câmera, recortada em quadrado e reduzida para 400×400 no app) e removê-la. A foto aparece no cabeçalho e no Início; a portaria vê a foto de quem autorizou cada visita e dos moradores da unidade ao registrar a retirada de uma encomenda. Só a própria pessoa e a portaria podem ver a foto.
 - **RF21** — Quem esqueceu a senha pede um código de 6 dígitos por e-mail (válido por 15 minutos, de uso único) e o usa para definir uma nova senha, sem precisar da senha atual. O pedido não revela se o e-mail tem conta cadastrada.
 
 ## Requisitos não funcionais
@@ -66,32 +69,32 @@ Ciclo de vida: `PENDENTE → CONFIRMADA` ou `PENDENTE → RECUSADA`; pendentes e
 | `POST /auth/recuperar-senha`, `/redefinir-senha` | sem login (qualquer um) | | |
 | `GET /auth/me`, `PATCH /auth/senha` | ✔            | ✔        | ✔       |
 | `PUT /auth/foto`, `DELETE /auth/foto` (própria) | ✔ | ✔        | ✔       |
-| `GET /usuarios/:id/foto`          | só a própria   | ✔        | ✔       |
-| `GET /unidades/:id/moradores`     |                | ✔        | ✔       |
-| `GET /visitas`                    | própria unidade| todas    | todas   |
-| `POST /visitas`                   | ✔              |          |         |
-| `POST /visitas/entrada-direta`    |                | ✔        | ✔       |
-| `PATCH /visitas/:id/entrada`      |                | ✔        | ✔       |
-| `PATCH /visitas/:id/saida`        |                | ✔        | ✔       |
-| `PATCH /visitas/:id/cancelar`     | própria unidade|          |         |
-| `GET /visitas/:id/convite`, `/convite.png` | própria unidade |  |         |
-| `GET /visitas/codigo/:codigo`     |                | ✔        | ✔       |
-| `GET /encomendas`                 | própria unidade| todas    | todas   |
-| `POST /encomendas`                |                | ✔        | ✔       |
-| `PATCH /encomendas/:id/retirada`  |                | ✔        | ✔       |
+| `GET /usuarios/:id/foto`          | só a própria   | ✔        | só a própria |
+| `GET /unidades/:id/moradores`     |                | ✔        |         |
+| `GET /visitas`                    | própria unidade| todas    | própria unidade |
+| `POST /visitas`                   | ✔              |          | ✔       |
+| `POST /visitas/entrada-direta`    |                | ✔        |         |
+| `PATCH /visitas/:id/entrada`      |                | ✔        |         |
+| `PATCH /visitas/:id/saida`        |                | ✔        |         |
+| `PATCH /visitas/:id/cancelar`     | própria unidade|          | própria unidade |
+| `GET /visitas/:id/convite`, `/convite.png` | própria unidade |  | própria unidade |
+| `GET /visitas/codigo/:codigo`     |                | ✔        |         |
+| `GET /encomendas`                 | própria unidade| todas    | própria unidade |
+| `POST /encomendas`                |                | ✔        |         |
+| `PATCH /encomendas/:id/retirada`  |                | ✔        |         |
 | `GET /avisos`                     | ✔              | ✔        | ✔       |
 | `POST /avisos`, `DELETE /avisos/:id` |             |          | ✔       |
-| `GET /unidades`                   |                | ✔        | ✔       |
-| `POST /unidades`                  |                |          | ✔       |
-| `GET /usuarios`, `POST /usuarios` |                |          | ✔       |
-| `PATCH /usuarios/:id/ativo`       |                |          | ✔       |
+| `GET /unidades`                   |                | ✔        |         |
+| `GET /chat/mensagens`, `POST /chat/mensagens` (conversa da própria unidade) | ✔ |  | ✔ |
+| `GET /chat/conversas`, `/chat/conversas/:unidadeId/mensagens` |  | ✔ |         |
 | `PUT /dispositivos`, `DELETE /dispositivos/:token` | ✔ | ✔     | ✔       |
-| `GET /resumo`                     | ✔              |          |         |
+| `GET /resumo`                     | ✔              |          | ✔       |
 | `GET /areas`, `GET /reservas`     | ✔              | ✔        | ✔       |
-| `GET /reservas/minhas`            | ✔              |          |         |
-| `POST /reservas`                  | ✔              |          |         |
-| `PATCH /reservas/:id/aprovar`, `/recusar` |        |          | ✔       |
-| `PATCH /reservas/:id/cancelar`    | própria unidade|          | ✔       |
+| `GET /reservas/minhas`            | ✔              |          | ✔       |
+| `POST /reservas`                  | ✔              |          | ✔       |
+| `PATCH /reservas/:id/cancelar`    | própria unidade|          | própria unidade |
+
+Cadastro de unidades, usuários, convites e áreas comuns não está na API do app: é do administrador, pelo painel web (`/admin/painel/...`), com login próprio e sessão separada da do app.
 
 ## Modelo de dados
 
@@ -112,16 +115,15 @@ erDiagram
 O esquema completo está em [apps/api/prisma/schema.prisma](../apps/api/prisma/schema.prisma).
 
 ## Limitações conhecidas / próximos passos
-- Verificação de conflito de reservas sem bloqueio transacional (duas requisições simultâneas podem passar).
 - Push no Android exige um development build (o Expo Go no Android não recebe push desde o SDK 53).
 
 ## Telas do aplicativo
 
 | Perfil   | Abas |
 |----------|------|
-| Morador  | Início (resumo, atalhos e avisos) · Meus visitantes (em aberto + histórico) · Encomendas (na portaria + histórico de retiradas) · Reservas |
-| Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Avisos |
-| Síndico  | Avisos (publicar/remover) · Visitantes · Encomendas · Reservas (aprovar, recusar e cancelar) · Cadastros |
+| Morador  | Início (resumo, atalhos e avisos) · Meus visitantes (em aberto + histórico) · Encomendas (na portaria + histórico de retiradas) · Reservas (agenda Dia/Mês/Ano e minhas reservas) · Chat (conversa com a portaria) |
+| Porteiro | Visitantes (esperados / no condomínio / histórico) · Encomendas · Chat (todas as unidades) · Avisos |
+| Síndico  | As mesmas abas do morador, mais **Avisos** (publicar e remover) |
 
 O ícone de perfil no topo de todas as telas abre **Minha conta** (dados, troca de senha e sair).
 
