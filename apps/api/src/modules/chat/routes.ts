@@ -217,7 +217,8 @@ function avisar(
   comFoto: boolean,
 ) {
   const previa = texto ? (texto.length > 100 ? `${texto.slice(0, 97)}…` : texto) : comFoto ? "📷 Foto" : "";
-  const dados = { aba: "Chat", unidadeId };
+  // O app abre a conversa da unidade ao tocar; `unidadeTitulo` é o nome que a janela mostra (igual ao da lista).
+  const dados = { aba: "Chat", unidadeId, unidadeTitulo: `Bloco ${unidade.bloco} · ${unidade.numero}` };
   if (lado === "MORADOR") {
     void prisma.usuario
       .findMany({ where: { condominioId, ativo: true, papel: "PORTEIRO" }, select: { id: true } })
