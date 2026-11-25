@@ -177,6 +177,13 @@ describe("chat entre portaria e unidade", () => {
     expect(pushes[0].body).toBe("📷 Foto");
   });
 
+  it("a resposta da portaria chega por push ao síndico quando é a conversa da unidade dele", async () => {
+    await daPortaria(c.unidades.s100.id, { texto: "Chegou uma carta" });
+    await esperarPush();
+    expect(pushes.map((p) => p.to)).toEqual(["ExponentPushToken[sindico]"]);
+    expect(pushes[0]).toMatchObject({ body: "Chegou uma carta", data: { aba: "Chat", unidadeId: c.unidades.s100.id } });
+  });
+
   it("a limpeza apaga as mensagens com mais de 90 dias, com a foto", async () => {
     const antiga = (await doMorador({ texto: "antiga", foto: JPEG })).corpo;
     await doMorador({ texto: "recente" });

@@ -59,6 +59,13 @@ describe("notificações push", () => {
     expect(enviadas).toEqual([expect.objectContaining({ to: TOKEN_MORADOR, body: "Caixa (Correios)", data: { aba: "Encomendas" } })]);
   });
 
+  it("o síndico mora numa unidade e recebe o que é dela; os vizinhos não", async () => {
+    await registrarCelulares();
+    await chamar(app, "POST", "/encomendas", { token: c.tokens.porteiro, corpo: { unidadeId: c.unidades.s100.id, descricao: "Pacote" } });
+    await aguardarEnvio(1);
+    expect(enviadas).toEqual([expect.objectContaining({ to: TOKEN_SINDICO, body: "Pacote", data: { aba: "Encomendas" } })]);
+  });
+
   it("aviso vai para todos, menos para quem publicou", async () => {
     await registrarCelulares();
     await chamar(app, "POST", "/avisos", { token: c.tokens.sindico, corpo: { titulo: "Reunião", conteudo: "Sábado" } });

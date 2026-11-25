@@ -1,4 +1,5 @@
 import type { Papel } from "@prisma/client";
+import { PAPEIS_MORADOR } from "./papeis.js";
 import { prisma } from "./prisma.js";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -58,10 +59,10 @@ export async function enviarPush(usuarioIds: string[], { titulo, corpo, dados }:
   }
 }
 
-/** Envia uma notificação para todos os moradores de uma unidade. Não espera o envio. */
+/** Envia uma notificação para quem mora numa unidade (moradores e síndico, que também mora numa). Não espera o envio. */
 export function notificarUnidade(unidadeId: string, mensagem: Mensagem) {
   void prisma.usuario
-    .findMany({ where: { unidadeId, papel: "MORADOR" }, select: { id: true } })
+    .findMany({ where: { unidadeId, papel: { in: [...PAPEIS_MORADOR] }, ativo: true }, select: { id: true } })
     .then((moradores) => enviarPush(moradores.map((m) => m.id), mensagem))
     .catch((erro) => console.error("[push] Falha ao buscar moradores da unidade", erro));
 }
