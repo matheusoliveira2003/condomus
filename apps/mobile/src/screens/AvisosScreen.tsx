@@ -9,7 +9,11 @@ import { dataHora } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
-export function AvisosScreen() {
+/**
+ * Mural de avisos. O síndico publica, edita e remove; os demais só leem.
+ * `abrirNovo` abre a tela já com o formulário de novo aviso (o atalho "Publicar aviso" do Início).
+ */
+export function AvisosScreen({ abrirNovo = false }: { abrirNovo?: boolean } = {}) {
   const cores = useCores();
   const estilos = useEstilos(criarEstilos);
   const { usuario } = useAuth();
@@ -17,7 +21,7 @@ export function AvisosScreen() {
   const { dados, carregando, recarregando, erro, recarregar, carregarMais, carregandoMais } = adaptarQuery(useAvisos());
   const remover = useRemoverAviso();
   const mensagens = useMensagens();
-  const [criando, setCriando] = useState(false);
+  const [criando, setCriando] = useState(abrirNovo && ehSindico);
   const [editando, setEditando] = useState<Aviso | null>(null);
 
   function confirmarRemocao(aviso: Aviso) {

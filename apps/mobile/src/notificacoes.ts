@@ -5,6 +5,7 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import type * as ExpoNotifications from "expo-notifications";
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
+import { ehMorador } from "@condomus/types";
 import type { Papel } from "./api/client";
 
 /** Mesmo id usado pela API ao enviar (campo channelId). */
@@ -63,7 +64,7 @@ export async function obterTokenPush(): Promise<string | null> {
 
 /**
  * Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas").
- * O morador não tem aba Avisos: nesse caso abre o Início com a lista de avisos aberta.
+ * Quem mora numa unidade (morador e síndico) não tem aba Avisos: nesse caso abre o Início com a lista de avisos aberta.
  */
 export function useAbrirAbaDaNotificacao(
   navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>,
@@ -80,7 +81,7 @@ export function useAbrirAbaDaNotificacao(
       if (navegacao.isReady()) {
         // As rotas não são tipadas (as abas variam por perfil), daí a conversão.
         const ir = navegacao.navigate as unknown as (rota: string, params?: object) => void;
-        if (aba === "Avisos" && papel === "MORADOR") ir("Início", { verAvisos: true });
+        if (aba === "Avisos" && papel && ehMorador(papel)) ir("Início", { verAvisos: true });
         else ir(aba);
       }
       else if (tentativas > 0) setTimeout(() => abrir(resposta, tentativas - 1), 100);
