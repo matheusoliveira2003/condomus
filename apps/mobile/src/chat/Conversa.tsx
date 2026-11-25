@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { escolherFoto, type OrigemFoto } from "../foto";
 import { keys, marcarChatLido, useConversa, useEnviarMensagem } from "../hooks/queries";
 import { Avatar } from "../ui/Avatar";
 import { MensagemErro, useEstilosTexto } from "../ui/componentes";
+import { definirConversaEmFoco } from "./conversaEmFoco";
 import { data, hora } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
@@ -49,6 +50,14 @@ export function Conversa({ unidadeId }: { unidadeId?: string }) {
     const t = setTimeout(() => setDemorando(true), 3000);
     return () => clearTimeout(t);
   }, [enviarMensagem.isPending]);
+
+  // Enquanto a conversa está na tela, as notificações dela não aparecem por cima (a mensagem já está ali).
+  const unidadeDaConversa = unidadeId ?? usuario?.unidadeId ?? null;
+  useEffect(() => {
+    if (!emFoco || !unidadeDaConversa) return;
+    definirConversaEmFoco(unidadeDaConversa);
+    return () => definirConversaEmFoco(null);
+  }, [emFoco, unidadeDaConversa]);
 
   // Ao abrir e a cada mensagem nova do outro lado, marca como lida e atualiza o número da aba.
   const ultimaId = itens[0]?.id;
@@ -179,24 +188,70 @@ function Balao({
   );
 }
 
-/** Foto de uma mensagem, servida pela API com o token (a rota é privada). */
+/** Endereço da foto de uma mensagem e o login que a API exige (a rota é privada). */
+function fonteDaFoto(id: string) {
+  // Fonte dentro de uma lista: no Android (RN 0.86), fonte única descarta `headers`, e sem o login a API recusa.
+  return [{ uri: `${API_URL}/chat/mensagens/${id}/foto`, headers: { Authorization: `Bearer ${obterToken()}` } }];
+}
+
+/** Foto de uma mensagem: miniatura no balão; tocar abre a foto inteira. */
 function FotoDaMensagem({ id }: { id: string }) {
   const cores = useCores();
   const [falhou, setFalhou] = useState(false);
+  const [ampliada, setAmpliada] = useState(false);
   const montado = useRef(true);
   useEffect(() => () => void (montado.current = false), []);
   if (falhou) return <Text style={{ color: cores.textoSecundario, fontSize: 13 }}>Não foi possível carregar a foto.</Text>;
   return (
-    <Image
-      // Fonte dentro de uma lista: no Android (RN 0.86), fonte única descarta `headers`, e sem o login a API recusa.
-      source={[{ uri: `${API_URL}/chat/mensagens/${id}/foto`, headers: { Authorization: `Bearer ${obterToken()}` } }]}
-      style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: cores.neutroClaro }}
-      resizeMode="cover"
-      onError={() => montado.current && setFalhou(true)}
-      accessibilityLabel="Foto enviada no chat"
-    />
+    <>
+      <Pressable onPress={() => setAmpliada(true)} accessibilityRole="imagebutton" accessibilityLabel="Ver a foto inteira">
+        <Image
+          source={fonteDaFoto(id)}
+          style={{ width: 220, height: 220, borderRadius: 10, backgroundColor: cores.neutroClaro }}
+          resizeMode="cover"
+          onError={() => montado.current && setFalhou(true)}
+          accessibilityLabel="Foto enviada no chat"
+        />
+      </Pressable>
+      <FotoInteira id={id} visivel={ampliada} onFechar={() => setAmpliada(false)} />
+    </>
   );
 }
+
+/** A foto sem corte, em tela cheia sobre fundo escuro. Fecha tocando em qualquer ponto, no X ou no botão voltar. */
+function FotoInteira({ id, visivel, onFechar }: { id: string; visivel: boolean; onFechar: () => void }) {
+  const [carregando, setCarregando] = useState(true);
+  const [falhou, setFalhou] = useState(false);
+  // Só monta a imagem com a janela aberta: a foto inteira (maior que a miniatura) não fica na memória à toa.
+  return (
+    <Modal visible={visivel} transparent animationType="fade" statusBarTranslucent onRequestClose={onFechar}>
+      <Pressable onPress={onFechar} style={estilosFotoInteira.fundo} accessibilityRole="button" accessibilityLabel="Fechar a foto">
+        {visivel && !falhou && (
+          <Image
+            source={fonteDaFoto(id)}
+            style={estilosFotoInteira.foto}
+            resizeMode="contain"
+            onLoadEnd={() => setCarregando(false)}
+            onError={() => setFalhou(true)}
+            accessibilityLabel="Foto enviada no chat, inteira"
+          />
+        )}
+        {visivel && carregando && !falhou && <ActivityIndicator color="#fff" style={StyleSheet.absoluteFill} />}
+        {falhou && <Text style={estilosFotoInteira.erro}>Não foi possível carregar a foto.</Text>}
+        <View style={estilosFotoInteira.fechar} pointerEvents="none">
+          <Ionicons name="close" size={26} color="#fff" />
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const estilosFotoInteira = StyleSheet.create({
+  fundo: { flex: 1, backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center" },
+  foto: { width: "100%", height: "100%" },
+  erro: { color: "#fff", fontSize: 15 },
+  fechar: { position: "absolute", top: 44, right: 20, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.18)" },
+});
 
 const criarStyles = (cores: Paleta) =>
   StyleSheet.create({
