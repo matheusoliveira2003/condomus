@@ -19,8 +19,9 @@ beforeEach(async () => {
 
 // O convite nasce pela função que o painel do administrador usa; o app do síndico não gera mais convites.
 const gerarConvite = async (unidadeId: string) => {
-  const r = await gerarConviteDoPainel(c.condominio.id, unidadeId);
-  return r as { codigo: string; expiraEm: string };
+  const { codigo, expiraEm } = await gerarConviteDoPainel(c.condominio.id, unidadeId);
+  // A rota devolve a data como texto (JSON); aqui ela vem como Date da função, então converte para o mesmo formato.
+  return { codigo, expiraEm: expiraEm.toISOString() };
 };
 
 const dadosCadastro = (codigo: string, email = "novo@teste.dev") => ({ codigo, nome: "Novo Morador", email, senha: SENHA });

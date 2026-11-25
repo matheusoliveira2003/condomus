@@ -9,6 +9,14 @@
 
 export type Papel = "MORADOR" | "PORTEIRO" | "SINDICO";
 
+/**
+ * Papéis que moram numa unidade e usam o app como morador: visitas, encomendas, reservas e a conversa da própria unidade.
+ * O síndico é um morador com a função de publicar avisos. O porteiro atende todas as unidades e não mora em nenhuma.
+ */
+export const PAPEIS_MORADOR = ["MORADOR", "SINDICO"] as const satisfies readonly Papel[];
+
+export const ehMorador = (papel: string): boolean => (PAPEIS_MORADOR as readonly string[]).includes(papel);
+
 export type StatusVisita = "AGENDADA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
 export type StatusEncomenda = "AGUARDANDO_RETIRADA" | "RETIRADA";
