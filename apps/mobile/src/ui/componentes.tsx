@@ -604,12 +604,28 @@ export function LinkHistorico({ texto, onPress }: { texto: string; onPress: () =
 }
 
 /** Tela cheia em modal, com título e botão de fechar, para conteúdo que já rola (ex.: Lista). */
-export function ModalTela({ visivel, titulo, onFechar, children }: { visivel: boolean; titulo: string; onFechar: () => void; children: ReactNode }) {
+export function ModalTela({
+  visivel,
+  titulo,
+  onFechar,
+  aoAparecer,
+  children,
+}: {
+  visivel: boolean;
+  titulo: string;
+  onFechar: () => void;
+  /**
+   * Chamado quando a janela termina de aparecer. Use para abrir um segundo modal por cima: no Android, um modal aberto
+   * enquanto o de baixo ainda está deslizando não se apresenta.
+   */
+  aoAparecer?: () => void;
+  children: ReactNode;
+}) {
   const cores = useCores();
   const styles = useEstilos(criarEstilos);
   useRegistrarModal(visivel);
   return (
-    <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar}>
+    <Modal visible={visivel} animationType="slide" presentationStyle="pageSheet" onRequestClose={onFechar} onShow={aoAparecer}>
       <SafeAreaView style={styles.modal} edges={["top", "bottom"]}>
         <View style={styles.modalCabecalho}>
           <Pressable onPress={onFechar} hitSlop={12} accessibilityRole="button" accessibilityLabel="Voltar">

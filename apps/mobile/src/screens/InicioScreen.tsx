@@ -29,8 +29,10 @@ export function InicioScreen() {
   const recarregar = query.refetch;
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
-  // O atalho "Publicar aviso" abre a mesma janela de avisos, já com o formulário de novo aviso aberto.
-  const [publicando, setPublicando] = useState(false);
+  // O atalho "Publicar aviso" abre a janela de avisos e, quando ela termina de aparecer, pede o formulário de novo aviso.
+  // `querPublicar` guarda a intenção; `pedidoNovo` é o número que a tela de avisos observa para abrir o formulário.
+  const [querPublicar, setQuerPublicar] = useState(false);
+  const [pedidoNovo, setPedidoNovo] = useState(0);
   const [contaAberta, setContaAberta] = useState(false);
   const ehSindico = usuario?.papel === "SINDICO";
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
@@ -70,7 +72,7 @@ export function InicioScreen() {
             icone="megaphone"
             texto="Publicar aviso"
             onPress={() => {
-              setPublicando(true);
+              setQuerPublicar(true);
               setVendoAvisos(true);
             }}
           />
@@ -176,14 +178,20 @@ export function InicioScreen() {
       <ModalTela
         visivel={vendoAvisos}
         titulo="Avisos"
+        // O formulário só abre quando a janela de avisos termina de aparecer: no Android, um modal aberto por cima de outro
+        // que ainda está deslizando não se apresenta (o botão "+" dentro da janela, já parada, funciona).
+        aoAparecer={() => {
+          if (!querPublicar) return;
+          setQuerPublicar(false);
+          setPedidoNovo((n) => n + 1);
+        }}
         onFechar={() => {
           setVendoAvisos(false);
-          // Zera o atalho: abrir pelo cartão depois mostra só a lista, sem reabrir o formulário.
-          setPublicando(false);
+          // Cancela o atalho se a janela foi fechada antes de aparecer, para não abrir o formulário na vez seguinte.
+          setQuerPublicar(false);
         }}
       >
-        {/* A key troca quando o atalho é usado: a tela monta de novo e o formulário abre na hora. */}
-        <AvisosScreen key={publicando ? "publicar" : "lista"} abrirNovo={publicando} />
+        <AvisosScreen pedidoNovo={pedidoNovo} />
       </ModalTela>
       <MinhaContaModal visivel={contaAberta} onFechar={() => setContaAberta(false)} />
     </ScrollView>
