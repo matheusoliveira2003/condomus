@@ -5,7 +5,9 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import type * as ExpoNotifications from "expo-notifications";
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
+import { ehMorador } from "@condomus/types";
 import type { Papel } from "./api/client";
+import { notificacaoDaConversaEmFoco } from "./chat/conversaEmFoco";
 
 /** Mesmo id usado pela API ao enviar (campo channelId). */
 const CANAL_ANDROID = "padrao";
@@ -18,14 +20,18 @@ const CANAL_ANDROID = "padrao";
 const Notifications: typeof ExpoNotifications | null =
   Platform.OS === "android" && isRunningInExpoGo() ? null : require("expo-notifications");
 
-// Com o app aberto, a notificação também aparece como banner.
+// Com o app aberto, a notificação também aparece como banner, menos a de uma conversa do chat que já está na tela:
+// a mensagem aparece ali mesmo, e o aviso por cima só atrapalharia.
 Notifications?.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notificacao) => {
+    const jaEstaVendo = notificacaoDaConversaEmFoco(notificacao.request.content.data);
+    return {
+      shouldShowBanner: !jaEstaVendo,
+      shouldShowList: !jaEstaVendo,
+      shouldPlaySound: !jaEstaVendo,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 /**
@@ -62,8 +68,9 @@ export async function obterTokenPush(): Promise<string | null> {
 }
 
 /**
- * Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas").
- * O morador não tem aba Avisos: nesse caso abre o Início com a lista de avisos aberta.
+ * Ao tocar numa notificação, abre a aba indicada em `data.aba` (ex.: "Encomendas"). A do chat leva também a unidade
+ * (`unidadeId` e `unidadeTitulo`), para a aba abrir a conversa daquela unidade.
+ * Quem mora numa unidade (morador e síndico) não tem aba Avisos: nesse caso abre o Início com a lista de avisos aberta.
  */
 export function useAbrirAbaDaNotificacao(
   navegacao: NavigationContainerRefWithCurrent<ReactNavigation.RootParamList>,
@@ -74,14 +81,17 @@ export function useAbrirAbaDaNotificacao(
     if (!ativo || !Notifications) return;
 
     const abrir = (resposta: ExpoNotifications.NotificationResponse | null, tentativas = 10) => {
-      const aba = resposta?.notification.request.content.data?.aba;
+      const dados = resposta?.notification.request.content.data;
+      const aba = dados?.aba;
       if (typeof aba !== "string") return;
       // Logo após o login as abas ainda estão montando; tenta de novo em instantes.
       if (navegacao.isReady()) {
         // As rotas não são tipadas (as abas variam por perfil), daí a conversão.
         const ir = navegacao.navigate as unknown as (rota: string, params?: object) => void;
-        if (aba === "Avisos" && papel === "MORADOR") ir("Início", { verAvisos: true });
-        else ir(aba);
+        if (aba === "Avisos" && papel && ehMorador(papel)) ir("Início", { verAvisos: true });
+        else if (aba === "Chat" && typeof dados?.unidadeId === "string") {
+          ir("Chat", { unidadeId: dados.unidadeId, unidadeTitulo: typeof dados.unidadeTitulo === "string" ? dados.unidadeTitulo : undefined });
+        } else ir(aba);
       }
       else if (tentativas > 0) setTimeout(() => abrir(resposta, tentativas - 1), 100);
     };

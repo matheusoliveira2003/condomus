@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused, useNavigation, useRoute } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import { aquecerServidor, type LadoChat, type MensagemChat, type UnidadeComMoradores } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -12,6 +12,23 @@ import { data, hora, unidadeTexto } from "../ui/formatar";
 import { SeletorUnidade } from "../ui/SeletorUnidade";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
 import { ehMorador } from "@condomus/types";
+
+/**
+ * Tocar numa notificação do chat abre a aba com `{ unidadeId, unidadeTitulo }`: chama `abrir` com esses valores e limpa
+ * os parâmetros, para a conversa não reabrir ao voltar à aba.
+ */
+function useAbrirConversaDaNotificacao(abrir: (unidadeId: string, titulo?: string) => void) {
+  const rota = useRoute();
+  const navegacao = useNavigation();
+  const params = rota.params as { unidadeId?: string; unidadeTitulo?: string } | undefined;
+  const unidadeId = params?.unidadeId;
+  const titulo = params?.unidadeTitulo;
+  useEffect(() => {
+    if (!unidadeId) return;
+    abrir(unidadeId, titulo);
+    navegacao.setParams({ unidadeId: undefined, unidadeTitulo: undefined } as never);
+  }, [unidadeId, titulo, abrir, navegacao]);
+}
 
 /**
  * Aba Chat. O morador vê um cartão da conversa com a portaria e a abre numa janela, como a portaria
@@ -32,6 +49,8 @@ export function ChatScreen() {
 function ChatDoMorador() {
   const emFoco = useIsFocused();
   const [aberta, setAberta] = useState(false);
+  // O morador tem uma conversa só: qualquer notificação do chat abre ela.
+  useAbrirConversaDaNotificacao(useCallback(() => setAberta(true), []));
   // Janela aberta: a própria conversa busca as novas a cada 4 s. Fechada, o cartão se atualiza mais devagar.
   const conversa = useConversa(undefined, emFoco && !aberta);
   const { data: contadores } = useContadores();
@@ -68,6 +87,8 @@ function ConversasDaPortaria() {
   const [aberta, setAberta] = useState<ConversaAberta | null>(null);
   const [iniciando, setIniciando] = useState(false);
   const { dados, carregando, recarregando, erro, recarregar } = adaptarQuery(useConversas(emFoco && !aberta));
+  // A notificação traz o nome da unidade; sem ele (push antigo), a janela usa um título genérico.
+  useAbrirConversaDaNotificacao(useCallback((unidadeId, titulo) => setAberta({ unidadeId, titulo: titulo ?? "Conversa" }), []));
 
   return (
     <View style={{ flex: 1 }}>

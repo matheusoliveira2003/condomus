@@ -29,7 +29,12 @@ export function InicioScreen() {
   const recarregar = query.refetch;
 
   const [vendoAvisos, setVendoAvisos] = useState(false);
+  // O atalho "Publicar aviso" abre a janela de avisos e, quando ela termina de aparecer, pede o formulário de novo aviso.
+  // `querPublicar` guarda a intenção; `pedidoNovo` é o número que a tela de avisos observa para abrir o formulário.
+  const [querPublicar, setQuerPublicar] = useState(false);
+  const [pedidoNovo, setPedidoNovo] = useState(0);
   const [contaAberta, setContaAberta] = useState(false);
+  const ehSindico = usuario?.papel === "SINDICO";
   // Tocar numa notificação de aviso abre o Início com a lista de avisos aberta.
   useAbrirPorParametro("verAvisos", useCallback(() => setVendoAvisos(true), []));
 
@@ -62,6 +67,16 @@ export function InicioScreen() {
       <View style={styles.atalhos}>
         <Atalho icone="person-add" texto="Autorizar visitante" onPress={() => navegacao.navigate("Visitas", { novo: true })} />
         <Atalho icone="calendar" texto="Reservar área" onPress={() => navegacao.navigate("Reservas", { novo: true })} />
+        {ehSindico && (
+          <Atalho
+            icone="megaphone"
+            texto="Publicar aviso"
+            onPress={() => {
+              setQuerPublicar(true);
+              setVendoAvisos(true);
+            }}
+          />
+        )}
       </View>
 
       <MensagemErro texto={erro} />
@@ -160,8 +175,23 @@ export function InicioScreen() {
           </Cartao>
         </>
       )}
-      <ModalTela visivel={vendoAvisos} titulo="Avisos" onFechar={() => setVendoAvisos(false)}>
-        <AvisosScreen />
+      <ModalTela
+        visivel={vendoAvisos}
+        titulo="Avisos"
+        // O formulário só abre quando a janela de avisos termina de aparecer: no Android, um modal aberto por cima de outro
+        // que ainda está deslizando não se apresenta (o botão "+" dentro da janela, já parada, funciona).
+        aoAparecer={() => {
+          if (!querPublicar) return;
+          setQuerPublicar(false);
+          setPedidoNovo((n) => n + 1);
+        }}
+        onFechar={() => {
+          setVendoAvisos(false);
+          // Cancela o atalho se a janela foi fechada antes de aparecer, para não abrir o formulário na vez seguinte.
+          setQuerPublicar(false);
+        }}
+      >
+        <AvisosScreen pedidoNovo={pedidoNovo} />
       </ModalTela>
       <MinhaContaModal visivel={contaAberta} onFechar={() => setContaAberta(false)} />
     </ScrollView>

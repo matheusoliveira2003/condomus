@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons, SimpleLineIcons } from "@expo/vector-icons";
 import type { Aviso } from "../api/client";
@@ -9,7 +9,12 @@ import { dataHora } from "../ui/formatar";
 import { useMensagens } from "../ui/mensagens";
 import { useCores, useEstilos, type Paleta } from "../ui/tema";
 
-export function AvisosScreen() {
+/**
+ * Mural de avisos. O síndico publica, edita e remove; os demais só leem.
+ * `pedidoNovo` abre o formulário de novo aviso cada vez que muda (o atalho "Publicar aviso" do Início). O Início só o
+ * muda depois que a janela de avisos termina de aparecer: abrir os dois modais juntos falha no Android.
+ */
+export function AvisosScreen({ pedidoNovo = 0 }: { pedidoNovo?: number } = {}) {
   const cores = useCores();
   const estilos = useEstilos(criarEstilos);
   const { usuario } = useAuth();
@@ -18,6 +23,15 @@ export function AvisosScreen() {
   const remover = useRemoverAviso();
   const mensagens = useMensagens();
   const [criando, setCriando] = useState(false);
+  // Reage só a uma mudança do pedido depois que a tela montou. O valor com que ela monta é de uma abertura anterior
+  // (o Início guarda o contador); sem esta guarda, reabrir pelo cartão abriria o formulário sozinho.
+  const pedidoAoMontar = useRef(pedidoNovo);
+  useEffect(() => {
+    if (pedidoNovo !== pedidoAoMontar.current && ehSindico) {
+      pedidoAoMontar.current = pedidoNovo;
+      setCriando(true);
+    }
+  }, [pedidoNovo, ehSindico]);
   const [editando, setEditando] = useState<Aviso | null>(null);
 
   function confirmarRemocao(aviso: Aviso) {
