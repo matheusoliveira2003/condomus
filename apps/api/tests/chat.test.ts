@@ -56,7 +56,8 @@ const daPortaria = (unidadeId: string, corpo: Record<string, unknown>, token = c
 const conversaDoMorador = (token = c.tokens.morador, query = "") => chamar(app, "GET", `/chat/mensagens${query}`, { token });
 const contadores = (token: string) => chamar(app, "GET", `/contadores?inicioDoDia=${new Date().toISOString()}`, { token });
 /** O push sai depois da resposta; espera a fila de push terminar. */
-const esperarPush = () => new Promise((r) => setTimeout(r, 50));
+// O push sai em segundo plano: a espera termina quando a mensagem chega (ou estoura o limite), sem depender do tempo da máquina.
+const esperarPush = (quantos = 1) => vi.waitFor(() => expect(pushes.length).toBeGreaterThanOrEqual(quantos), { timeout: 5000 });
 
 describe("chat entre portaria e unidade", () => {
   it("morador e portaria conversam na mesma conversa da unidade, com o lado de cada um", async () => {

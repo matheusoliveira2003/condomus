@@ -101,8 +101,8 @@ describe("lembrete automático de encomenda parada", () => {
   it("avisa por push os moradores da unidade, com o chat como destino", async () => {
     await encomenda("Caixa Amazon");
     await lembrarEncomendasParadas(depois(3));
-    await esperarPush();
-    expect(pushes).toHaveLength(1);
+    // O push sai em segundo plano: espera a mensagem aparecer, em vez de um tempo fixo (que falha em máquinas mais lentas).
+    await vi.waitFor(() => expect(pushes).toHaveLength(1), { timeout: 5000 });
     expect(pushes[0]).toMatchObject({ to: "ExponentPushToken[morador]", body: "Caixa Amazon", data: { aba: "Chat" } });
   });
 
