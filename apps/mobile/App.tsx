@@ -9,12 +9,14 @@ import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react
 import type { ComponentType } from "react";
 import type { Contadores } from "@condomus/types";
 import type { Papel } from "./src/api/client";
+import { ehMorador } from "@condomus/types";
 import { useContadores } from "./src/hooks/queries";
 import { AuthProvider, useAuth } from "./src/auth/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RecuperarSenhaScreen } from "./src/screens/RecuperarSenhaScreen";
 import { CadastroScreen } from "./src/screens/CadastroScreen";
 import { PlanoInativoScreen } from "./src/screens/PlanoInativoScreen";
+import { SemUnidadeScreen } from "./src/screens/SemUnidadeScreen";
 import { TrocarSenhaObrigatorioModal } from "./src/screens/TrocarSenhaObrigatorioModal";
 import { BoasVindasScreen } from "./src/screens/BoasVindasScreen";
 import { AberturaAnimada, type DestinoAbertura } from "./src/screens/AberturaAnimada";
@@ -206,6 +208,8 @@ function Navegacao() {
         <PlanoInativoScreen />
       ) : usuario.senhaTemporaria ? (
         <TrocarSenhaObrigatorioModal />
+      ) : ehMorador(usuario.papel) && !usuario.unidadeId ? (
+        <SemUnidadeScreen />
       ) : (
         <Animated.View style={{ flex: 1, opacity: opacidadeApp }}>
           <AreaLogada contaAberta={contaAberta} setContaAberta={setContaAberta} />
