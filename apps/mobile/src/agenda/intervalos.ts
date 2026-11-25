@@ -73,3 +73,20 @@ export function contarPorMes<T extends { inicio: string }>(reservas: T[], ano: D
   }
   return contagem;
 }
+
+/** Duas datas no mesmo dia do calendário (fuso local). */
+export function mesmoDia(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/**
+ * Cor de uma área na agenda, tirada do id dela: a mesma área tem sempre a mesma cor, em qualquer aparelho e em qualquer tema.
+ * São matizes fixos e bem separados, sem violeta sem o vermelho e o verde do app (que significam erro e sucesso) e sem azul-arroxeado.
+ */
+const CORES_DAS_AREAS = ["#2563EB", "#D97706", "#0D9488", "#DB2777", "#65A30D", "#0891B2", "#EA580C", "#0F766E"];
+
+export function corDaArea(areaId: string): string {
+  let soma = 0;
+  for (let i = 0; i < areaId.length; i++) soma = (soma * 31 + areaId.charCodeAt(i)) >>> 0;
+  return CORES_DAS_AREAS[soma % CORES_DAS_AREAS.length];
+}

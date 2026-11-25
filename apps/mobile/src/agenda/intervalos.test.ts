@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contarPorDia, contarPorMes, faixaNoDia } from "./intervalos";
+import { contarPorDia, contarPorMes, corDaArea, faixaNoDia, mesmoDia } from "./intervalos";
 
 // Os testes usam o fuso local da máquina; datas construídas com new Date(ano, mes, dia, hora) ficam no mesmo fuso.
 const dia = new Date(2026, 10, 25); // 25/11/2026
@@ -55,5 +55,39 @@ describe("contarPorDia e contarPorMes", () => {
     expect(porMes[10]).toBe(3); // novembro
     expect(porMes[11]).toBe(1); // dezembro
     expect(porMes.reduce((a, b) => a + b, 0)).toBe(4);
+  });
+});
+
+describe("mesmoDia", () => {
+  it("compara o dia do calendário, não o instante", () => {
+    expect(mesmoDia(new Date(2026, 10, 25, 0, 1), new Date(2026, 10, 25, 23, 59))).toBe(true);
+    expect(mesmoDia(new Date(2026, 10, 25, 23, 59), new Date(2026, 10, 26, 0, 1))).toBe(false);
+  });
+
+  it("não confunde o mesmo dia de meses e anos diferentes", () => {
+    expect(mesmoDia(new Date(2026, 10, 5), new Date(2026, 11, 5))).toBe(false);
+    expect(mesmoDia(new Date(2026, 10, 5), new Date(2027, 10, 5))).toBe(false);
+  });
+});
+
+describe("corDaArea", () => {
+  it("a mesma área tem sempre a mesma cor", () => {
+    expect(corDaArea("a1b2c3")).toBe(corDaArea("a1b2c3"));
+  });
+
+  it("é uma cor hexadecimal e nenhuma tende ao violeta", () => {
+    const ids = Array.from({ length: 200 }, (_, i) => `area-${i}-${i * 7919}`);
+    for (const id of ids) {
+      const cor = corDaArea(id);
+      expect(cor).toMatch(/^#[0-9A-F]{6}$/);
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(cor.slice(i, i + 2), 16));
+      // Violeta e azul-arroxeado têm o vermelho alto junto do azul alto e o verde baixo.
+      expect(r > 60 && b > 180 && g < 100 && r > g).toBe(false);
+    }
+  });
+
+  it("áreas diferentes recebem cores variadas", () => {
+    const usadas = new Set(Array.from({ length: 40 }, (_, i) => corDaArea(`id-${i}`)));
+    expect(usadas.size).toBeGreaterThanOrEqual(5);
   });
 });
