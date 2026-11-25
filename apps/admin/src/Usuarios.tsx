@@ -80,7 +80,7 @@ export function Usuarios({ condominioId }: { condominioId: string }) {
             colunas={[
               { rotulo: "Nome", principal: true, ordem: (u) => u.nome, celula: (u) => <>{u.nome}<span className="secundario sub">{u.email}</span></> },
               { rotulo: "Papel", ordem: (u) => rotuloPapel[u.papel], celula: (u) => rotuloPapel[u.papel] },
-              { rotulo: "Unidade", ordem: (u) => (u.papel === "MORADOR" ? unidadeTexto(u.unidade) : ""), celula: (u) => (u.papel === "MORADOR" ? unidadeTexto(u.unidade) : "—") },
+              { rotulo: "Unidade", ordem: (u) => (u.unidade ? unidadeTexto(u.unidade) : ""), celula: (u) => (u.unidade ? unidadeTexto(u.unidade) : "—") },
               {
                 rotulo: "Situação",
                 celula: (u) => (!u.ativo ? <span className="selo">Desativado</span> : u.senhaTemporaria ? <span className="selo alerta">Aguardando acesso</span> : <span className="selo sucesso">Ativo</span>),
@@ -107,7 +107,8 @@ function NovoUsuario({ unidades, onCriar }: { unidades: Unidade[]; onCriar: (dad
   const [email, setEmail] = useState("");
   const [papel, setPapel] = useState<Papel>("MORADOR");
   const [unidadeId, setUnidadeId] = useState("");
-  const precisaUnidade = papel === "MORADOR";
+  // Morador e síndico moram numa unidade (o síndico usa as abas de morador); o porteiro não tem unidade.
+  const precisaUnidade = papel === "MORADOR" || papel === "SINDICO";
   return (
     <Cartao titulo="Novo usuário">
       <form
@@ -164,7 +165,7 @@ function AcoesUsuario({
     return (
       <>
         <input value={nome} onChange={(e) => setNome(e.target.value)} aria-label="Nome" />
-        {u.papel === "MORADOR" && (
+        {(u.papel === "MORADOR" || u.papel === "SINDICO") && (
           <select value={unidadeId} onChange={(e) => setUnidadeId(e.target.value)} aria-label="Unidade">
             {unidades.map((un) => <option key={un.id} value={un.id}>{unidadeTexto(un)}</option>)}
           </select>
@@ -175,7 +176,7 @@ function AcoesUsuario({
           onClick={async () => {
             await onSalvar({
               ...(nome !== u.nome && { nome }),
-              ...(u.papel === "MORADOR" && unidadeId !== u.unidade?.id && { unidadeId }),
+              ...((u.papel === "MORADOR" || u.papel === "SINDICO") && unidadeId !== u.unidade?.id && { unidadeId }),
             });
             setEditando(false);
           }}
