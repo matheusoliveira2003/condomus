@@ -4,6 +4,7 @@ import { cancelarVisitasVencidas } from "./lib/validadeVisita.js";
 import { limparRostosVencidos } from "./modules/rostos/regras.js";
 import { limparMensagensAntigas } from "./modules/chat/regras.js";
 import { lembrarEncomendasParadas } from "./modules/encomendas/lembretes.js";
+import { apagarMensagensDoSindico, contarMensagensDoSindico } from "./modules/chat/limpezaSindico.js";
 
 const app = await buildApp();
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
@@ -41,5 +42,24 @@ async function limpar() {
     app.log.error(e, "Falha ao enviar lembretes de encomenda parada");
   }
 }
+/**
+ * Limpeza de uma vez das mensagens que o síndico mandou como "a portaria". Roda só com APAGAR_CHAT_SINDICO_PORTARIA:
+ * "contar" registra quantas seriam apagadas; "apagar" as apaga. Remover a variável depois de rodar.
+ */
+async function limparChatDoSindico() {
+  if (!env.APAGAR_CHAT_SINDICO_PORTARIA) return;
+  try {
+    if (env.APAGAR_CHAT_SINDICO_PORTARIA === "contar") {
+      app.log.warn({ mensagens: await contarMensagensDoSindico() }, "Mensagens do síndico na portaria que seriam apagadas (modo contar, nada foi apagado)");
+    } else {
+      const { apagadas, falhas } = await apagarMensagensDoSindico();
+      app.log.warn({ apagadas, falhas }, "Mensagens do síndico na portaria apagadas. Remova a variável APAGAR_CHAT_SINDICO_PORTARIA.");
+    }
+  } catch (e) {
+    app.log.error(e, "Falha na limpeza das mensagens do síndico na portaria");
+  }
+}
+void limparChatDoSindico();
+
 void limpar();
 setInterval(limpar, INTERVALO_LIMPEZA_MS).unref();

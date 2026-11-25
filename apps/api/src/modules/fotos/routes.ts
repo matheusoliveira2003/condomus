@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { StorageNaoConfiguradoError, deletarFoto, downloadFoto, uploadFoto } from "../../lib/storage.js";
 import { ehJpeg } from "../../lib/imagem.js";
+import { ehMorador } from "../../lib/papeis.js";
 
 /** O app envia a foto já reduzida (~30–50 KB); o limite só barra envios fora do padrão. */
 const TAMANHO_MAXIMO = 500 * 1024;
@@ -46,7 +47,7 @@ export async function fotosRoutes(app: FastifyInstance) {
   // A própria pessoa, a portaria e o síndico podem ver a foto (a portaria reconhece moradores por ela).
   app.get("/usuarios/:id/foto", { preHandler: app.autorizar() }, async (req, reply) => {
     const { id } = idParam.parse(req.params);
-    if (req.user.papel === "MORADOR" && id !== req.user.sub) throw proibido();
+    if (ehMorador(req.user.papel) && id !== req.user.sub) throw proibido();
 
     // Verifica se o usuário tem foto registrada antes de ir ao storage.
     const usuario = await prisma.usuario.findFirst({
@@ -67,7 +68,7 @@ export async function fotosRoutes(app: FastifyInstance) {
   });
 
   // Moradores de uma unidade, para a portaria reconhecer quem retira uma encomenda.
-  app.get("/unidades/:id/moradores", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.get("/unidades/:id/moradores", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const { id } = idParam.parse(req.params);
     return prisma.usuario.findMany({
       where: { unidadeId: id, condominioId: req.user.condominioId, papel: "MORADOR", ativo: true },

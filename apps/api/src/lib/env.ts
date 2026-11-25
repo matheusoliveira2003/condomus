@@ -26,6 +26,11 @@ const schema = z.object({
   STORAGE_ACCESS_KEY_ID: z.string().optional(),
   /// Secret access key correspondente.
   STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
+
+  // --- Limpeza de uma vez (remover depois de rodar) ---
+  /// "contar" só registra no log quantas mensagens do síndico na portaria seriam apagadas; "apagar" as apaga.
+  /// Qualquer outro valor é recusado de propósito (um "1" ou "true" não deve apagar nada por engano).
+  APAGAR_CHAT_SINDICO_PORTARIA: z.enum(["contar", "apagar"]).optional(),
 });
 
 export const env = schema.parse(process.env);

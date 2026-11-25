@@ -4,6 +4,7 @@ import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
 import { ehJpeg } from "../../lib/imagem.js";
 import { limitar } from "../../lib/limites.js";
+import { ehMorador, PAPEIS_MORADOR } from "../../lib/papeis.js";
 import { enviarPush, notificarUnidade } from "../../lib/push.js";
 import { StorageNaoConfiguradoError, deletarFotoChat, downloadFotoChat, uploadFotoChat } from "../../lib/storage.js";
 import { naoLidas } from "./regras.js";
@@ -32,8 +33,8 @@ const mensagemParam = z.object({ id: z.uuid() });
 
 type Lado = "MORADOR" | "PORTARIA";
 
-/** Portaria e síndico respondem como "a portaria". */
-const ladoDe = (papel: string): Lado => (papel === "MORADOR" ? "MORADOR" : "PORTARIA");
+/** Só o porteiro responde como "a portaria". O síndico é um morador: escreve pelo lado da própria unidade. */
+const ladoDe = (papel: string): Lado => (ehMorador(papel) ? "MORADOR" : "PORTARIA");
 
 const selecaoMensagem = {
   id: true,
@@ -50,19 +51,19 @@ const selecaoMensagem = {
  * (`depoisDe`) com a conversa aberta, e o outro lado recebe um push a cada mensagem.
  */
 export async function chatRoutes(app: FastifyInstance) {
-  // --- Morador: a conversa da própria unidade -------------------------------------------------
-  app.get("/chat/mensagens", { preHandler: app.autorizar("MORADOR") }, async (req) => {
+  // --- Morador e síndico: a conversa da própria unidade -------------------------------------------------
+  app.get("/chat/mensagens", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const unidadeId = await unidadeDoMorador(req);
     return listar(unidadeId, listaSchema.parse(req.query));
   });
 
-  app.post("/chat/mensagens", { preHandler: app.autorizar("MORADOR"), config: limitar(30) }, async (req, reply) => {
+  app.post("/chat/mensagens", { preHandler: app.autorizar(...PAPEIS_MORADOR), config: limitar(30) }, async (req, reply) => {
     const unidadeId = await unidadeDoMorador(req);
     return reply.status(201).send(await enviar(req, unidadeId));
   });
 
-  // --- Portaria e síndico: todas as conversas do condomínio -----------------------------------
-  app.get("/chat/conversas", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  // --- Portaria: todas as conversas do condomínio -----------------------------------
+  app.get("/chat/conversas", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const { condominioId, sub } = req.user;
     // Última mensagem de cada unidade que já conversou, mais recentes primeiro.
     const ultimas = await prisma.mensagemChat.findMany({
@@ -81,14 +82,14 @@ export async function chatRoutes(app: FastifyInstance) {
     return conversas.sort((a, b) => b.ultima.criadaEm.getTime() - a.ultima.criadaEm.getTime());
   });
 
-  app.get("/chat/conversas/:unidadeId/mensagens", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.get("/chat/conversas/:unidadeId/mensagens", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const unidadeId = await unidadeDoCondominio(req);
     return listar(unidadeId, listaSchema.parse(req.query));
   });
 
   app.post(
     "/chat/conversas/:unidadeId/mensagens",
-    { preHandler: app.autorizar("PORTEIRO", "SINDICO"), config: limitar(30) },
+    { preHandler: app.autorizar("PORTEIRO"), config: limitar(30) },
     async (req, reply) => {
       const unidadeId = await unidadeDoCondominio(req);
       return reply.status(201).send(await enviar(req, unidadeId));
@@ -97,9 +98,9 @@ export async function chatRoutes(app: FastifyInstance) {
 
   // --- Comum --------------------------------------------------------------------------------
   // Marca a conversa como lida até agora. O morador marca a da própria unidade; a portaria informa qual.
-  app.post("/chat/lida", { preHandler: app.autorizar("MORADOR", "PORTEIRO", "SINDICO") }, async (req, reply) => {
+  app.post("/chat/lida", { preHandler: app.autorizar("MORADOR", "SINDICO", "PORTEIRO") }, async (req, reply) => {
     const unidadeId =
-      req.user.papel === "MORADOR"
+      ehMorador(req.user.papel)
         ? await unidadeDoMorador(req)
         : await unidadeDoCondominioPorId(z.object({ unidadeId: z.uuid() }).parse(req.body).unidadeId, req.user.condominioId);
     const agora = new Date();
@@ -112,14 +113,14 @@ export async function chatRoutes(app: FastifyInstance) {
   });
 
   // A foto só é servida a quem participa da conversa, pela API, e nunca fica em cache público.
-  app.get("/chat/mensagens/:id/foto", { preHandler: app.autorizar("MORADOR", "PORTEIRO", "SINDICO") }, async (req, reply) => {
+  app.get("/chat/mensagens/:id/foto", { preHandler: app.autorizar("MORADOR", "SINDICO", "PORTEIRO") }, async (req, reply) => {
     const { id } = mensagemParam.parse(req.params);
     const mensagem = await prisma.mensagemChat.findFirst({
       where: { id, temFoto: true, unidade: { condominioId: req.user.condominioId } },
       select: { unidadeId: true },
     });
     if (!mensagem) throw naoEncontrado("Foto", "f");
-    if (req.user.papel === "MORADOR" && mensagem.unidadeId !== (await unidadeDoMorador(req))) throw proibido();
+    if (ehMorador(req.user.papel) && mensagem.unidadeId !== (await unidadeDoMorador(req))) throw proibido();
     const bytes = await comStorage(() => downloadFotoChat(mensagem.unidadeId, id));
     if (!bytes) throw naoEncontrado("Foto", "f");
     return reply.header("Content-Type", "image/jpeg").header("Cache-Control", "private, max-age=86400").send(bytes);
@@ -219,7 +220,7 @@ function avisar(
   const dados = { aba: "Chat", unidadeId };
   if (lado === "MORADOR") {
     void prisma.usuario
-      .findMany({ where: { condominioId, ativo: true, papel: { in: ["PORTEIRO", "SINDICO"] } }, select: { id: true } })
+      .findMany({ where: { condominioId, ativo: true, papel: "PORTEIRO" }, select: { id: true } })
       .then((portaria) =>
         enviarPush(portaria.map((u) => u.id), { titulo: `💬 Bloco ${unidade.bloco}-${unidade.numero} · ${autor}`, corpo: previa, dados }),
       )

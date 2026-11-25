@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { notificarUnidade } from "../../lib/push.js";
+import { ehMorador } from "../../lib/papeis.js";
 
 const PAGE_SIZE = 20;
 
@@ -40,7 +41,7 @@ export async function encomendasRoutes(app: FastifyInstance) {
       where: {
         status,
         unidade: { condominioId },
-        ...(papel === "MORADOR" ? { unidadeId: unidadeId! } : {}),
+        ...(ehMorador(papel) ? { unidadeId: unidadeId! } : {}),
         ...(dataAncora && { OR: [
           { [ordenarPor]: { lt: dataAncora } },
           { [ordenarPor]: dataAncora, id: { lt: cursor! } },
@@ -56,7 +57,7 @@ export async function encomendasRoutes(app: FastifyInstance) {
     return { itens, proximoCursor: temMais ? itens[itens.length - 1].id : null };
   });
 
-  app.post("/encomendas", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req, reply) => {
+  app.post("/encomendas", { preHandler: app.autorizar("PORTEIRO") }, async (req, reply) => {
     const dados = registrarSchema.parse(req.body);
     if (!(await prisma.unidade.findFirst({ where: { id: dados.unidadeId, condominioId: req.user.condominioId } }))) {
       throw naoEncontrado("Unidade");
@@ -70,7 +71,7 @@ export async function encomendasRoutes(app: FastifyInstance) {
     return reply.status(201).send(encomenda);
   });
 
-  app.patch("/encomendas/:id/retirada", { preHandler: app.autorizar("PORTEIRO", "SINDICO") }, async (req) => {
+  app.patch("/encomendas/:id/retirada", { preHandler: app.autorizar("PORTEIRO") }, async (req) => {
     const { id } = idParam.parse(req.params);
     const { retiradaPor } = retirarSchema.parse(req.body);
     const encomenda = await prisma.encomenda.findFirst({ where: { id, unidade: { condominioId: req.user.condominioId } } });

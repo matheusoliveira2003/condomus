@@ -4,11 +4,14 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado, proibido } from "../../lib/errors.js";
-import { notificarPapel, notificarUnidade } from "../../lib/push.js";
+import { notificarUnidade } from "../../lib/push.js";
 import { REGRAS_RESERVA, validarJanela } from "../../lib/regrasReserva.js";
-import { areaSchema, criarArea } from "./areas.js";
+import { PAPEIS_MORADOR } from "../../lib/papeis.js";
 
-/** Reservas nesses status seguram o horário: ninguém mais pode pedir o mesmo intervalo. */
+/**
+ * Reservas nesses status seguram o horário. Reservas novas já nascem CONFIRMADAS; PENDENTE só existe nas que foram
+ * pedidas antes da mudança e ainda não foram migradas (ver a migração de dados).
+ */
 const OCUPAM_HORARIO: StatusReserva[] = ["PENDENTE", "CONFIRMADA"];
 
 const reservaSchema = z
@@ -28,8 +31,6 @@ const filtroSchema = z.object({
 });
 
 
-const recusaSchema = z.object({ motivo: z.string().trim().max(300).optional() });
-
 const idParam = z.object({ id: z.uuid() });
 
 const incluir = { area: true, unidade: true } as const;
@@ -42,10 +43,7 @@ export async function reservasRoutes(app: FastifyInstance) {
     prisma.areaComum.findMany({ where: { ativa: true, condominioId: req.user.condominioId }, orderBy: { nome: "asc" } }),
   );
 
-  // Só o síndico cadastra áreas; o nome é único dentro do condomínio.
-  app.post("/areas", { preHandler: app.autorizar("SINDICO") }, async (req, reply) =>
-    reply.status(201).send(await criarArea(req.user.condominioId, areaSchema.parse(req.body))),
-  );
+  // Cadastrar áreas comuns é do administrador, pelo painel (/admin).
 
   // Todos veem as reservas que ocupam horário, para saber a disponibilidade das áreas.
   app.get("/reservas", { preHandler: app.autorizar() }, async (req) => {
@@ -64,7 +62,7 @@ export async function reservasRoutes(app: FastifyInstance) {
   });
 
   // Reservas futuras da unidade do morador, em qualquer situação exceto canceladas.
-  app.get("/reservas/minhas", { preHandler: app.autorizar("MORADOR") }, async (req) =>
+  app.get("/reservas/minhas", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) =>
     prisma.reserva.findMany({
       where: { unidadeId: req.user.unidadeId!, area: { condominioId: req.user.condominioId }, fim: { gt: new Date() }, status: { not: "CANCELADA" } },
       include: incluir,
@@ -72,7 +70,7 @@ export async function reservasRoutes(app: FastifyInstance) {
     }),
   );
 
-  app.post("/reservas", { preHandler: app.autorizar("MORADOR") }, async (req, reply) => {
+  app.post("/reservas", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req, reply) => {
     const { areaId, inicio, fim } = reservaSchema.parse(req.body);
     if (inicio < new Date()) throw new HttpError(400, "Não é possível reservar no passado");
     validarJanela(inicio, fim);
@@ -108,74 +106,29 @@ export async function reservasRoutes(app: FastifyInstance) {
       }
 
       return tx.reserva.create({
-        data: { areaId, inicio, fim, unidadeId: req.user.unidadeId!, usuarioId: req.user.sub },
+        data: { areaId, inicio, fim, unidadeId: req.user.unidadeId!, usuarioId: req.user.sub, status: "CONFIRMADA", decididaEm: new Date() },
         include: incluir,
       });
     });
 
-    notificarPapel("SINDICO", req.user.condominioId, {
-      titulo: "📅 Reserva aguardando aprovação",
-      corpo: `${area.nome} · ${dataHora(inicio)} · Bloco ${reserva.unidade.bloco}-${reserva.unidade.numero}`,
+    // Sem aprovação: a reserva já está confirmada. Quem mora na unidade recebe a confirmação no celular.
+    notificarUnidade(reserva.unidadeId, {
+      titulo: "✅ Reserva confirmada",
+      corpo: `${area.nome} · ${dataHora(inicio)}`,
       dados: { aba: "Reservas" },
     });
     return reply.status(201).send(reserva);
   });
 
-  app.patch("/reservas/:id/aprovar", { preHandler: app.autorizar("SINDICO") }, async (req) => {
-    const reserva = await buscarPendente(req.params, req.user.condominioId);
-    const aprovada = await prisma.reserva.update({
-      where: { id: reserva.id },
-      data: { status: "CONFIRMADA", decididaEm: new Date() },
-      include: incluir,
-    });
-    notificarUnidade(reserva.unidadeId, {
-      titulo: "✅ Reserva aprovada",
-      corpo: `${aprovada.area.nome} · ${dataHora(aprovada.inicio)}`,
-      dados: { aba: "Reservas" },
-    });
-    return aprovada;
-  });
-
-  app.patch("/reservas/:id/recusar", { preHandler: app.autorizar("SINDICO") }, async (req) => {
-    const reserva = await buscarPendente(req.params, req.user.condominioId);
-    const { motivo } = recusaSchema.parse(req.body ?? {});
-    const recusada = await prisma.reserva.update({
-      where: { id: reserva.id },
-      data: { status: "RECUSADA", decididaEm: new Date(), motivoRecusa: motivo || null },
-      include: incluir,
-    });
-    notificarUnidade(reserva.unidadeId, {
-      titulo: "❌ Reserva recusada",
-      corpo: `${recusada.area.nome} · ${dataHora(recusada.inicio)}${motivo ? ` — ${motivo}` : ""}`,
-      dados: { aba: "Reservas" },
-    });
-    return recusada;
-  });
-
-  app.patch("/reservas/:id/cancelar", { preHandler: app.autorizar("MORADOR", "SINDICO") }, async (req) => {
+  // Quem mora na unidade (morador ou síndico) cancela as reservas da própria unidade.
+  app.patch("/reservas/:id/cancelar", { preHandler: app.autorizar(...PAPEIS_MORADOR) }, async (req) => {
     const { id } = idParam.parse(req.params);
     const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId: req.user.condominioId } } });
     if (!reserva) throw naoEncontrado("Reserva", "f");
-    if (req.user.papel === "MORADOR" && reserva.unidadeId !== req.user.unidadeId) throw proibido();
-    if (!OCUPAM_HORARIO.includes(reserva.status)) throw new HttpError(409, "Só é possível cancelar reservas pendentes ou confirmadas");
-    const cancelada = await prisma.reserva.update({ where: { id }, data: { status: "CANCELADA" }, include: incluir });
-    if (req.user.papel === "SINDICO") {
-      notificarUnidade(reserva.unidadeId, {
-        titulo: "Reserva cancelada pelo síndico",
-        corpo: `${cancelada.area.nome} · ${dataHora(cancelada.inicio)}`,
-        dados: { aba: "Reservas" },
-      });
-    }
-    return cancelada;
+    if (reserva.unidadeId !== req.user.unidadeId) throw proibido();
+    if (!OCUPAM_HORARIO.includes(reserva.status)) throw new HttpError(409, "Só é possível cancelar reservas confirmadas ou pendentes");
+    return prisma.reserva.update({ where: { id }, data: { status: "CANCELADA" }, include: incluir });
   });
-}
-
-async function buscarPendente(params: unknown, condominioId: string) {
-  const { id } = idParam.parse(params);
-  const reserva = await prisma.reserva.findFirst({ where: { id, area: { condominioId } } });
-  if (!reserva) throw naoEncontrado("Reserva", "f");
-  if (reserva.status !== "PENDENTE") throw new HttpError(409, "Esta reserva já foi analisada");
-  return reserva;
 }
 
 /**

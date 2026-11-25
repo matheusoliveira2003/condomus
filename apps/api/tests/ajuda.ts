@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
 import { prisma } from "../src/lib/prisma.js";
+import { gerarConviteDaUnidade } from "../src/modules/convites/operacoes.js";
 
 export { prisma };
 
@@ -21,16 +22,17 @@ export const SENHA = "123456";
 export const ADMIN_SECRET = "segredo-admin-dos-testes";
 
 /**
- * Condomínio mínimo para os testes: duas unidades, um morador em cada,
- * um porteiro, um síndico e uma área comum.
+ * Condomínio mínimo para os testes: três unidades, um morador em cada uma das duas primeiras, um porteiro,
+ * um síndico (que mora na terceira, como um morador com avisos) e uma área comum.
  */
 export async function criarCenario(app: FastifyInstance) {
   const senhaHash = await bcrypt.hash(SENHA, 4); // custo baixo: só para os testes serem rápidos
   const condominio = await prisma.condominio.create({ data: { nome: "Condomínio Teste", planoStatus: "ATIVO" } });
   const condominioId = condominio.id;
-  const [a101, b201] = await Promise.all([
+  const [a101, b201, s100] = await Promise.all([
     prisma.unidade.create({ data: { bloco: "A", numero: "101", condominioId } }),
     prisma.unidade.create({ data: { bloco: "B", numero: "201", condominioId } }),
+    prisma.unidade.create({ data: { bloco: "S", numero: "100", condominioId } }),
   ]);
   const criar = (nome: string, email: string, papel: "MORADOR" | "PORTEIRO" | "SINDICO", unidadeId: string | null = null) =>
     prisma.usuario.create({ data: { nome, email, papel, unidadeId, senhaHash, condominioId } });
@@ -38,7 +40,7 @@ export async function criarCenario(app: FastifyInstance) {
     criar("Morador A", "morador@teste.dev", "MORADOR", a101.id),
     criar("Vizinho B", "vizinho@teste.dev", "MORADOR", b201.id),
     criar("Porteiro", "porteiro@teste.dev", "PORTEIRO"),
-    criar("Síndico", "sindico@teste.dev", "SINDICO"),
+    criar("Síndico", "sindico@teste.dev", "SINDICO", s100.id),
   ]);
   const area = await prisma.areaComum.create({ data: { nome: "Salão de festas", condominioId } });
 
@@ -47,7 +49,7 @@ export async function criarCenario(app: FastifyInstance) {
   );
   return {
     condominio,
-    unidades: { a101, b201 },
+    unidades: { a101, b201, s100 },
     area,
     usuarios: { morador, vizinho, porteiro, sindico },
     tokens: { morador: tMorador, vizinho: tVizinho, porteiro: tPorteiro, sindico: tSindico },
@@ -93,6 +95,9 @@ export async function criarApp({ limites = false }: { limites?: boolean } = {}) 
 }
 
 /** Uma data no futuro, em horas a partir de agora (reservas não podem ser no passado). */
+/** Convite de unidade criado direto pela função do painel: o síndico não gera mais convites pela API do app. */
+export const gerarConvite = (condominioId: string, unidadeId: string) => gerarConviteDaUnidade(condominioId, unidadeId);
+
 export const daquiA = (horas: number) => new Date(Date.now() + horas * 60 * 60 * 1000).toISOString();
 
 /**

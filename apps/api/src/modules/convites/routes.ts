@@ -4,11 +4,9 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { HttpError, naoEncontrado } from "../../lib/errors.js";
 import { normalizarCodigo } from "../../lib/codigo.js";
-import { gerarConviteDaUnidade } from "./operacoes.js";
 import { emitirSessao } from "../../lib/sessao.js";
 import { limitar } from "../../lib/limites.js";
 
-const idParam = z.object({ id: z.uuid() });
 const codigoParam = z.object({ codigo: z.string().trim().min(1).max(32) });
 const cadastroSchema = z.object({
   codigo: z.string().trim().min(1).max(32),
@@ -29,11 +27,7 @@ async function buscarConviteValido(entrada: string) {
 }
 
 export async function convitesRoutes(app: FastifyInstance) {
-  app.post("/unidades/:id/convite", { preHandler: app.autorizar("SINDICO") }, async (req, reply) => {
-    const { id } = idParam.parse(req.params);
-    return reply.status(201).send(await gerarConviteDaUnidade(req.user.condominioId, id));
-  });
-
+  // Gerar o convite de uma unidade é do administrador, pelo painel (/admin). Aqui ficam só as rotas públicas do morador.
   // Público: o morador ainda não tem conta. Não expõe ids internos.
   app.get("/convite/:codigo", { config: limitar(30) }, async (req) => {
     const { codigo } = codigoParam.parse(req.params);

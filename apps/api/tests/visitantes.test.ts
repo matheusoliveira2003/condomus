@@ -87,11 +87,11 @@ describe("visitantes frequentes do morador", () => {
     expect((await lista()).corpo[0]).toMatchObject({ nomeVisitante: "Com rosto", temRosto: true });
   });
 
-  it("só o morador acessa, e documento curto é recusado", async () => {
-    for (const token of [c.tokens.porteiro, c.tokens.sindico]) {
-      expect((await lista(token)).status).toBe(403);
-      expect((await ocultar("12345678900", token)).status).toBe(403);
-    }
+  it("só quem mora numa unidade acessa (morador e síndico), e documento curto é recusado", async () => {
+    expect((await lista(c.tokens.porteiro)).status).toBe(403);
+    expect((await ocultar("12345678900", c.tokens.porteiro)).status).toBe(403);
+    // O síndico é um morador: tem a lista dos frequentes da própria unidade.
+    expect((await lista(c.tokens.sindico)).status).toBe(200);
     expect((await ocultar("123")).status).toBe(400);
   });
 });

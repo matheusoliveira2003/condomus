@@ -238,10 +238,11 @@ describe("entrada de visitante com rosto cadastrado", () => {
     });
   });
 
-  it("síndico só libera manualmente", async () => {
+  it("o síndico não registra entrada: a portaria é só do porteiro", async () => {
     const id = await agendada();
     expect((await entrar(id, { tipo: "RECONHECIMENTO", semelhanca: 0.99 }, c.tokens.sindico)).status).toBe(403);
-    expect((await entrar(id, { tipo: "MANUAL", motivo: "Porteiro ausente" }, c.tokens.sindico)).status).toBe(200);
+    expect((await entrar(id, { tipo: "MANUAL", motivo: "Porteiro ausente" }, c.tokens.sindico)).status).toBe(403);
+    expect((await prisma.visita.findUniqueOrThrow({ where: { id } })).status).toBe("AGENDADA");
   });
 
   it("não exige nada de visitante sem rosto, nem com o rosto vencido", async () => {
@@ -283,8 +284,8 @@ describe("consulta do rosto por documento", () => {
     const imagem = await chamar(app, "POST", "/rostos/imagem", { token: c.tokens.porteiro, corpo: { documento: "12345678900" } });
     expect(imagem.status).toBe(200);
     expect(imagem.bytes.toString("base64")).toBe(JPEG);
-    // O síndico sabe que há rosto (para liberar manualmente), mas não vê a foto; o morador não acessa nada.
-    expect((await consultar("12345678900", c.tokens.sindico)).corpo).toMatchObject({ cadastrado: true });
+    // Só o porteiro consulta: o síndico, como morador, e o morador não acessam nada.
+    expect((await consultar("12345678900", c.tokens.sindico)).status).toBe(403);
     expect((await consultar("12345678900", c.tokens.morador)).status).toBe(403);
     for (const token of [c.tokens.sindico, c.tokens.morador]) {
       expect((await chamar(app, "POST", "/rostos/imagem", { token, corpo: { documento: "12345678900" } })).status).toBe(403);
